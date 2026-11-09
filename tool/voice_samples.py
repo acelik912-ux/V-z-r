@@ -22,7 +22,7 @@ def make(model_dir, data_dir, name, speed):
         model=sherpa_onnx.OfflineTtsModelConfig(
             vits=sherpa_onnx.OfflineTtsVitsModelConfig(
                 model=onnx, tokens=os.path.join(model_dir, 'tokens.txt'), data_dir=data_dir),
-            num_threads=2, debug=True),
+            num_threads=2),
         max_num_sentences=1)
     assert cfg.validate(), 'yapılandırma geçersiz'
     tts = sherpa_onnx.OfflineTts(cfg)

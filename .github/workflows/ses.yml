@@ -37,7 +37,7 @@ jobs:
           ls -la
       - name: Örnek sesleri üret
         run: |
-          pip install -q sherpa-onnx soundfile numpy && pip show sherpa-onnx | head -2
+          pip install -q "sherpa-onnx<2" soundfile numpy && pip show sherpa-onnx | head -2
           sudo apt-get install -y -q ffmpeg > /dev/null
           python3 tool/voice_samples.py /tmp/models /tmp/out
           ls -la /tmp/out
