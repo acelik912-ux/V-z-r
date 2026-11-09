@@ -22,16 +22,20 @@ def make(model_dir, data_dir, name, speed):
         model=sherpa_onnx.OfflineTtsModelConfig(
             vits=sherpa_onnx.OfflineTtsVitsModelConfig(
                 model=onnx, tokens=os.path.join(model_dir, 'tokens.txt'), data_dir=data_dir),
-            num_threads=2),
+            num_threads=2, debug=True),
         max_num_sentences=1)
     assert cfg.validate(), 'yapılandırma geçersiz'
     tts = sherpa_onnx.OfflineTts(cfg)
     wav = os.path.join(out, name + '.wav')
+    print(sorted(os.listdir(model_dir)), flush=True)
+    for t in ['merhaba', TEXT]:
+        a2 = tts.generate(t, sid=0, speed=speed)
+        print('deneme', repr(t[:20]), len(a2.samples), flush=True)
     audio = tts.generate(TEXT, sid=0, speed=speed)
     print(name, 'örnek sayısı', len(audio.samples), 'hız', audio.sample_rate, flush=True)
     if len(audio.samples) == 0:
         # Komut satırı aracıyla dene
-        r = subprocess.run(['sherpa-onnx-offline-tts', f'--vits-model={onnx}',
+        r = subprocess.run([sys.executable, '-c', 'pass', f'--vits-model={onnx}',
                             f'--vits-tokens={os.path.join(model_dir, "tokens.txt")}', f'--vits-data-dir={data_dir}',
                             f'--vits-length-scale={1 / speed:.3f}', f'--output-filename={wav}', TEXT],
                            capture_output=True, text=True)
