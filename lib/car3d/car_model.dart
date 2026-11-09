@@ -450,10 +450,13 @@ void _profileBody(_Ctx x, _Profile p, int body) {
   final wsBase = roofKeys.last[0];
   if (hasCabin) {
     for (final sx in [-1.0, 1.0]) {
-      final zM = wsBase - 0.3;
-      final y = belt(zM) + 0.05;
-      final xIn = sx * width(zM) * 0.86, xOut = sx * (width(zM) * 0.86 + 0.18);
-      b.softBox(V3(math.min(xIn, xOut), y, zM - 0.06), V3(math.max(xIn, xOut), y + 0.12, zM + 0.05), x.paint, Mat.paint,
+      final zM = wsBase - 0.12;
+      final y = belt(zM) + 0.06;
+      final w = width(zM);
+      final r0 = math.min(0.2, (belt(zM) - bottom(zM)) * 0.38);
+      final base = w - r0 * 1.1;
+      final xIn = sx * (base - 0.02), xOut = sx * (base + 0.16);
+      b.softBox(V3(math.min(xIn, xOut), y, zM - 0.05), V3(math.max(xIn, xOut), y + 0.11, zM + 0.04), x.paint, Mat.paint,
           r: 0.04, side: sx);
     }
   }

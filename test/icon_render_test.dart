@@ -103,14 +103,14 @@ void drawForeground(Canvas c) {
     ..strokeCap = StrokeCap.round
     ..color = Colors.white.withAlpha(210);
   for (final l in const [
-    [170.0, 470.0, 330.0, 470.0, 16.0],
-    [130.0, 540.0, 300.0, 540.0, 20.0],
-    [180.0, 610.0, 320.0, 610.0, 14.0],
+    [90.0, 500.0, 250.0, 500.0, 18.0],
+    [60.0, 580.0, 230.0, 580.0, 22.0],
+    [100.0, 660.0, 240.0, 660.0, 16.0],
   ]) {
     c.drawLine(Offset(l[0], l[1]), Offset(l[2], l[3]), line..strokeWidth = l[4]);
   }
   const cfg = CarConfig(body: 0, color: 0, sticker: 1, stickerColor: 0, rim: 1, rimColor: 2, spoiler: 2);
-  final cam = Camera(center: const Offset(540, 650), scale: 118, yaw: 0.62, pitch: 0.3);
+  final cam = Camera(center: const Offset(530, 700), scale: 150, yaw: 0.42, pitch: 0.28);
   paintCar(c, cfg, cam, lightsOn: true);
   // Parıltı
   final spark = Paint()..color = Colors.white;
@@ -130,8 +130,8 @@ void drawForeground(Canvas c) {
     c.drawPath(p, spark);
   }
 
-  star(const Offset(690, 420), 34);
-  star(const Offset(742, 470), 18);
+  star(const Offset(800, 470), 36);
+  star(const Offset(852, 525), 20);
 }
 
 Future<void> _save(String name, void Function(Canvas) draw, {double size = S}) async {
@@ -153,6 +153,23 @@ void main() {
         drawBackground(c);
         drawForeground(c);
       });
+      // Uyarlanabilir simge: görünen alan ortadaki %67, bu yüzden içerik küçültülür
+      const k = 0.7;
+      void zoom(Canvas c, void Function(Canvas) f) {
+        c.save();
+        c.translate(S / 2, S / 2);
+        c.scale(k);
+        c.translate(-S / 2, -S / 2);
+        f(c);
+        c.restore();
+      }
+
+      await _save('icon_bg_adaptive', (c) {
+        c.drawRect(const Rect.fromLTWH(0, 0, S, S / 2), Paint()..color = const Color(0xFF1E88E5));
+        c.drawRect(const Rect.fromLTWH(0, S / 2, S, S / 2), Paint()..color = const Color(0xFF4CAF50));
+        zoom(c, drawBackground);
+      });
+      await _save('icon_fg_adaptive', (c) => zoom(c, drawForeground));
     });
   });
 }
