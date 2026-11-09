@@ -25,6 +25,7 @@ class Mesh {
   late final Int32List part;
   late final Uint8List decal;
   late final Float32List partC; // parça başına 3 (merkez)
+  late final Int8List partSide; // -1 sol, 1 sağ, 0 orta (yan parçalar gövdeye göre önde/arkada çizilir)
   int get count => col.length;
   int get parts => partC.length ~/ 3;
 
@@ -39,10 +40,12 @@ class MeshBuilder {
   final Mesh mesh = Mesh();
   int _part = 0;
   int _maxPart = 0;
+  final Map<int, int> _sides = {};
 
-  /// Yeni bir parça başlatır ve numarasını döndürür.
-  int newPart() {
+  /// Yeni bir parça başlatır ve numarasını döndürür. [side]: -1 sol, 1 sağ yan parça.
+  int newPart({double side = 0}) {
     _part = ++_maxPart;
+    if (side != 0) _sides[_part] = side > 0 ? 1 : -1;
     return _part;
   }
 
@@ -80,8 +83,8 @@ class MeshBuilder {
         inside: inside, outward: outward, na: normals?[0], nb: normals?[2], nc: normals?[3], decal: decal, part: part);
   }
 
-  void box(V3 lo, V3 hi, int color, Mat mat, {bool ownPart = true}) {
-    if (ownPart) newPart();
+  void box(V3 lo, V3 hi, int color, Mat mat, {bool ownPart = true, double side = 0}) {
+    if (ownPart) newPart(side: side);
     final ctr = (lo + hi) * 0.5;
     final x0 = lo.x, y0 = lo.y, z0 = lo.z, x1 = hi.x, y1 = hi.y, z1 = hi.z;
     quad(V3(x0, y0, z0), V3(x0, y1, z0), V3(x0, y1, z1), V3(x0, y0, z1), color, mat, inside: ctr);
@@ -93,8 +96,8 @@ class MeshBuilder {
   }
 
   /// Yuvarlak köşeli kutu (çizgi film görünümü için).
-  void softBox(V3 lo, V3 hi, int color, Mat mat, {double r = 0.06, int segs = 3}) {
-    newPart();
+  void softBox(V3 lo, V3 hi, int color, Mat mat, {double r = 0.06, int segs = 3, double side = 0}) {
+    newPart(side: side);
     final rr = math.min(r, math.min((hi.x - lo.x), math.min(hi.y - lo.y, hi.z - lo.z)) * 0.45);
     final rings = <List<V3>>[];
     final zs = <double>[lo.z, lo.z + rr * 0.3, lo.z + rr, hi.z - rr, hi.z - rr * 0.3, hi.z];
@@ -196,8 +199,9 @@ class MeshBuilder {
     }
   }
 
-  void cylinder(V3 center, int axis, double r, double len, int segs, int color, Mat mat, {int? capColor, Mat? capMat}) {
-    newPart();
+  void cylinder(V3 center, int axis, double r, double len, int segs, int color, Mat mat,
+      {int? capColor, Mat? capMat, double side = 0}) {
+    newPart(side: side);
     final pts0 = <V3>[], pts1 = <V3>[];
     for (var i = 0; i < segs; i++) {
       final t = i / segs * 2 * math.pi;
@@ -293,6 +297,8 @@ class MeshBuilder {
         cnt[t.part]++;
       }
     }
+    m.partSide = Int8List(parts);
+    _sides.forEach((k, v) => m.partSide[k] = v);
     m.partC = Float32List(parts * 3);
     for (var p = 0; p < parts; p++) {
       final k = cnt[p] == 0 ? 1 : cnt[p];

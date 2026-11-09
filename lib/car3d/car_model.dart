@@ -454,7 +454,7 @@ void _profileBody(_Ctx x, _Profile p, int body) {
       final y = belt(zM) + 0.05;
       final xIn = sx * width(zM) * 0.86, xOut = sx * (width(zM) * 0.86 + 0.18);
       b.softBox(V3(math.min(xIn, xOut), y, zM - 0.06), V3(math.max(xIn, xOut), y + 0.12, zM + 0.05), x.paint, Mat.paint,
-          r: 0.04);
+          r: 0.04, side: sx);
     }
   }
 
@@ -464,7 +464,7 @@ void _profileBody(_Ctx x, _Profile p, int body) {
     for (final sx in [-1.0, 1.0]) {
       final w = width(-1.0);
       final x0 = sx > 0 ? w - 0.1 : -w;
-      b.softBox(V3(x0, belt(-1.0) - 0.06, zR + 0.05), V3(x0 + 0.1, bedTop, p.bedFront), x.paint, Mat.paint, r: 0.03);
+      b.softBox(V3(x0, belt(-1.0) - 0.06, zR + 0.05), V3(x0 + 0.1, bedTop, p.bedFront), x.paint, Mat.paint, r: 0.03, side: sx);
     }
     b.softBox(V3(-width(zR + 0.1), belt(zR) - 0.06, zR - 0.02), V3(width(zR + 0.1), bedTop, zR + 0.1), x.paint, Mat.paint,
         r: 0.03);
@@ -483,7 +483,7 @@ void _profileBody(_Ctx x, _Profile p, int body) {
     final band = body == 9 ? 0xFFF5F5F5 : x.paint;
     for (final sx in [-1.0, 1.0]) {
       b.box(V3(sx > 0 ? p.hw : -p.hw - 0.012, belt(0) + 0.25, zR + 0.15), V3(sx > 0 ? p.hw + 0.012 : -p.hw, belt(0) + 0.42, 0.8),
-          band, Mat.paint);
+          band, Mat.paint, side: sx);
     }
     if (body == 9) {
       // Merdiven
@@ -522,7 +522,8 @@ void _profileBody(_Ctx x, _Profile p, int body) {
     if (c.spoiler >= 2) {
       for (final sx in [-1.0, 1.0]) {
         final px = sx * wingW;
-        b.box(V3(px - 0.02, base + hgt - 0.08, z - 0.26), V3(px + 0.02, base + hgt + 0.27, z + 0.18), x.paint, Mat.paint);
+        b.box(V3(px - 0.02, base + hgt - 0.08, z - 0.26), V3(px + 0.02, base + hgt + 0.27, z + 0.18), x.paint, Mat.paint,
+            side: sx);
       }
     }
   }
@@ -672,7 +673,7 @@ void _formula(_Ctx x) {
   ];
   final n = x.lod ? 10 : 16;
   final rings = [for (final s in secs) _ellipseRing(s[0], s[1], s[2] + lift, s[3] + lift, n)];
-  final bodyPart = b.newPart();
+  b.newPart();
   b.loft(rings, (sg, e) {
     final topEdge = e > n * 0.1 && e < n * 0.4;
     if (sg == 2 && topEdge) return (color: 0xFF111214, mat: Mat.trim); // kokpit
@@ -688,13 +689,13 @@ void _formula(_Ctx x) {
   final podParts = <double, int>{};
   for (final sx in [-1.0, 1.0]) {
     final x0 = sx > 0 ? 0.36 : -0.8, x1 = sx > 0 ? 0.8 : -0.36;
-    b.softBox(V3(x0, 0.2 + lift, -1.35), V3(x1, 0.54 + lift, 0.15), x.paint, Mat.paint, r: 0.12);
+    b.softBox(V3(x0, 0.2 + lift, -1.35), V3(x1, 0.54 + lift, 0.15), x.paint, Mat.paint, r: 0.12, side: sx);
     podParts[sx] = b.currentPart;
   }
   // Ön ve arka kanat
   b.softBox(V3(-0.98, 0.1 + lift, 1.9), V3(0.98, 0.16 + lift, 2.28), x.paint, Mat.paint, r: 0.03);
   for (final sx in [-1.0, 1.0]) {
-    b.box(V3(sx * 0.98 - 0.02, 0.08 + lift, 1.88), V3(sx * 0.98 + 0.02, 0.3 + lift, 2.3), trim, Mat.trim);
+    b.box(V3(sx * 0.98 - 0.02, 0.08 + lift, 1.88), V3(sx * 0.98 + 0.02, 0.3 + lift, 2.3), trim, Mat.trim, side: sx);
   }
   b.softBox(V3(-0.72, 0.95 + lift, -2.15), V3(0.72, 1.03 + lift, -1.8), c.spoiler >= 2 ? x.stripe : trim, Mat.paint, r: 0.03);
   for (final sx in [-1.0, 1.0]) {
@@ -714,7 +715,8 @@ void _formula(_Ctx x) {
   // Süspansiyon kolları
   for (final wz in [1.45, -1.5]) {
     for (final sx in [-1.0, 1.0]) {
-      b.box(V3(sx > 0 ? 0.2 : -0.75, 0.34 + lift, wz - 0.03), V3(sx > 0 ? 0.75 : -0.2, 0.37 + lift, wz + 0.03), trim, Mat.trim);
+      b.box(V3(sx > 0 ? 0.2 : -0.75, 0.34 + lift, wz - 0.03), V3(sx > 0 ? 0.75 : -0.2, 0.37 + lift, wz + 0.03), trim, Mat.trim,
+          side: sx);
     }
   }
   for (final sx in [-1.0, 1.0]) {
@@ -752,12 +754,12 @@ void _buggy(_Ctx x) {
   final topY = 1.75 + lift;
   for (final zz in [-0.85, 0.3]) {
     for (final sx in [-1.0, 1.0]) {
-      b.cylinder(V3(sx * 0.62, (0.9 + lift + topY) / 2, zz), 1, 0.04, topY - 0.9 - lift, 8, tube, Mat.chrome);
+      b.cylinder(V3(sx * 0.62, (0.9 + lift + topY) / 2, zz), 1, 0.04, topY - 0.9 - lift, 8, tube, Mat.chrome, side: sx);
     }
     b.cylinder(V3(0, topY, zz), 0, 0.04, 1.28, 8, tube, Mat.chrome);
   }
   for (final sx in [-1.0, 1.0]) {
-    b.cylinder(V3(sx * 0.62, topY, -0.275), 2, 0.04, 1.15, 8, tube, Mat.chrome);
+    b.cylinder(V3(sx * 0.62, topY, -0.275), 2, 0.04, 1.15, 8, tube, Mat.chrome, side: sx);
   }
   // Farlar (kafes üstünde)
   for (final sx in [-1.0, 1.0]) {
@@ -784,7 +786,7 @@ void _buggy(_Ctx x) {
 // ---------------- Tekerlek ve çamurluk ----------------
 
 void _wheel(MeshBuilder b, V3 c, double side, double r, double w, CarConfig cfg, bool lod) {
-  b.newPart();
+  b.newPart(side: side);
   final segs = lod ? 12 : 20;
   const rubber = 0xFF1C1C1E;
   final rimC = rimColors[cfg.rimColor % rimColors.length];
@@ -838,7 +840,7 @@ void _wheel(MeshBuilder b, V3 c, double side, double r, double w, CarConfig cfg,
 }
 
 void _flare(MeshBuilder b, double side, double hw, double wz, double r, int paint, bool lod, double maxY) {
-  b.newPart();
+  b.newPart(side: side);
   final n = lod ? 6 : 10;
   final ri = r + 0.05, ro = r + 0.13;
   final xi = side * (hw - 0.04), xo = side * (hw + 0.07);

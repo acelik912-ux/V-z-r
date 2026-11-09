@@ -195,10 +195,20 @@ void drawMesh(Canvas canvas, Mesh mesh, Camera cam, int finish, bool lightsOn, {
     }
   }
   if (vis.isEmpty) return;
-  final part = mesh.part, decal = mesh.decal, pd = sc.partDepth, dp = sc.depth;
+  final part = mesh.part, decal = mesh.decal, pd = sc.partDepth, dp = sc.depth, ps = mesh.partSide;
+  // Kameraya bakan yan (+x tarafı görünüyorsa 1)
+  final seen = (-sy * cp) >= 0 ? 1 : -1;
+  int layer(int p) {
+    final s = ps[p];
+    if (s == 0) return 1;
+    return s == seen ? 2 : 0;
+  }
+
   vis.sort((a, b) {
     final pa = part[a], pb = part[b];
     if (pa != pb) {
+      final la = layer(pa), lb = layer(pb);
+      if (la != lb) return la.compareTo(lb);
       final c = pd[pa].compareTo(pd[pb]);
       if (c != 0) return c;
       return pa.compareTo(pb);
