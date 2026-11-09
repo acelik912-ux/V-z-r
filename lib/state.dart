@@ -6,25 +6,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'car_painter.dart';
+import 'car3d/car_model.dart';
+import 'catalog.dart';
 
 final navKey = GlobalKey<NavigatorState>();
-
-/// Bir parçanın açılması için gereken ödül eşikleri (harcanmaz, sadece ulaşılması gerekir).
-class Req {
-  final int stars;
-  final int hearts;
-  final int cups;
-  const Req({this.stars = 0, this.hearts = 0, this.cups = 0});
-  bool get free => stars == 0 && hearts == 0 && cups == 0;
-}
-
-const bodyReqs = <Req>[Req(), Req(stars: 5), Req(stars: 10, hearts: 1)];
-const colorReqs = <Req>[
-  Req(), Req(), Req(), Req(),
-  Req(stars: 3), Req(hearts: 1), Req(cups: 1), Req(stars: 8, hearts: 2),
-];
-const wheelReqs = <Req>[Req(), Req(cups: 1), Req(stars: 6)];
 
 class GameState extends ChangeNotifier with WidgetsBindingObserver {
   static const _key = 'vizir_state_v1';
@@ -33,9 +18,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   String driverName = '';
   String carName = '';
   List<String> rivalNames = ['Tozbulut', 'Pırpır', 'Şimşek'];
-  int body = 0;
-  int color = 0;
-  int wheel = 0;
+  Map<String, int> parts = const CarConfig().toParts();
   Set<String> unlocked = <String>{};
   int stars = 0;
   int hearts = 0;
@@ -55,6 +38,11 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   int nightHour = 21;
   String pin = '';
   Map<String, List<int>> stats = {};
+  bool sfxOn = true;
+  String voiceName = '';
+  String voiceLocale = '';
+  double speechRate = 0.45;
+  double speechPitch = 1.05;
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -65,7 +53,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get inRace => _raceDepth > 0;
   bool get parentOpen => _parentOpen;
-  CarSpec get spec => CarSpec(body, color, wheel);
+  CarConfig get config => CarConfig.fromParts(parts);
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -163,33 +151,27 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---- Garaj ----
-  List<Req> reqsFor(String kind) => kind == 'body' ? bodyReqs : (kind == 'color' ? colorReqs : wheelReqs);
-
-  bool isUnlocked(String kind, int i) {
-    final reqs = reqsFor(kind);
-    if (i < reqs.length && reqs[i].free) return true;
-    return unlocked.contains('$kind$i');
+  Req reqFor(String kind, int i) {
+    final row = rowFor(kind);
+    if (row == null || i < 0 || i >= row.options.length) return const Req();
+    return row.options[i].req;
   }
+
+  bool isUnlocked(String kind, int i) => reqFor(kind, i).free || unlocked.contains('$kind:$i');
 
   bool reqMet(Req r) => stars >= r.stars && hearts >= r.hearts && cups >= r.cups;
 
   void unlock(String kind, int i) {
-    unlocked.add('$kind$i');
+    unlocked.add('$kind:$i');
     _changed();
   }
 
   void setPart(String kind, int i) {
-    if (kind == 'body') {
-      body = i;
-    } else if (kind == 'color') {
-      color = i;
-    } else {
-      wheel = i;
-    }
+    parts = {...parts, kind: i};
     _changed();
   }
 
-  int selected(String kind) => kind == 'body' ? body : (kind == 'color' ? color : wheel);
+  int selected(String kind) => parts[kind] ?? 0;
 
   // ---- İsimler ----
   void setDriver(String n) {
@@ -272,6 +254,23 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     _changed();
   }
 
+  void setSfx(bool v) {
+    sfxOn = v;
+    _changed();
+  }
+
+  void setVoice(String name, String locale) {
+    voiceName = name;
+    voiceLocale = locale;
+    _changed();
+  }
+
+  void setSpeech({double? rate, double? pitch}) {
+    if (rate != null) speechRate = rate;
+    if (pitch != null) speechPitch = pitch;
+    _changed();
+  }
+
   void setPin(String p) {
     pin = p;
     _changed();
@@ -290,9 +289,12 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'driverName': driverName,
         'carName': carName,
         'rivalNames': rivalNames,
-        'body': body,
-        'color': color,
-        'wheel': wheel,
+        'parts': parts,
+        'sfxOn': sfxOn,
+        'voiceName': voiceName,
+        'voiceLocale': voiceLocale,
+        'speechRate': speechRate,
+        'speechPitch': speechPitch,
         'unlocked': unlocked.toList(),
         'stars': stars,
         'hearts': hearts,
@@ -318,10 +320,32 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     carName = j['carName'] as String? ?? '';
     final rn = (j['rivalNames'] as List?)?.map((e) => e.toString()).toList();
     if (rn != null && rn.length == 3) rivalNames = rn;
-    body = gi('body', 0);
-    color = gi('color', 0);
-    wheel = gi('wheel', 0);
     unlocked = ((j['unlocked'] as List?) ?? const []).map((e) => e.toString()).toSet();
+    final pj = j['parts'];
+    if (pj is Map) {
+      parts = {...const CarConfig().toParts(), ...pj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()))};
+    } else {
+      // Eski sürümden taşıma
+      final ob = gi('body', 0), oc = gi('color', 0), ow = gi('wheel', 0);
+      parts = {
+        ...const CarConfig().toParts(),
+        'body': const [0, 2, 3][ob.clamp(0, 2).toInt()],
+        'color': const [0, 1, 2, 3, 6, 7, 8, 9][oc.clamp(0, 7).toInt()],
+        'rim': ow == 1 ? 1 : 0,
+        'rimColor': ow == 1 ? 2 : 0,
+        'tire': ow == 2 ? 1 : 0,
+      };
+      const oldKeys = {'body1': 'body:2', 'body2': 'body:3', 'wheel1': 'rim:1', 'wheel2': 'tire:1'};
+      unlocked = {
+        for (final u in unlocked)
+          oldKeys[u] ?? (u.startsWith('color') ? 'color:${const [0, 1, 2, 3, 6, 7, 8, 9][(int.tryParse(u.substring(5)) ?? 0).clamp(0, 7).toInt()]}' : u)
+      };
+    }
+    sfxOn = j['sfxOn'] as bool? ?? true;
+    voiceName = j['voiceName'] as String? ?? '';
+    voiceLocale = j['voiceLocale'] as String? ?? '';
+    speechRate = (j['speechRate'] as num?)?.toDouble() ?? 0.45;
+    speechPitch = (j['speechPitch'] as num?)?.toDouble() ?? 1.05;
     stars = gi('stars', 0);
     hearts = gi('hearts', 0);
     cups = gi('cups', 0);

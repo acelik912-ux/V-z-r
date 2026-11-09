@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../sfx.dart';
 import '../state.dart';
 import '../syllables.dart';
+import '../voice.dart';
 import 'name_entry.dart';
 
 /// Ebeveyn panelini şifreyle açar. Kilit ekranının üstünden de çalışır.
@@ -188,6 +190,36 @@ class ParentPanel extends StatelessWidget {
                   ],
                 ),
               const Divider(height: 32),
+              _title('Ses'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Ses efektleri (motor, korna, jeton)'),
+                value: game.sfxOn,
+                onChanged: (v) {
+                  game.setSfx(v);
+                  if (!v) Sfx.engineStop();
+                },
+              ),
+              const _VoicePicker(),
+              Text('Konuşma hızı: ${(game.speechRate * 100).round()}'),
+              Slider(
+                value: game.speechRate.clamp(0.25, 0.7).toDouble(),
+                min: 0.25,
+                max: 0.7,
+                divisions: 9,
+                onChanged: (v) => game.setSpeech(rate: v),
+                onChangeEnd: (_) => Voice.apply().then((_) => Voice.say('Merhaba! Ben Hece Baykuş. ka, le, kale.')),
+              ),
+              Text('Ses tonu: ${(game.speechPitch * 100).round()}'),
+              Slider(
+                value: game.speechPitch.clamp(0.7, 1.5).toDouble(),
+                min: 0.7,
+                max: 1.5,
+                divisions: 8,
+                onChanged: (v) => game.setSpeech(pitch: v),
+                onChangeEnd: (_) => Voice.apply().then((_) => Voice.say('Merhaba! Ben Hece Baykuş. ka, le, kale.')),
+              ),
+              const Divider(height: 32),
               _title('Okuma'),
               const Text('Harf grubu (okulun sırasına göre):'),
               const SizedBox(height: 6),
@@ -276,4 +308,61 @@ class ParentPanel extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(t, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
       );
+}
+
+class _VoicePicker extends StatefulWidget {
+  const _VoicePicker();
+
+  @override
+  State<_VoicePicker> createState() => _VoicePickerState();
+}
+
+class _VoicePickerState extends State<_VoicePicker> {
+  List<VoiceInfo>? voices;
+
+  @override
+  void initState() {
+    super.initState();
+    Voice.turkishVoices().then((v) {
+      if (mounted) setState(() => voices = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = voices;
+    if (v == null) return const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator());
+    if (v.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text('Telefonda Türkçe ses bulunamadı. Ayarlar > Genel yönetim > Metin okuma bölümünden '
+            'Türkçe ses paketi indirilebilir.'),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Konuşan ses (dinlemek için dokunun):'),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < v.length; i++)
+              ChoiceChip(
+                label: Text('Ses ${i + 1}${v[i].network ? ' (internet)' : ''}'),
+                selected: game.voiceName == v[i].name,
+                onSelected: (_) async {
+                  game.setVoice(v[i].name, v[i].locale);
+                  await Voice.apply();
+                  Voice.say('Merhaba! Ben Hece Baykuş. ka, le, kale.');
+                  setState(() {});
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
 }

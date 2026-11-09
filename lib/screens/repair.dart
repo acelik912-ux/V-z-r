@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../sfx.dart';
 import '../state.dart';
 import '../syllables.dart';
 import '../voice.dart';
@@ -53,15 +54,18 @@ class _RepairScreenState extends State<RepairScreen> {
       game.recordSyllable(expected, true);
       if (placed.length == word.length) {
         setState(() => done = true);
+        Sfx.play('unlock');
         Voice.say('${word.join(', ')}. ${word.join()}! Aferin, kutu açıldı!');
         Future.delayed(const Duration(milliseconds: 2600), () {
           if (mounted) Navigator.pop(context, true);
         });
       } else {
+        Sfx.play('pop');
         Voice.say(expected);
       }
     } else {
       setState(() => wrongTile = i);
+      Sfx.play('wrong', volume: 0.5);
       game.recordSyllable(expected, false);
       Voice.say('Bu ${tiles[i]}. Şimdi $expected lazım.');
     }

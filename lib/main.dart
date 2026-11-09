@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'screens/home.dart';
 import 'screens/lock.dart';
+import 'sfx.dart';
 import 'state.dart';
 import 'voice.dart';
 
@@ -13,6 +14,7 @@ Future<void> main() async {
   await game.load();
   game.start();
   await Voice.init();
+  await Sfx.init();
   runApp(const VizirApp());
 }
 

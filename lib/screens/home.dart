@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../car_painter.dart';
+import '../car3d/car_view.dart';
+import '../sfx.dart';
 import '../state.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
@@ -49,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _go(Widget screen, String label) {
+    Sfx.play('click');
     Voice.say(label);
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
@@ -91,8 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: () => Voice.say(game.carName.isEmpty ? 'Arabamız hazır!' : '${game.carName} hazır!'),
-                  child: CarView(game.spec, width: 72),
+                  onTap: () {
+                    Sfx.horn(game.config.horn);
+                    Voice.say(game.carName.isEmpty ? 'Arabamız hazır!' : '${game.carName} hazır!');
+                  },
+                  child: SpinningCar(game.config, width: 250),
                 ),
                 if (game.carName.isNotEmpty)
                   Padding(

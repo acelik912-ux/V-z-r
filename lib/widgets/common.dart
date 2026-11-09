@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../catalog.dart';
 import '../state.dart';
 import '../syllables.dart';
 

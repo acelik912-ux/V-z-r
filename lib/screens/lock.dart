@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state.dart';
 import '../voice.dart';
-import '../car_painter.dart';
+import '../car3d/car_view.dart';
 import 'parent.dart';
 
 /// Yakıt bitince ya da gece olunca çıkan, oyunu kapatan ekran.
@@ -50,7 +50,7 @@ class _LockScreenState extends State<LockScreen> {
                   children: [
                     Text(night ? '🌙  Zzz' : '⛽', style: const TextStyle(fontSize: 64)),
                     const SizedBox(height: 16),
-                    CarView(game.spec, width: 100),
+                    CarView(game.config, width: 220),
                     const SizedBox(height: 24),
                     Text(
                       message,

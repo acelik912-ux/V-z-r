@@ -3,12 +3,14 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../car_painter.dart';
+import '../car3d/car_model.dart';
+import '../car3d/renderer.dart';
+import '../catalog.dart';
+import '../sfx.dart';
 import '../state.dart';
 import '../syllables.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
-import 'garage.dart';
 import 'result.dart';
 
 class _Gate {
@@ -31,7 +33,7 @@ class _Coin {
 class _Rival {
   final String name;
   final double factor;
-  final CarSpec spec;
+  final CarConfig spec;
   final int lane;
   double dist;
   _Rival(this.name, this.factor, this.spec, this.lane, this.dist);
@@ -107,7 +109,7 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
     const lanes = [0, 2, 1];
     const starts = [0.0, 0.0, -160.0];
     for (var i = 0; i < 3; i++) {
-      rivals.add(_Rival(game.rivalNames[i], factors[i], rivalSpec(i), lanes[i], starts[i]));
+      rivals.add(_Rival(game.rivalNames[i], factors[i], rivalConfigs[i], lanes[i], starts[i]));
     }
     _ticker = createTicker(_tick)..start();
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -120,6 +122,7 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _ticker.dispose();
+    Sfx.engineStop();
     if (!finished) game.setInRace(false);
     super.dispose();
   }
@@ -143,10 +146,15 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
     lanePos = diff.abs() <= stepAmt ? targetLane.toDouble() : lanePos + stepAmt * diff.sign;
 
     if (countdown > 0) {
+      final before = _countText();
       countdown -= dt;
       if (countdown <= 0) {
         countdown = 0;
         started = true;
+        Sfx.play('go');
+        Sfx.engineStart();
+      } else if (_countText() != before) {
+        Sfx.play(_countText() == 'Haydi!' ? 'go' : 'beep');
       }
       return;
     }
@@ -156,6 +164,7 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
     if (helping > 0) helping -= dt;
     if (turbo > 0) turbo -= dt;
     dist += speed * dt;
+    Sfx.engineRate(helping > 0 ? 0.7 : (turbo > 0 ? 1.45 : 1.0));
 
     for (final r in rivals) {
       r.dist += baseSpeed * r.factor * dt * (1 + 0.06 * sin(r.dist / 600 + r.lane));
@@ -176,12 +185,15 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
           flash = 'Aferin!';
           flashT = 1.2;
           Voice.say('Aferin! ${g.target}');
+          Sfx.play('correct');
+          Sfx.play('turbo', volume: 0.7);
           game.recordSyllable(g.target, true);
         } else {
           wrong++;
           flash = g.target;
           flashT = 1.6;
           Voice.say('Bu ${g.target} idi.');
+          Sfx.play('wrong', volume: 0.6);
           game.recordSyllable(g.target, false);
         }
       }
@@ -191,12 +203,15 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
       if (!c.taken && c.lane == lane && (dist - c.d).abs() < 35) {
         c.taken = true;
         coinCount++;
+        Sfx.play('coin', volume: 0.6);
       }
     }
 
     if (dist >= total) {
       finished = true;
       _ticker.stop();
+      Sfx.engineStop();
+      Sfx.play('finish');
       final rank = 1 + rivals.where((r) => r.dist > dist).length;
       game.save();
       Future.delayed(const Duration(milliseconds: 700), () {
@@ -245,6 +260,7 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
       flashT = 2.0;
     });
     Voice.say('Durup yardım ettin. Allah razı olsun!');
+    Sfx.play('heart');
   }
 
   String _countText() {
@@ -294,8 +310,8 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
               ),
             ),
             const Positioned(right: -4, top: 2, child: Icon(Icons.flag, size: 28, color: Colors.black87)),
-            for (final r in rivals) Positioned(left: x(r.dist), top: 5, child: _dot(r.spec.paint, r.name)),
-            Positioned(left: x(dist), top: 2, child: _dot(game.spec.paint, game.driverName, big: true)),
+            for (final r in rivals) Positioned(left: x(r.dist), top: 5, child: _dot(Color(r.spec.paint), r.name)),
+            Positioned(left: x(dist), top: 2, child: _dot(Color(game.config.paint), game.driverName, big: true)),
           ],
         ),
       );
@@ -337,6 +353,8 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
                       Pill('🪙 $coinCount'),
                       const Spacer(),
                       if (currentTarget != null) RoundIcon(Icons.volume_up, () => Voice.say(currentTarget!)),
+                      const SizedBox(width: 8),
+                      RoundIcon(Icons.campaign, () => Sfx.horn(game.config.horn), color: const Color(0xFFFFD54F)),
                     ],
                   ),
                 ],
@@ -405,6 +423,19 @@ class _RacePainter extends CustomPainter {
         ..color = const Color(0xFF33691E)
         ..strokeWidth = 2);
       canvas.drawCircle(Offset(x, y), 6, Paint()..color = flowerColors[i % 3]);
+    }
+
+    // Ağaçlar
+    if (left > 28) {
+      final r = min(18.0, left * 0.4);
+      for (var i = 0; i < 9; i++) {
+        final y = ((i * 173.0 + s.dist) % (h + 200)) - 100;
+        final x = i.isEven ? left * 0.42 : w - left * 0.42;
+        canvas.drawOval(Rect.fromCenter(center: Offset(x + 6, y + 8), width: r * 2.2, height: r * 1.6),
+            Paint()..color = Colors.black.withAlpha(45));
+        canvas.drawCircle(Offset(x, y), r, Paint()..color = const Color(0xFF2E7D32));
+        canvas.drawCircle(Offset(x - r * 0.3, y - r * 0.3), r * 0.55, Paint()..color = const Color(0xFF43A047));
+      }
     }
 
     // Yol
@@ -486,20 +517,24 @@ class _RacePainter extends CustomPainter {
     for (final hp in s.helpers) {
       final y = yOf(hp.d);
       if (y < -120 || y > h + 80) continue;
-      final hw = max(26.0, min(left * 0.75, carW * 0.85));
-      final cx = max(left * 0.5, hw / 2 + 2);
-      final rect = Rect.fromCenter(center: Offset(cx, y), width: hw, height: hw * 1.75);
-      drawCar(canvas, rect, const CarSpec(1, 0, 0), override: hp.helped ? const Color(0xFF26A69A) : Colors.grey);
+      final cx = max(left * 0.5, carW * 0.45);
+      final sc = min(carW / 1.9, max(left * 0.9, 20.0) / 1.9);
+      paintCar(
+        canvas,
+        CarConfig(body: 1, color: hp.helped ? 8 : 10, finish: 2),
+        Camera(center: Offset(cx, y), scale: sc, yaw: pi, pitch: 0.95),
+        lod: true,
+      );
       if (!hp.helped) {
         final smoke = Paint()..color = Colors.black.withAlpha(60);
-        canvas.drawCircle(Offset(cx, rect.top - 6), 9, smoke);
-        canvas.drawCircle(Offset(cx + 6, rect.top - 18), 12, smoke);
-        canvas.drawCircle(Offset(cx - 4, rect.top - 32), 14, smoke);
+        canvas.drawCircle(Offset(cx, y - sc * 2.2), 9, smoke);
+        canvas.drawCircle(Offset(cx + 6, y - sc * 2.2 - 12), 12, smoke);
+        canvas.drawCircle(Offset(cx - 4, y - sc * 2.2 - 26), 14, smoke);
       } else {
         final tp = TextPainter(
             text: const TextSpan(text: '❤️', style: TextStyle(fontSize: 22)), textDirection: TextDirection.ltr)
           ..layout();
-        tp.paint(canvas, Offset(cx - tp.width / 2, rect.top - 30));
+        tp.paint(canvas, Offset(cx - tp.width / 2, y - sc * 2.2 - 24));
       }
     }
 
@@ -508,7 +543,7 @@ class _RacePainter extends CustomPainter {
       final y = carY - (r.dist - s.dist);
       if (y < -carH || y > h + carH) continue;
       final x = laneX(r.lane.toDouble());
-      drawCar(canvas, Rect.fromCenter(center: Offset(x, y), width: carW, height: carH), r.spec, opacity: 0.85);
+      paintCar(canvas, r.spec, Camera(center: Offset(x, y), scale: carW / 1.9, yaw: pi, pitch: 0.95), lod: true);
       final tp = TextPainter(
         text: TextSpan(
           text: r.name,
@@ -521,21 +556,26 @@ class _RacePainter extends CustomPainter {
 
     // Oyuncu
     final px = laneX(s.lanePos);
+    final sc = carW / 1.9;
+    final rearY = carY + sc * 2.0;
     if (s.turbo > 0) {
       final flame = Path()
-        ..moveTo(px - carW * 0.3, carY + carH / 2 - 4)
-        ..lineTo(px, carY + carH / 2 + 30 + 8 * sin(s.dist / 20))
-        ..lineTo(px + carW * 0.3, carY + carH / 2 - 4)
+        ..moveTo(px - carW * 0.3, rearY - 4)
+        ..lineTo(px, rearY + 30 + 8 * sin(s.dist / 20))
+        ..lineTo(px + carW * 0.3, rearY - 4)
         ..close();
       canvas.drawPath(flame, Paint()..color = const Color(0xFFFF6D00));
       final inner = Path()
-        ..moveTo(px - carW * 0.15, carY + carH / 2 - 4)
-        ..lineTo(px, carY + carH / 2 + 16)
-        ..lineTo(px + carW * 0.15, carY + carH / 2 - 4)
+        ..moveTo(px - carW * 0.15, rearY - 4)
+        ..lineTo(px, rearY + 16)
+        ..lineTo(px + carW * 0.15, rearY - 4)
         ..close();
       canvas.drawPath(inner, Paint()..color = const Color(0xFFFFEA00));
     }
-    drawCar(canvas, Rect.fromCenter(center: Offset(px, carY), width: carW, height: carH), game.spec);
+    // şerit değiştirirken hafif yatma
+    final lean = (s.targetLane - s.lanePos).clamp(-1.0, 1.0).toDouble() * 0.25;
+    paintCar(canvas, game.config, Camera(center: Offset(px, carY), scale: sc, yaw: pi - lean, pitch: 0.95),
+        lod: true, lightsOn: s.turbo > 0);
   }
 
   @override

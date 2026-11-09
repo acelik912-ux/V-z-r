@@ -409,7 +409,7 @@ Mesh _build(CarConfig c, bool lod) {
   // ---- Çamurluk kavisleri ----
   for (final wz in [def.wheelZ, -def.wheelZ]) {
     for (final sx in [-1.0, 1.0]) {
-      _flare(b, sx, hw, wz, tireR, paint, lod);
+      _flare(b, sx, hw, wz, tireR, paint, lod, topAt(wz) - 0.05);
     }
   }
 
@@ -554,12 +554,14 @@ void _wheel(MeshBuilder b, V3 c, double side, double r, double w, CarConfig cfg,
   }
 }
 
-void _flare(MeshBuilder b, double side, double hw, double wz, double r, int paint, bool lod) {
+void _flare(MeshBuilder b, double side, double hw, double wz, double r, int paint, bool lod, double maxY) {
   final n = lod ? 6 : 10;
   final ri = r + 0.05, ro = r + 0.13;
   final xi = side * (hw - 0.04), xo = side * (hw + 0.07);
   final cy = r;
-  V3 p(double rad, double a, double x) => V3(x, cy + rad * math.sin(a), wz + rad * math.cos(a));
+  // Kavis gövdenin üstünü aşmasın: gerekirse dikeyde basık elips
+  final k = math.min(1.0, math.max(0.35, (maxY - cy) / ro));
+  V3 p(double rad, double a, double x) => V3(x, cy + rad * k * math.sin(a), wz + rad * math.cos(a));
   final out = V3(side, 0, 0);
   for (var i = 0; i < n; i++) {
     final a0 = 0.12 + (math.pi - 0.24) * i / n, a1 = 0.12 + (math.pi - 0.24) * (i + 1) / n;

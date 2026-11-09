@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../sfx.dart';
 import '../state.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
@@ -61,6 +62,7 @@ class _ResultScreenState extends State<ResultScreen> {
         return;
       }
       setState(() => shown++);
+      Sfx.play('coin', volume: 0.5);
       Voice.say('$shown');
     });
   }
