@@ -77,3 +77,15 @@ if src.exists():
         m = m.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher_round"', 1)
     manifest.write_text(m, encoding='utf-8')
     print('simgeler kopyalandı')
+
+# ---- Sadece arm64 yerel kütüphaneleri (APK boyutu) ----
+if kts.exists():
+    g = kts.read_text(encoding='utf-8')
+    if 'abiFilters' not in g:
+        g = g.replace('    defaultConfig {', '    defaultConfig {\n        ndk { abiFilters += listOf("arm64-v8a") }', 1)
+        kts.write_text(g, encoding='utf-8')
+elif groovy.exists():
+    g = groovy.read_text(encoding='utf-8')
+    if 'abiFilters' not in g:
+        g = g.replace('    defaultConfig {', "    defaultConfig {\n        ndk { abiFilters 'arm64-v8a' }", 1)
+        groovy.write_text(g, encoding='utf-8')

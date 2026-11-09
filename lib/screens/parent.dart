@@ -200,7 +200,17 @@ class ParentPanel extends StatelessWidget {
                   if (!v) Sfx.engineStop();
                 },
               ),
-              const _VoicePicker(),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Doğal erkek sesi (önerilen)'),
+                subtitle: const Text('Kapalıysa telefonun kendi sesi kullanılır'),
+                value: game.neuralVoice,
+                onChanged: (v) {
+                  game.setNeuralVoice(v);
+                  Voice.say('Merhaba! Ben Tamirci Usta. ka, le, kale!');
+                },
+              ),
+              if (!game.neuralVoice) const _VoicePicker(),
               Text('Konuşma hızı: ${(game.speechRate * 100).round()}'),
               Slider(
                 value: game.speechRate.clamp(0.25, 0.7).toDouble(),
@@ -210,8 +220,9 @@ class ParentPanel extends StatelessWidget {
                 onChanged: (v) => game.setSpeech(rate: v),
                 onChangeEnd: (_) => Voice.apply().then((_) => Voice.say('Merhaba! Ben Hece Baykuş. ka, le, kale.')),
               ),
-              Text('Ses tonu: ${(game.speechPitch * 100).round()}'),
-              Slider(
+              if (!game.neuralVoice) Text('Ses tonu: ${(game.speechPitch * 100).round()}'),
+              if (!game.neuralVoice)
+                Slider(
                 value: game.speechPitch.clamp(0.7, 1.5).toDouble(),
                 min: 0.7,
                 max: 1.5,

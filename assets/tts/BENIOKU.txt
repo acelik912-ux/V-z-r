@@ -1,0 +1,1 @@
+Doğal ses modeli derleme sırasında buraya indirilir (bkz. .github/workflows/apk.yml).

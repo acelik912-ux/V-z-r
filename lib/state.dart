@@ -41,7 +41,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   bool sfxOn = true;
   String voiceName = '';
   String voiceLocale = '';
-  double speechRate = 0.45;
+  double speechRate = 0.5;
+  bool neuralVoice = true;
   double speechPitch = 1.05;
 
   int _raceDepth = 0;
@@ -271,6 +272,11 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     _changed();
   }
 
+  void setNeuralVoice(bool v) {
+    neuralVoice = v;
+    _changed();
+  }
+
   void setPin(String p) {
     pin = p;
     _changed();
@@ -295,6 +301,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'voiceLocale': voiceLocale,
         'speechRate': speechRate,
         'speechPitch': speechPitch,
+        'neuralVoice': neuralVoice,
         'unlocked': unlocked.toList(),
         'stars': stars,
         'hearts': hearts,
@@ -344,7 +351,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     sfxOn = j['sfxOn'] as bool? ?? true;
     voiceName = j['voiceName'] as String? ?? '';
     voiceLocale = j['voiceLocale'] as String? ?? '';
-    speechRate = (j['speechRate'] as num?)?.toDouble() ?? 0.45;
+    speechRate = (j['speechRate'] as num?)?.toDouble() ?? 0.5;
+    neuralVoice = j['neuralVoice'] as bool? ?? true;
     speechPitch = (j['speechPitch'] as num?)?.toDouble() ?? 1.05;
     stars = gi('stars', 0);
     hearts = gi('hearts', 0);

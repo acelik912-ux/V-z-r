@@ -34,6 +34,18 @@ jobs:
           mkdir -p ~/.android
           cp tool/debug.keystore ~/.android/debug.keystore
 
+      - name: Doğal ses modelini indir (Piper, Türkçe erkek sesi)
+        env:
+          VOICE: fahrettin
+        run: |
+          curl -sL "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-tr_TR-${VOICE}-medium-int8.tar.bz2" | tar xj -C /tmp
+          D=/tmp/vits-piper-tr_TR-${VOICE}-medium-int8
+          cp $D/*.onnx assets/tts/model.onnx
+          cp $D/tokens.txt assets/tts/tokens.txt
+          cp $D/MODEL_CARD assets/tts/MODEL_CARD.txt || true
+          cd $D/espeak-ng-data && find . -name '*_dict' ! -name 'tr_dict' -delete && zip -qr "$GITHUB_WORKSPACE/assets/tts/espeak.zip" *
+          ls -la "$GITHUB_WORKSPACE/assets/tts"
+
       - run: flutter pub get
 
       - name: Araba önizlemeleri (görsel kontrol)

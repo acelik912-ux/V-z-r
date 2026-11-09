@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'screens/home.dart';
 import 'screens/lock.dart';
+import 'neural_voice.dart';
 import 'sfx.dart';
 import 'state.dart';
 import 'voice.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
   game.start();
   await Voice.init();
   await Sfx.init();
+  NeuralVoice.init();
   runApp(const VizirApp());
 }
 

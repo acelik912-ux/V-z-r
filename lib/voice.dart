@@ -1,5 +1,6 @@
 import 'package:flutter_tts/flutter_tts.dart';
 
+import 'neural_voice.dart';
 import 'state.dart';
 
 class VoiceInfo {
@@ -71,7 +72,20 @@ class Voice {
     return list.isEmpty ? null : list.first;
   }
 
+  /// Ebeveyn panelindeki hız ayarını doğal sesin hızına çevirir (0.25-0.7 -> 0.9-1.45).
+  static double get neuralSpeed => 0.9 + (game.speechRate - 0.25) / 0.45 * 0.55;
+
   static Future<void> say(String text) async {
+    if (game.neuralVoice && !NeuralVoice.failed) {
+      if (!NeuralVoice.ready) await NeuralVoice.whenReady();
+      if (NeuralVoice.ready) {
+        try {
+          await _tts.stop();
+        } catch (_) {}
+        if (await NeuralVoice.say(text, neuralSpeed)) return;
+      }
+    }
+    await NeuralVoice.stop();
     try {
       await _tts.stop();
       await _tts.speak(text);
