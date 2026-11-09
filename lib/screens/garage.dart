@@ -319,7 +319,10 @@ class _GarageScreenState extends State<GarageScreen> {
     final t = garageTabs[tab];
     return ListView(
       padding: const EdgeInsets.only(bottom: 8),
-      children: [for (final r in t.rows) _row(r)],
+      children: [
+        for (final r in t.rows)
+          if (r.onlyBodies == null || r.onlyBodies!.contains(game.config.body)) _row(r),
+      ],
     );
   }
 

@@ -519,12 +519,7 @@ class _RacePainter extends CustomPainter {
       if (y < -120 || y > h + 80) continue;
       final cx = max(left * 0.5, carW * 0.45);
       final sc = min(carW / 1.9, max(left * 0.9, 20.0) / 1.9);
-      paintCar(
-        canvas,
-        CarConfig(body: 1, color: hp.helped ? 8 : 10, finish: 2),
-        Camera(center: Offset(cx, y), scale: sc, yaw: pi, pitch: 0.95),
-        lod: true,
-      );
+      paintCarCached(canvas, CarConfig(body: 4, color: hp.helped ? 8 : 10, finish: 2), Offset(cx, y), sc, pi, 0.95);
       if (!hp.helped) {
         final smoke = Paint()..color = Colors.black.withAlpha(60);
         canvas.drawCircle(Offset(cx, y - sc * 2.2), 9, smoke);
@@ -543,7 +538,7 @@ class _RacePainter extends CustomPainter {
       final y = carY - (r.dist - s.dist);
       if (y < -carH || y > h + carH) continue;
       final x = laneX(r.lane.toDouble());
-      paintCar(canvas, r.spec, Camera(center: Offset(x, y), scale: carW / 1.9, yaw: pi, pitch: 0.95), lod: true);
+      paintCarCached(canvas, r.spec, Offset(x, y), carW / 1.9, pi, 0.95);
       final tp = TextPainter(
         text: TextSpan(
           text: r.name,
@@ -574,8 +569,7 @@ class _RacePainter extends CustomPainter {
     }
     // şerit değiştirirken hafif yatma
     final lean = (s.targetLane - s.lanePos).clamp(-1.0, 1.0).toDouble() * 0.25;
-    paintCar(canvas, game.config, Camera(center: Offset(px, carY), scale: sc, yaw: pi - lean, pitch: 0.95),
-        lod: true, lightsOn: s.turbo > 0);
+    paintCarCached(canvas, game.config, Offset(px, carY), sc, pi - lean, 0.95, lightsOn: s.turbo > 0);
   }
 
   @override

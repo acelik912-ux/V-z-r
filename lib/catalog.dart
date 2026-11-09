@@ -25,7 +25,8 @@ class PartRow {
   final String title;
   final String sound; // seçilince çalan efekt
   final List<PartOption> options;
-  const PartRow(this.key, this.title, this.sound, this.options);
+  final List<int>? onlyBodies; // sadece bu gövdelerde gösterilir
+  const PartRow(this.key, this.title, this.sound, this.options, {this.onlyBodies});
 }
 
 /// Garaj sekmesi.
@@ -48,6 +49,13 @@ final garageTabs = <GarageTab>[
       PartOption('Aile arabası'),
       PartOption('Cip', req: Req(stars: 5)),
       PartOption('Kamyonet', req: Req(stars: 10, hearts: 1)),
+      PartOption('Minik'),
+      PartOption('Minibüs', req: Req(stars: 4)),
+      PartOption('Elektrikli SUV', req: Req(stars: 8)),
+      PartOption('Formula', req: Req(cups: 2)),
+      PartOption('Çöl arabası', req: Req(hearts: 2)),
+      PartOption('İtfaiye', req: Req(hearts: 3)),
+      PartOption('Kamyon', req: Req(stars: 12)),
     ]),
     const PartRow('height', 'Yükseklik', 'wrench', [
       PartOption('Alçak', emoji: '⬇️'),
@@ -113,13 +121,14 @@ final garageTabs = <GarageTab>[
       PartOption('Küçük', emoji: '▬'),
       PartOption('Büyük', emoji: '🪽', req: Req(stars: 4)),
       PartOption('Çift kanat', emoji: '✈️', req: Req(cups: 2)),
-    ]),
+    ], onlyBodies: [0, 1, 2, 4, 6, 7]),
     const PartRow('roof', 'Tavan', 'wrench', [
       PartOption('Yok', emoji: '⭕'),
       PartOption('Bagaj', emoji: '🧳'),
       PartOption('Siren', emoji: '🚨', req: Req(hearts: 2)),
       PartOption('Işık barı', emoji: '💡', req: Req(stars: 7)),
-    ]),
+      PartOption('Taksi', emoji: '🚕', req: Req(stars: 3)),
+    ], onlyBodies: [0, 1, 2, 3, 4, 5, 6]),
     const PartRow('exhaust', 'Egzoz', 'rev', [
       PartOption('Tek', emoji: '💨'),
       PartOption('Çift', emoji: '💨', req: Req(stars: 2)),
@@ -164,6 +173,6 @@ PartRow? rowFor(String key) {
 /// Rakiplerin hazır arabaları.
 const rivalConfigs = <CarConfig>[
   CarConfig(body: 0, color: 8, sticker: 1, stickerColor: 0, spoiler: 1),
-  CarConfig(body: 1, color: 9, finish: 1, rim: 1),
-  CarConfig(body: 2, color: 2, tire: 1, roof: 1),
+  CarConfig(body: 4, color: 9, finish: 1, rim: 1),
+  CarConfig(body: 6, color: 2, rim: 2, rimColor: 1),
 ];
