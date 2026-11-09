@@ -1,0 +1,12 @@
+vits-piper-tr_TR-dfki-medium: model 63.2 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
+vits-piper-tr_TR-dfki-medium-int8: model 18.7 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
+vits-piper-tr_TR-fahrettin-medium: model 63.1 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
+vits-piper-tr_TR-fahrettin-medium-int8: model 18.6 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
+vits-piper-tr_TR-fettah-medium: model 63.2 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
+vits-piper-tr_TR-fettah-medium-int8: model 18.7 MB, konuşmacı 1, espeak 18.0 MB
+  kırpılmış espeak 0.8 MB çalıştı
