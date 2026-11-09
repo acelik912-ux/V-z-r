@@ -1,0 +1,4 @@
+# Vızır analiz ayarları
+analyzer:
+  errors:
+    deprecated_member_use: ignore
