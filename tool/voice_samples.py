@@ -24,10 +24,20 @@ def make(model_dir, data_dir, name, speed):
                 model=onnx, tokens=os.path.join(model_dir, 'tokens.txt'), data_dir=data_dir),
             num_threads=2),
         max_num_sentences=1)
+    assert cfg.validate(), 'yapılandırma geçersiz'
     tts = sherpa_onnx.OfflineTts(cfg)
-    audio = tts.generate(TEXT, sid=0, speed=speed)
     wav = os.path.join(out, name + '.wav')
-    sf.write(wav, np.asarray(audio.samples, dtype=np.float32), samplerate=audio.sample_rate)
+    audio = tts.generate(TEXT, sid=0, speed=speed)
+    print(name, 'örnek sayısı', len(audio.samples), 'hız', audio.sample_rate, flush=True)
+    if len(audio.samples) == 0:
+        # Komut satırı aracıyla dene
+        r = subprocess.run(['sherpa-onnx-offline-tts', f'--vits-model={onnx}',
+                            f'--vits-tokens={os.path.join(model_dir, "tokens.txt")}', f'--vits-data-dir={data_dir}',
+                            f'--vits-length-scale={1 / speed:.3f}', f'--output-filename={wav}', TEXT],
+                           capture_output=True, text=True)
+        print(r.stdout[-800:], r.stderr[-1500:], flush=True)
+    else:
+        sf.write(wav, np.asarray(audio.samples, dtype=np.float32), samplerate=audio.sample_rate)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-b:a', '96k', wav[:-4] + '.mp3'], check=True)
     os.remove(wav)
     return os.path.getsize(onnx), tts.num_speakers
