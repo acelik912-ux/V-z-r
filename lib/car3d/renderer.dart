@@ -76,21 +76,21 @@ int shadeVertex(int base, int mat, double nx, double ny, double nz, int finish, 
         kd = 0.78;
         final s = _p8(nh);
         spec = s * s * 0.55 + s * 0.15;
-        env = 0.12 * sky;
-        rimK = 0.18;
+        env = 0.1 * sky;
+        rimK = 0.07;
       } else {
         final s = _p8(nh), s2 = s * s, s4 = s2 * s2;
         spec = s4 * s2 * 0.95 + s * 0.08;
-        env = 0.06 * sky;
-        rimK = 0.22;
+        env = 0.05 * sky;
+        rimK = 0.08;
       }
       break;
     case 1: // cam
       kd = 0.25;
       final s = _p8(nh), s2 = s * s;
       spec = s2 * s2 * 1.1;
-      env = 0.05 + 0.25 * sky * sky;
-      rimK = 0.25;
+      env = 0.05 + 0.22 * sky * sky;
+      rimK = 0.12;
       break;
     case 2: // lastik
       kd = 0.55;
