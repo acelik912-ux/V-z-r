@@ -11,6 +11,8 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 /// Telefonda internetsiz çalışan doğal Türkçe erkek sesi (Piper / sherpa-onnx).
 /// Ses ayrı bir iş parçacığında üretilir, üretilen cümleler önbelleğe alınır.
 class NeuralVoice {
+  /// Paketlenen sesin adı. Değişirse telefondaki eski model ve önbellek silinip yenisi kurulur.
+  static const voiceId = 'fettah';
   static SendPort? _worker;
   static bool ready = false;
   static bool failed = false;
@@ -31,7 +33,16 @@ class NeuralVoice {
   static Future<void> init() async {
     try {
       final support = await getApplicationSupportDirectory();
-      final dir = Directory('${support.path}/tts_v1');
+      // Eski seslerin dosyalarını temizle
+      for (final old in support.listSync()) {
+        final name = old.path.split('/').last;
+        if (old is Directory && name.startsWith('tts_') && name != 'tts_$voiceId') {
+          try {
+            old.deleteSync(recursive: true);
+          } catch (_) {}
+        }
+      }
+      final dir = Directory('${support.path}/tts_$voiceId');
       final marker = File('${dir.path}/.tamam');
       if (!marker.existsSync()) {
         dir.createSync(recursive: true);
@@ -55,7 +66,13 @@ class NeuralVoice {
         marker.writeAsStringSync('1');
       }
       final tmp = await getTemporaryDirectory();
-      _cacheDir = '${tmp.path}/ses_onbellek';
+      final oldCache = Directory('${tmp.path}/ses_onbellek');
+      if (oldCache.existsSync()) {
+        try {
+          oldCache.deleteSync(recursive: true);
+        } catch (_) {}
+      }
+      _cacheDir = '${tmp.path}/ses_onbellek_$voiceId';
       Directory(_cacheDir).createSync(recursive: true);
 
       final rp = ReceivePort();

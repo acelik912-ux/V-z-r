@@ -36,7 +36,7 @@ jobs:
 
       - name: Doğal ses modelini indir (Piper, Türkçe erkek sesi)
         env:
-          VOICE: fahrettin
+          VOICE: fettah
         run: |
           curl -sL "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-tr_TR-${VOICE}-medium-int8.tar.bz2" | tar xj -C /tmp
           D=/tmp/vits-piper-tr_TR-${VOICE}-medium-int8
