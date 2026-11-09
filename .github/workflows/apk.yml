@@ -54,6 +54,7 @@ jobs:
         run: |
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           $BT/apksigner verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk | head -20
+          $BT/apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -q "CN=Vizir" || (echo "HATA: sabit anahtarla imzalanmadı" && exit 1)
           $BT/aapt2 dump badging build/app/outputs/flutter-apk/app-release.apk | grep -E "package:|sdkVersion|targetSdk|native-code" || true
           ls -la build/app/outputs/flutter-apk/
 
