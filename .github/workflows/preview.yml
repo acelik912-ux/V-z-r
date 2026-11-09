@@ -5,6 +5,9 @@ on:
     branches: [onizleme]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   preview:
     runs-on: ubuntu-latest
@@ -26,3 +29,12 @@ jobs:
           name: onizlemeler
           path: previews/
           if-no-files-found: ignore
+      - name: Görselleri ayrı dala koy
+        if: always()
+        run: |
+          mkdir -p /tmp/png && cp -r previews/* /tmp/png/ || true
+          cd /tmp/png
+          git init -q -b onizleme-png
+          git config user.name ci && git config user.email ci@example.com
+          git add -A && git commit -q -m "önizleme ${{ github.run_number }}" || true
+          git push -f -q https://x-access-token:${{ github.token }}@github.com/${{ github.repository }} onizleme-png
