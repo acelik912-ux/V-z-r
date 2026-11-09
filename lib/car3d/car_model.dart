@@ -23,7 +23,7 @@ const stickerColors = <int>[0xFFFFFFFF, 0xFF111111, 0xFFFFC107, 0xFFE53935, 0xFF
 const rimColors = <int>[0xFFCFD8DC, 0xFF263238, 0xFFFFC107, 0xFFE53935, 0xFF1E88E5];
 const lightColors = <int>[0xFFFFFDE7, 0xFFFFD54F, 0xFF80D8FF];
 const neonColors = <int>[0, 0xFF2979FF, 0xFFFF4081, 0xFF00E676, 0xFFD500F9, 0xFFFF9100, 0xFF18FFFF];
-const tintColors = <int>[0xFF7FA3B8, 0xFF3E525E, 0xFF15191C];
+const tintColors = <int>[0xFF5F8296, 0xFF34444E, 0xFF15191C];
 
 /// Arabanın tüm parçaları. Her alan bir seçenek numarasıdır.
 class CarConfig {
@@ -310,11 +310,12 @@ Mesh _build(CarConfig c, bool lod) {
   final roofY = topAt((roofZ0 + roofZ1) / 2) - 0.03 + cab[1][1];
   final cabFrontZ = cab.last[0];
 
-  // Aynalar
+  // Aynalar (kabine bitişik)
   for (final sx in [-1.0, 1.0]) {
-    final x = sx * (hw * 0.9 + 0.1);
-    final y = topAt(cabFrontZ - 0.25) + 0.08;
-    b.box(V3(x - 0.08, y - 0.07, cabFrontZ - 0.35), V3(x + 0.08, y + 0.07, cabFrontZ - 0.2), paint, Mat.paint);
+    final zM = cabFrontZ - 0.32;
+    final y = topAt(zM) + 0.04;
+    final xIn = sx * hw * 0.86, xOut = sx * (hw * 0.86 + 0.17);
+    b.box(V3(sx > 0 ? xIn : xOut, y, zM - 0.05), V3(sx > 0 ? xOut : xIn, y + 0.1, zM + 0.04), paint, Mat.paint);
   }
 
   // ---- Ön: farlar, ızgara, plaka ----
@@ -324,7 +325,7 @@ Mesh _build(CarConfig c, bool lod) {
     b.box(V3(x - 0.2, fy - 0.07, zF - 0.06), V3(x + 0.2, fy + 0.06, zF + 0.025), c.lightColor, Mat.light);
     b.mesh.headlights.add(V3(x, fy, zF + 0.03));
   }
-  b.box(V3(-wF * 0.36, yb + 0.12, zF - 0.04), V3(wF * 0.36, fy - 0.1, zF + 0.02), 0xFF15171A, Mat.trim);
+  b.box(V3(-wF * 0.3, yb + 0.14, zF - 0.04), V3(wF * 0.3, math.min(fy - 0.1, yb + 0.26), zF + 0.015), 0xFF15171A, Mat.trim);
   b.box(V3(-0.2, yb + 0.03, zF - 0.02), V3(0.2, yb + 0.12, zF + 0.035), 0xFFF5F5F5, Mat.trim);
 
   // ---- Arka: stop lambaları, plaka, egzoz ----
@@ -402,6 +403,13 @@ Mesh _build(CarConfig c, bool lod) {
   for (final wz in [def.wheelZ, -def.wheelZ]) {
     for (final sx in [-1.0, 1.0]) {
       _wheel(b, V3(sx * (hw - 0.1), tireR, wz), sx, tireR, tireW, c, lod);
+    }
+  }
+
+  // ---- Çamurluk kavisleri ----
+  for (final wz in [def.wheelZ, -def.wheelZ]) {
+    for (final sx in [-1.0, 1.0]) {
+      _flare(b, sx, hw, wz, tireR, paint, lod);
     }
   }
 
@@ -505,6 +513,8 @@ void _wheel(MeshBuilder b, V3 c, double side, double r, double w, CarConfig cfg,
   }
   // Lastik sırtı (yuvarlatılmış)
   b.loft([innerSoft, inner, outer, outerSoft], (s, e) => (color: rubber, mat: Mat.rubber), closed: true);
+  // İç yan yüzey (kapalı koyu disk)
+  b.cap(innerSoft, rubber, Mat.rubber, V3(-side, 0, 0));
   // Dış yan yüzey: lastik halkası + jant
   final rr = r * (cfg.tire == 1 ? 0.6 : 0.7);
   final out = V3(side, 0, 0);
@@ -541,5 +551,25 @@ void _wheel(MeshBuilder b, V3 c, double side, double r, double w, CarConfig cfg,
     b.tri(pt(hub, t0, xr + side * 0.01), pt(hub, t1, xr + side * 0.01), V3(xr + side * 0.03, c.y, c.z),
         cfg.rim == 4 ? 0xFF263238 : rimC, Mat.chrome,
         outward: out);
+  }
+}
+
+void _flare(MeshBuilder b, double side, double hw, double wz, double r, int paint, bool lod) {
+  final n = lod ? 6 : 10;
+  final ri = r + 0.05, ro = r + 0.13;
+  final xi = side * (hw - 0.04), xo = side * (hw + 0.07);
+  final cy = r;
+  V3 p(double rad, double a, double x) => V3(x, cy + rad * math.sin(a), wz + rad * math.cos(a));
+  final out = V3(side, 0, 0);
+  for (var i = 0; i < n; i++) {
+    final a0 = 0.12 + (math.pi - 0.24) * i / n, a1 = 0.12 + (math.pi - 0.24) * (i + 1) / n;
+    // yan yüz
+    b.quad(p(ri, a0, xo), p(ro, a0, xo), p(ro, a1, xo), p(ri, a1, xo), paint, Mat.paint, outward: out);
+    // dış kavis yüzeyi
+    final mid = (a0 + a1) / 2;
+    final radial = V3(0, math.sin(mid), math.cos(mid));
+    b.quad(p(ro, a0, xi), p(ro, a0, xo), p(ro, a1, xo), p(ro, a1, xi), paint, Mat.paint, outward: radial);
+    // iç (karanlık) yüzey
+    b.quad(p(ri, a0, xi), p(ri, a0, xo), p(ri, a1, xo), p(ri, a1, xi), 0xFF111214, Mat.trim, outward: -radial);
   }
 }

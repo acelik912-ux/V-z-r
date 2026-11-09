@@ -187,54 +187,57 @@ class _StudioPainter extends CustomPainter {
   _StudioPainter(this.cfg, this.yaw, this.pitch, this.zoom, this.lightsOn, this.bob, this.time);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    // Stüdyo arka planı
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(0, -0.3),
-          radius: 1.1,
-          colors: lightsOn
-              ? const [Color(0xFF263238), Color(0xFF0B0F12)]
-              : const [Color(0xFFECEFF1), Color(0xFF90A4AE)],
-        ).createShader(rect),
-    );
-    final scale = math.min(size.width / 6.2, size.height / 4.2) * zoom;
-    final cam = Camera(
-      center: Offset(size.width / 2, size.height * 0.66),
-      scale: scale,
-      yaw: yaw,
-      pitch: pitch,
-    );
-    // Döner platform
-    const rT = 3.0;
-    final disc = <Offset>[];
-    for (var i = 0; i < 48; i++) {
-      final a = i / 48 * 2 * math.pi;
-      disc.add(cam.project(V3(rT * math.cos(a), 0, rT * math.sin(a))));
-    }
-    canvas.drawPath(
-      Path()..addPolygon(disc, true),
-      Paint()..color = lightsOn ? const Color(0xFF37474F) : const Color(0xFFCFD8DC),
-    );
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = lightsOn ? const Color(0xFF546E7A) : const Color(0xFFB0BEC5);
-    canvas.drawPath(Path()..addPolygon(disc, true), ring);
-    for (var i = 0; i < 12; i++) {
-      final a = i / 12 * 2 * math.pi;
-      canvas.drawLine(
-        cam.project(V3(2.6 * math.cos(a), 0, 2.6 * math.sin(a))),
-        cam.project(V3(2.9 * math.cos(a), 0, 2.9 * math.sin(a))),
-        ring,
-      );
-    }
-    paintCar(canvas, cfg, cam, lightsOn: lightsOn, reflection: true, bob: bob);
-  }
+  void paint(Canvas canvas, Size size) => paintStudio(canvas, size, cfg, yaw, pitch, zoom, lightsOn, bob);
 
   @override
   bool shouldRepaint(_StudioPainter old) => true;
+}
+
+/// Garaj stüdyosu: arka plan, döner platform, yansımalı araba.
+void paintStudio(Canvas canvas, Size size, CarConfig cfg, double yaw, double pitch, double zoom, bool lightsOn, double bob) {
+  final rect = Offset.zero & size;
+  // Stüdyo arka planı
+  canvas.drawRect(
+    rect,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, -0.3),
+        radius: 1.1,
+        colors: lightsOn
+            ? const [Color(0xFF263238), Color(0xFF0B0F12)]
+            : const [Color(0xFFECEFF1), Color(0xFF90A4AE)],
+      ).createShader(rect),
+  );
+  final scale = math.min(size.width / 6.2, size.height / 4.2) * zoom;
+  final cam = Camera(
+    center: Offset(size.width / 2, size.height * 0.66),
+    scale: scale,
+    yaw: yaw,
+    pitch: pitch,
+  );
+  // Döner platform
+  const rT = 3.0;
+  final disc = <Offset>[];
+  for (var i = 0; i < 48; i++) {
+    final a = i / 48 * 2 * math.pi;
+    disc.add(cam.project(V3(rT * math.cos(a), 0, rT * math.sin(a))));
+  }
+  canvas.drawPath(
+    Path()..addPolygon(disc, true),
+    Paint()..color = lightsOn ? const Color(0xFF37474F) : const Color(0xFFCFD8DC),
+  );
+  final ring = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2
+    ..color = lightsOn ? const Color(0xFF546E7A) : const Color(0xFFB0BEC5);
+  canvas.drawPath(Path()..addPolygon(disc, true), ring);
+  for (var i = 0; i < 12; i++) {
+    final a = i / 12 * 2 * math.pi;
+    canvas.drawLine(
+      cam.project(V3(2.6 * math.cos(a), 0, 2.6 * math.sin(a))),
+      cam.project(V3(2.9 * math.cos(a), 0, 2.9 * math.sin(a))),
+      ring,
+    );
+  }
+  paintCar(canvas, cfg, cam, lightsOn: lightsOn, reflection: true, bob: bob);
 }

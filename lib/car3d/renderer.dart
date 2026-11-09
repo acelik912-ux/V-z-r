@@ -72,9 +72,9 @@ int _shadeVertex(int base, Mat mat, V3 n, int finish, bool lightsOn) {
       }
       break;
     case Mat.glass:
-      k = 0.55 + 0.25 * diff;
-      spec = math.pow(nh, 50).toDouble() * 0.95;
-      env = 0.12 + 0.3 * sky;
+      k = 0.32 + 0.18 * diff;
+      spec = math.pow(nh, 40).toDouble() * 1.1;
+      env = 0.04 + 0.22 * sky * sky + math.pow(1 - facing, 2).toDouble() * 0.15;
       break;
     case Mat.rubber:
       k = 0.55 + 0.5 * diff;
