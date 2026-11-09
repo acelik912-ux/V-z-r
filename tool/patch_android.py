@@ -89,3 +89,16 @@ elif groovy.exists():
     if 'abiFilters' not in g:
         g = g.replace('    defaultConfig {', "    defaultConfig {\n        ndk { abiFilters 'arm64-v8a' }", 1)
         groovy.write_text(g, encoding='utf-8')
+
+# Diğer mimarilerin yerel kütüphanelerini paketten çıkar
+if kts.exists():
+    g = kts.read_text(encoding='utf-8')
+    if 'lib/x86_64/**' not in g:
+        g = g.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            excludes += listOf("lib/armeabi-v7a/**", "lib/x86_64/**", "lib/x86/**")\n        }\n    }\n', 1)
+        kts.write_text(g, encoding='utf-8')
+elif groovy.exists():
+    g = groovy.read_text(encoding='utf-8')
+    if 'lib/x86_64/**' not in g:
+        g = g.replace('android {', "android {\n    packagingOptions {\n        jniLibs {\n            excludes += ['lib/armeabi-v7a/**', 'lib/x86_64/**', 'lib/x86/**']\n        }\n    }\n", 1)
+        groovy.write_text(g, encoding='utf-8')
+print(kts.read_text(encoding='utf-8')[:600] if kts.exists() else '')
