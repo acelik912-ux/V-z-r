@@ -1,3 +1,5 @@
+<img src="assets/icon/icon.png" width="160" alt="Vızır simgesi">
+
 # Vızır: Hız ve Macera Adası
 
 6 yaşındaki çocuklar için araba yarışı ve macera oyunu. Oynarken hece birleştirmeyi, saymayı ve güzel ahlakı öğretir. İnternetsiz çalışır, reklam yoktur.

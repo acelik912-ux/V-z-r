@@ -61,3 +61,19 @@ elif groovy.exists():
         g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.vizir')
     groovy.write_text(g, encoding='utf-8')
     print(g)
+
+# ---- Uygulama simgesi ve açılış ekranı ----
+import shutil
+src = pathlib.Path('tool/android_res')
+dst = pathlib.Path('android/app/src/main/res')
+if src.exists():
+    for f in src.rglob('*'):
+        if f.is_file():
+            t = dst / f.relative_to(src)
+            t.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, t)
+    m = manifest.read_text(encoding='utf-8')
+    if 'android:roundIcon' not in m:
+        m = m.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher_round"', 1)
+    manifest.write_text(m, encoding='utf-8')
+    print('simgeler kopyalandı')
