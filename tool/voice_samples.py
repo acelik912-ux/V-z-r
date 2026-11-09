@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import sherpa_onnx
+import numpy as np
 import soundfile as sf
 
 models_root, out = sys.argv[1], sys.argv[2]
@@ -26,7 +27,7 @@ def make(model_dir, data_dir, name, speed):
     tts = sherpa_onnx.OfflineTts(cfg)
     audio = tts.generate(TEXT, sid=0, speed=speed)
     wav = os.path.join(out, name + '.wav')
-    sf.write(wav, audio.samples, samplerate=audio.sample_rate)
+    sf.write(wav, np.asarray(audio.samples, dtype=np.float32), samplerate=audio.sample_rate)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav, '-b:a', '96k', wav[:-4] + '.mp3'], check=True)
     os.remove(wav)
     return os.path.getsize(onnx), tts.num_speakers
@@ -40,6 +41,8 @@ for d in sorted(glob.glob(os.path.join(models_root, '*'))):
     if not os.path.isdir(d):
         continue
     base = os.path.basename(d)
+    if base.endswith('fp16'):
+        continue
     data = os.path.join(d, 'espeak-ng-data')
     try:
         size, spk = make(d, data, base, 1.15)
