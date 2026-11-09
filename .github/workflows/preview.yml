@@ -1,0 +1,28 @@
+name: Önizleme
+
+on:
+  push:
+    branches: [onizleme]
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Kod kontrolü
+        continue-on-error: true
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib test
+      - name: Araba önizlemeleri
+        run: flutter test test/render_preview_test.dart
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: onizlemeler
+          path: previews/
+          if-no-files-found: ignore
