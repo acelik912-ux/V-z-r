@@ -48,7 +48,14 @@ jobs:
           if-no-files-found: ignore
 
       - name: APK derle
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: flutter build apk --release --target-platform android-arm64 --build-number=${{ github.run_number }}
+
+      - name: APK kontrolü (imza ve sürüm)
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk | head -20
+          $BT/aapt2 dump badging build/app/outputs/flutter-apk/app-release.apk | grep -E "package:|sdkVersion|targetSdk|native-code" || true
+          ls -la build/app/outputs/flutter-apk/
 
       - name: APK'yı adlandır
         run: cp build/app/outputs/flutter-apk/app-release.apk vizir-${{ github.run_number }}.apk
