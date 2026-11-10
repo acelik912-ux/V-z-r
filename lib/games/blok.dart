@@ -321,7 +321,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
   ui.Picture? picture;
   final Map<String, ui.Image> sprites = {};
   // yakınlaştırma ve kaydırma
-  double zoom = 1;
+  double zoom = 1.12;
   Offset pan = Offset.zero;
   double _z0 = 1;
   Offset _p0 = Offset.zero, _f0 = Offset.zero;
@@ -462,9 +462,9 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
 
   void _layout(Size s) {
     area = s;
-    tw = min(s.width * 0.92 * 2 / (W + D), s.height / ((W + D) / 4 + 4.5));
+    tw = min(s.width * 0.96 * 2 / (W + D), s.height / ((W + D) / 4 + 4.5));
     final islandH = (W + D) * tw / 4;
-    origin = Offset(s.width / 2, s.height - islandH - tw * 1.2);
+    origin = Offset(s.width / 2, s.height - islandH - tw * 1.6);
   }
 
   Offset _toWorld(Offset p) {
@@ -838,7 +838,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
               decoration: BoxDecoration(
                 color: erase ? const Color(0xFFEF5350) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -857,11 +857,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(color: const Color(0xFFFFE082), borderRadius: BorderRadius.circular(16)),
-              child: const Row(children: [
-                Text('🎁', style: TextStyle(fontSize: 26)),
-                SizedBox(width: 2),
-                Text('Hece\nsandığı', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, height: 1)),
-              ]),
+              child: const Text('🎁', style: TextStyle(fontSize: 28)),
             ),
           ),
         ]),
@@ -963,17 +959,17 @@ class _Tool extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(2),
         child: Bouncy(
           onTap: onTap,
           child: Container(
-            padding: EdgeInsets.all(small ? 7 : 9),
+            padding: EdgeInsets.all(small ? 7 : 7),
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
               boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
             ),
-            child: Icon(icon, size: small ? 22 : 24),
+            child: Icon(icon, size: 22),
           ),
         ),
       );
