@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizir/games/araba_yikama.dart';
 import 'package:vizir/games/blok.dart';
+import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
 import 'package:vizir/games/liman.dart';
@@ -125,5 +126,13 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 20));
     }
+    await tester.runAsync(() async {
+      final a = Tex.atlas;
+      File('previews/atlas.txt').writeAsStringSync('atlas: ${a?.width}x${a?.height} ready=${Tex.ready}');
+      if (a != null) {
+        final b = await a.toByteData(format: ui.ImageByteFormat.png);
+        File('previews/atlas.png').writeAsBytesSync(b!.buffer.asUint8List());
+      }
+    });
   });
 }
