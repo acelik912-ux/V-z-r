@@ -673,7 +673,8 @@ class MathTask {
 // ======================= EKRAN =======================
 
 class BlokAdasi extends StatefulWidget {
-  const BlokAdasi({super.key});
+  final bool startFirstPerson;
+  const BlokAdasi({super.key, this.startFirstPerson = false});
 
   @override
   State<BlokAdasi> createState() => _BlokAdasiState();
@@ -687,7 +688,7 @@ class _Face {
   _Face(this.cell, this.dir, this.mat);
 }
 
-const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)];
+const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1)];
 
 class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
@@ -704,7 +705,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   double fx = 19.5, fy = 17, fz = 0;
   double _y0 = 0, _p0 = 0, _z0 = 1;
   Offset _f0 = Offset.zero;
-  double _fx0 = 0, _fy0 = 0;
+  double _fx0 = 0, _fy0 = 0, _l0 = 0, _lu0 = 0;
   bool _moved = false;
   int _pointers = 1;
   Size area = Size.zero;
@@ -719,8 +720,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   // ---------- karakter ----------
   int mode = 0; // 0 kur, 1 yürü, 2 kır
   Avatar avatar = myAvatar;
-  double ax = 17.5, ay = 17.5, az = 1, facing = 0, walk = 0, swing = 0;
-  int level = 1;
+  double ax = 17.5, ay = 17.5, az = 1, facing = 0, walk = 0, swing = 0, vz = 0, stuck = 0;
+  bool grounded = true;
+  // birinci şahıs
+  bool firstPerson = false;
+  double look = 0, lookUp = -0.15;
+  int? aim, aimNormal;
+  bool breakHeld = false;
+  double padF = 0, padR = 0;
   (int, int)? walkTo;
   int? breakCell;
   int? chestCell;
@@ -763,6 +770,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
     _placeAvatar(17, 17);
+    if (widget.startFirstPerson) {
+      firstPerson = true;
+      look = 2.4;
+      lookUp = -0.12;
+      facing = look;
+    }
     hand = game.blockTools.where((t) => t != 'kalkan').lastOrNull;
     _ticker = createTicker(_tick)..start();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -777,7 +790,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     });
   }
 
-  // ---------- karakterin hareketi ----------
+  // ---------- karakterin hareketi (fizik) ----------
   bool solid(int x, int y, int z) {
     if (z < 0) return true;
     final m = world.blocks[ck(x, y, z)];
@@ -792,28 +805,60 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
     ax = x + 0.5;
     ay = y + 0.5;
-    level = z;
     az = z.toDouble();
+    vz = 0;
   }
 
-  /// Karakter (x,y) hücresine geçebilir mi? Geçebilirse ayak seviyesini döndürür.
-  int? _stand(int x, int y, int cur) {
-    if (!inside(x, y, 0)) return null;
-    if (solid(x, y, cur)) {
-      if (!solid(x, y, cur + 1) && !solid(x, y, cur + 2)) return cur + 1;
-      return null;
+  int get level => (az + 0.01).floor();
+
+  /// Gövde (yarıçap 0.28, boy 1.75) bu konumda boşlukta mı?
+  bool bodyFree(double px, double py, double pz) {
+    for (final ox in const [-0.28, 0.28]) {
+      for (final oy in const [-0.28, 0.28]) {
+        final cx = (px + ox).floor(), cy = (py + oy).floor();
+        if (!inside(cx, cy, 0)) return false;
+        for (final hz in const [0.02, 0.9, 1.72]) {
+          if (solid(cx, cy, (pz + hz).floor())) return false;
+        }
+      }
     }
-    if (solid(x, y, cur + 1)) return null;
-    var z = cur;
-    while (z > 0 && !solid(x, y, z - 1)) {
-      z--;
+    return true;
+  }
+
+  /// Yatay hareket; bir bloğa kendiliğinden çıkar. Hareket ettiyse true.
+  bool _move(double mx, double my) {
+    var moved = false;
+    for (var axis = 0; axis < 2; axis++) {
+      final d = axis == 0 ? mx : my;
+      if (d == 0) continue;
+      final nx = axis == 0 ? ax + d : ax, ny = axis == 1 ? ay + d : ay;
+      if (bodyFree(nx, ny, az)) {
+        ax = nx;
+        ay = ny;
+        moved = true;
+      } else if (grounded && bodyFree(nx, ny, level + 1.0) && bodyFree(ax, ay, level + 1.0)) {
+        az = level + 1.0; // basamak çık
+        ax = nx;
+        ay = ny;
+        moved = true;
+      }
     }
-    return z;
+    return moved;
+  }
+
+  void jump() {
+    if (grounded) {
+      vz = 7.6;
+      grounded = false;
+      Sfx.play('uc', volume: 0.4);
+    }
   }
 
   bool _inReach(int cell) {
     final (x, y, z) = cxyz(cell);
-    return (x + 0.5 - ax).abs() <= 1.7 && (y + 0.5 - ay).abs() <= 1.7 && z >= level - 1 && z <= level + 2;
+    final ez = az + 1.5;
+    final dx = x + 0.5 - ax, dy = y + 0.5 - ay, dz = z + 0.5 - ez;
+    return dx * dx + dy * dy + dz * dz <= 5.2 * 5.2 && (dx.abs() <= 1.8 && dy.abs() <= 1.8 || firstPerson);
   }
 
   int _hitsFor(int mat) {
@@ -842,64 +887,101 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (dt <= 0) return;
     if (dt > 0.05) dt = 0.05;
     var changed = false;
-    // ayak içinde blok kaldıysa yukarı çık
-    if (solid((ax).floor(), (ay).floor(), level) || solid(ax.floor(), ay.floor(), level + 1)) {
-      level++;
+    // içine blok konduysa üste çık
+    if (!bodyFree(ax, ay, az)) {
+      var z = level;
+      while (z < H && !bodyFree(ax, ay, z.toDouble())) {
+        z++;
+      }
+      az = z.toDouble();
+      vz = 0;
       changed = true;
+    }
+    // yön tuşları
+    var mx = 0.0, my = 0.0;
+    if (padF != 0 || padR != 0) {
+      walkTo = null;
+      double fwx, fwy, rtx, rty;
+      if (firstPerson) {
+        fwx = sin(look);
+        fwy = cos(look);
+      } else {
+        fwx = -sin(yaw);
+        fwy = -cos(yaw);
+      }
+      rtx = fwy;
+      rty = -fwx;
+      mx = fwx * padF + rtx * padR;
+      my = fwy * padF + rty * padR;
     }
     final target = walkTo;
     if (target != null) {
-      final tx = target.$1 + 0.5, ty = target.$2 + 0.5;
-      final dx = tx - ax, dy = ty - ay;
+      final dx = target.$1 + 0.5 - ax, dy = target.$2 + 0.5 - ay;
       final dist = sqrt(dx * dx + dy * dy);
-      final near = (chestCell != null || breakCell != null) && dist < 1.3;
-      if (dist < 0.08 || near) {
+      final near = (chestCell != null && _inReach(chestCell!)) || (breakCell != null && _inReach(breakCell!));
+      if (dist < 0.12 || near) {
         walkTo = null;
         _arrived();
       } else {
-        facing = atan2(dx, dy);
-        final step = min(dist, 3.6 * dt);
-        final nx = ax + dx / dist * step, ny = ay + dy / dist * step;
-        final cx = nx.floor(), cy = ny.floor();
-        if (cx != ax.floor() || cy != ay.floor()) {
-          final lv = _stand(cx, cy, level);
-          if (lv == null) {
-            walkTo = null;
-            _arrived(blocked: true);
-          } else {
-            level = lv;
-            ax = nx;
-            ay = ny;
-          }
-        } else {
-          ax = nx;
-          ay = ny;
-        }
+        mx = dx / dist;
+        my = dy / dist;
+      }
+    }
+    final ml = sqrt(mx * mx + my * my);
+    if (ml > 0) {
+      final speed = 3.8 * dt / max(1, ml);
+      if (!firstPerson) facing = atan2(mx, my);
+      final moved = _move(mx * speed, my * speed);
+      if (moved) {
+        stuck = 0;
         walk += dt * 11;
+      } else {
+        stuck += dt;
+        if (stuck > 0.35 && walkTo != null) {
+          walkTo = null;
+          _arrived(blocked: true);
+        }
       }
       changed = true;
     } else if (walk != 0) {
       walk = 0;
       changed = true;
     }
-    if ((az - level).abs() > 0.01) {
-      az += (level - az) * min(1, dt * 14);
+    if (firstPerson) facing = look;
+    // yerçekimi
+    if (grounded && bodyFree(ax, ay, az - 0.06)) grounded = false;
+    if (!grounded) {
+      vz -= 24 * dt;
+      final nz = az + vz * dt;
+      if (vz < 0 && !bodyFree(ax, ay, nz)) {
+        az = (nz).floor() + 1.0;
+        if (!bodyFree(ax, ay, az)) az = level.toDouble();
+        vz = 0;
+        grounded = true;
+      } else if (vz > 0 && !bodyFree(ax, ay, nz)) {
+        vz = 0;
+      } else {
+        az = nz;
+      }
+      if (az < -3) _placeAvatar(ax.floor(), ay.floor());
       changed = true;
     }
     // kırma
     final bc = breakCell;
     if (bc != null && walkTo == null) {
-      if (!world.blocks.containsKey(bc)) {
+      if (!world.blocks.containsKey(bc) || (firstPerson && !breakHeld && hits == 0 && swing == 0)) {
         breakCell = null;
-      } else {
-        final (bx, by, _) = cxyz(bc);
-        facing = atan2(bx + 0.5 - ax, by + 0.5 - ay);
-        swing += dt / 0.32;
+      } else if (_inReach(bc)) {
+        if (!firstPerson) {
+          final (bx, by, _) = cxyz(bc);
+          facing = atan2(bx + 0.5 - ax, by + 0.5 - ay);
+        }
+        swing += dt / 0.3;
         if (swing >= 1) {
           swing = 0;
           hits++;
           final m = world.blocks[bc]!;
-          Sfx.play(_hitsFor(m) <= 1 || hits >= _hitsFor(m) ? 'kir' : 'tok', volume: 0.7);
+          Sfx.play(hits >= _hitsFor(m) ? 'kir' : 'tok', volume: 0.7);
           _burst(bc, mats[m].color, 5);
           if (hits >= _hitsFor(m)) {
             _push();
@@ -910,6 +992,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             breakCell = null;
             hits = 0;
             _changed();
+          } else if (firstPerson && !breakHeld) {
+            // tek dokunuş: bloğu bitirene kadar devam
           }
         }
       }
@@ -917,6 +1001,17 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     } else if (swing != 0) {
       swing = 0;
       changed = true;
+    }
+    // birinci şahısta nişangâh hedefi
+    if (firstPerson) {
+      final h = rayHit();
+      final tc = h?.$1;
+      if (tc != aim) {
+        aim = tc;
+        aimNormal = h?.$2;
+        changed = true;
+      }
+      if (breakHeld && breakCell == null && aim != null) _startBreak(aim!);
     }
     // parçacıklar
     if (parts.isNotEmpty) {
@@ -931,12 +1026,88 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       changed = true;
     }
     // kamera karakteri izlesin
-    if (mode != 0 && (walkTo != null || (ax - fx).abs() > 6 || (ay - fy).abs() > 6)) {
+    if (!firstPerson && mode != 0 && (ml > 0 || (ax - fx).abs() > 6 || (ay - fy).abs() > 6)) {
       fx += (ax - fx) * min(1, dt * 3);
       fy += (ay - fy) * min(1, dt * 3);
       changed = true;
     }
     if (changed && mounted) setState(() {});
+  }
+
+  /// Gözden ileri ışın: ilk dolu blok ve çarptığı yüz yönü (5 blok).
+  (int, int)? rayHit() {
+    final ex = ax, ey = ay, ez = az + 1.55;
+    final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
+    var x = ex.floor(), y = ey.floor(), z = ez.floor();
+    final sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+    double tMax(double p, double d, int c) {
+      if (d.abs() < 1e-9) return 1e9;
+      return d > 0 ? (c + 1 - p) / d : (p - c) / -d;
+    }
+
+    var tx = tMax(ex, dx, x), ty = tMax(ey, dy, y), tz = tMax(ez, dz, z);
+    final ddx = dx.abs() < 1e-9 ? 1e9 : 1 / dx.abs(), ddy = dy.abs() < 1e-9 ? 1e9 : 1 / dy.abs(), ddz = dz.abs() < 1e-9 ? 1e9 : 1 / dz.abs();
+    var face = -1;
+    for (var i = 0; i < 40; i++) {
+      if (tx < ty && tx < tz) {
+        if (tx > 5.5) break;
+        x += sx;
+        tx += ddx;
+        face = sx > 0 ? 2 : 1;
+      } else if (ty < tz) {
+        if (ty > 5.5) break;
+        y += sy;
+        ty += ddy;
+        face = sy > 0 ? 4 : 3;
+      } else {
+        if (tz > 5.5) break;
+        z += sz;
+        tz += ddz;
+        face = sz > 0 ? 5 : 0;
+      }
+      if (z < 0 || z >= H) break;
+      final m = world.blocks[ck(x, y, z)];
+      if (m != null && mats[m].id != 'su') return (ck(x, y, z), face);
+    }
+    return null;
+  }
+
+  void _startBreak(int cell) {
+    if (world.blocks[cell] == matIndex('hazine')) {
+      _openChest(cell);
+      return;
+    }
+    breakCell = cell;
+    hits = 0;
+    swing = 0.001;
+  }
+
+  void _fpPlace() {
+    final a = aim, n = aimNormal;
+    if (a == null || n == null) return;
+    final pf = prefabById(sel);
+    if (pf != null) {
+      Say.show(context, Who.tamirci, 'Hazır yapıları dışarıdan görünümde, Kur ile koyabilirsin.');
+      return;
+    }
+    final (x, y, z) = cxyz(a);
+    final (nx, ny, nz) = _dirs[n];
+    final xx = x + nx, yy = y + ny, zz = z + nz;
+    if (!inside(xx, yy, zz)) return;
+    final k = ck(xx, yy, zz);
+    if (world.blocks.containsKey(k)) return;
+    world.blocks[k] = matIndex(sel);
+    if (!bodyFree(ax, ay, az)) {
+      world.blocks.remove(k);
+      Say.show(context, Who.tozbulut, 'Oraya koyamazsın, orada ben duruyorum!', mood: 'gul');
+      return;
+    }
+    world.blocks.remove(k);
+    _push();
+    world.blocks[k] = matIndex(sel);
+    world.version++;
+    Sfx.play('tok');
+    _changed();
   }
 
   void _burst(int cell, Color c, int n) {
@@ -1220,7 +1391,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     for (final e in world.blocks.entries) {
       final (x, y, z) = cxyz(e.key);
       final m = mats[e.value];
-      for (var d = 0; d < 5; d++) {
+      for (var d = 0; d < 6; d++) {
+        if (d == 5 && z == 0) continue;
         final (nx, ny, nz) = _dirs[d];
         final xx = x + nx, yy = y + ny, zz = z + nz;
         if (inside(xx, yy, zz)) {
@@ -1516,46 +1688,56 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             Expanded(
               child: LayoutBuilder(builder: (_, c) {
                 area = Size(c.maxWidth, c.maxHeight);
-                return GestureDetector(
-                  onTapDown: (d) => _down(d.localPosition),
-                  onTapUp: (d) => _up(d.localPosition),
-                  onTapCancel: () => setState(() => previewCell = null),
-                  onScaleStart: (d) {
-                    _y0 = yaw;
-                    _p0 = pitch;
-                    _z0 = zoom;
-                    _f0 = d.localFocalPoint;
-                    _fx0 = fx;
-                    _fy0 = fy;
-                    _moved = false;
-                    _pointers = d.pointerCount;
-                  },
-                  onScaleUpdate: (d) {
-                    final delta = d.localFocalPoint - _f0;
-                    if (!_moved && delta.distance < 8 && d.pointerCount < 2) return;
-                    _moved = true;
-                    if (d.pointerCount > _pointers) _pointers = d.pointerCount;
-                    setState(() {
-                      previewCell = null;
-                      if (_pointers >= 2 || moveMode) {
-                        zoom = (_z0 * d.scale).clamp(0.5, 3.0).toDouble();
-                        final s = scale, sp = sin(pitch);
-                        final a = delta.dx / s, b = delta.dy / (sp * s);
-                        final wx = a * cos(yaw) + b * sin(yaw), wy = -a * sin(yaw) + b * cos(yaw);
-                        fx = (_fx0 - wx).clamp(minX.toDouble(), maxX + 1.0).toDouble();
-                        fy = (_fy0 - wy).clamp(minY.toDouble(), maxY + 1.0).toDouble();
-                      } else {
-                        yaw = _y0 - delta.dx * 0.008;
-                        pitch = (_p0 + delta.dy * 0.004).clamp(0.35, 1.25).toDouble();
-                      }
-                    });
-                  },
-                  child: Stack(children: [
-                    ClipRect(child: CustomPaint(size: area, painter: _WorldPainter(this, pulse))),
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Column(children: [
+                return Stack(children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTapDown: (d) => firstPerson ? null : _down(d.localPosition),
+                      onTapUp: (d) => firstPerson ? _fpTap() : _up(d.localPosition),
+                      onTapCancel: () => setState(() => previewCell = null),
+                      onScaleStart: (d) {
+                        _y0 = yaw;
+                        _p0 = pitch;
+                        _z0 = zoom;
+                        _f0 = d.localFocalPoint;
+                        _fx0 = fx;
+                        _fy0 = fy;
+                        _l0 = look;
+                        _lu0 = lookUp;
+                        _moved = false;
+                        _pointers = d.pointerCount;
+                      },
+                      onScaleUpdate: (d) {
+                        final delta = d.localFocalPoint - _f0;
+                        if (!_moved && delta.distance < 8 && d.pointerCount < 2) return;
+                        _moved = true;
+                        if (d.pointerCount > _pointers) _pointers = d.pointerCount;
+                        setState(() {
+                          previewCell = null;
+                          if (firstPerson) {
+                            look = _l0 + delta.dx * 0.006;
+                            lookUp = (_lu0 - delta.dy * 0.005).clamp(-1.35, 1.35).toDouble();
+                          } else if (_pointers >= 2 || moveMode) {
+                            zoom = (_z0 * d.scale).clamp(0.5, 3.0).toDouble();
+                            final s = scale, sp = sin(pitch);
+                            final a = delta.dx / s, b = delta.dy / (sp * s);
+                            final wx = a * cos(yaw) + b * sin(yaw), wy = -a * sin(yaw) + b * cos(yaw);
+                            fx = (_fx0 - wx).clamp(minX.toDouble(), maxX + 1.0).toDouble();
+                            fy = (_fy0 - wy).clamp(minY.toDouble(), maxY + 1.0).toDouble();
+                          } else {
+                            yaw = _y0 - delta.dx * 0.008;
+                            pitch = (_p0 + delta.dy * 0.004).clamp(0.35, 1.25).toDouble();
+                          }
+                        });
+                      },
+                      child: ClipRect(child: CustomPaint(size: area, painter: _WorldPainter(this, pulse))),
+                    ),
+                  ),
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Column(children: [
+                      _ViewSwitch(firstPerson, _toggleView),
+                      if (!firstPerson) ...[
                         _Tool(Icons.zoom_in, () => setState(() => zoom = min(3.0, zoom + 0.35))),
                         _Tool(Icons.zoom_out, () => setState(() => zoom = max(0.5, zoom - 0.35))),
                         _Tool(moveMode ? Icons.open_with : Icons.threesixty, () {
@@ -1569,27 +1751,50 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                             zoom = max(zoom, 1.4);
                           });
                         }),
-                        Bouncy(
-                          onTap: () async {
-                            await Navigator.push(context, fadeRoute(const AvatarScreen()));
-                            if (mounted) setState(() => avatar = myAvatar);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            width: 42,
-                            height: 54,
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                            child: CustomPaint(painter: AvatarPainter(avatar, 0.5)),
-                          ),
+                      ],
+                      Bouncy(
+                        onTap: () async {
+                          await Navigator.push(context, fadeRoute(const AvatarScreen()));
+                          if (mounted) setState(() => avatar = myAvatar);
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          width: 42,
+                          height: 54,
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          child: CustomPaint(painter: AvatarPainter(avatar, 0.5)),
                         ),
+                      ),
+                    ]),
+                  ),
+                  if (firstPerson || mode != 0) Positioned(left: 8, bottom: 8, child: _pad()),
+                  if (firstPerson)
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Column(children: [
+                        _ActionBtn('🧱', 'Koy', const Color(0xFF66BB6A), down: () => _fpPlace()),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump),
+                          const SizedBox(width: 8),
+                          _ActionBtn('⛏️', 'Kır', const Color(0xFFEF5350), big: true, down: () {
+                            breakHeld = true;
+                            final t = aim;
+                            if (t != null && breakCell == null) _startBreak(t);
+                          }, up: () => breakHeld = false),
+                        ]),
                       ]),
-                    ),
-                  ]),
-                );
+                    )
+                  else if (mode != 0)
+                    Positioned(right: 8, bottom: 8, child: _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump)),
+                ]);
               }),
             ),
-            _modes(),
-            if (mode == 0) ...[_controls(), _tabs(), _palette()] else _toolBar(),
+            if (firstPerson) _fpBar() else ...[
+              _modes(),
+              if (mode == 0) ...[_controls(), _tabs(), _palette()] else _toolBar(),
+            ],
           ]),
         ),
       ]),
@@ -1663,6 +1868,119 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
           const Icon(Icons.my_location, color: Colors.black45),
         ]),
       ),
+    );
+  }
+
+  void _toggleView() {
+    Sfx.play('uc');
+    setState(() {
+      firstPerson = !firstPerson;
+      walkTo = null;
+      breakCell = null;
+      padF = 0;
+      padR = 0;
+      if (firstPerson) {
+        look = facing;
+        lookUp = -0.2;
+      } else {
+        fx = ax;
+        fy = ay;
+        yaw = look + pi; // karakterin arkasından bak
+        zoom = max(zoom, 1.4);
+      }
+      _geoKey = '';
+    });
+    Voice.say(firstPerson
+        ? 'Şimdi karakterin gözünden bakıyorsun! Yön tuşlarıyla yürü, ekranı sürükleyerek etrafına bak.'
+        : 'Dışarıdan bakıyorsun.');
+  }
+
+  void _fpTap() {
+    final t = aim;
+    if (t == null) return;
+    if (world.blocks[t] == matIndex('hazine')) {
+      _openChest(t);
+    }
+  }
+
+  Widget _pad() {
+    Widget arrow(IconData ic, double f, double r) => Listener(
+          onPointerDown: (_) => setState(() {
+            padF = f == 0 ? padF : f;
+            padR = r == 0 ? padR : r;
+          }),
+          onPointerUp: (_) => setState(() {
+            if (f != 0) padF = 0;
+            if (r != 0) padR = 0;
+          }),
+          onPointerCancel: (_) => setState(() {
+            padF = 0;
+            padR = 0;
+          }),
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(((f != 0 && padF == f) || (r != 0 && padR == r)) ? 250 : 170),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))],
+            ),
+            child: Icon(ic, size: 36, color: Colors.black87),
+          ),
+        );
+    return SizedBox(
+      width: 160,
+      height: 160,
+      child: Stack(children: [
+        Positioned(left: 54, top: 0, child: arrow(Icons.keyboard_arrow_up, 1, 0)),
+        Positioned(left: 54, bottom: 0, child: arrow(Icons.keyboard_arrow_down, -1, 0)),
+        Positioned(left: 0, top: 54, child: arrow(Icons.keyboard_arrow_left, 0, -1)),
+        Positioned(right: 0, top: 54, child: arrow(Icons.keyboard_arrow_right, 0, 1)),
+      ]),
+    );
+  }
+
+  /// Birinci şahısta alt çubuk: alet ve blok seçimi
+  Widget _fpBar() {
+    final owned = tools.where((t) => game.blockTools.contains(t.id) && t.id != 'kalkan').toList();
+    final blocks = mats.where((m) => m.tab != 9 && unlocked(m.id)).toList();
+    return Container(
+      height: 118,
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(children: [
+        SizedBox(
+          height: 44,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            _toolChip('✊', 'el', hand == null, () => setState(() => hand = null)),
+            for (final t in owned) _toolChip(t.emoji, t.name, hand == t.id, () => setState(() => hand = t.id)),
+            if (game.blockTools.length < tools.length)
+              _toolChip('🧰', 'sandıkta', false,
+                  () => Say.show(context, Who.tamirci, 'Hazine sandıklarını bul! Nişangâhı sandığa getirip Kır tuşuna bas.')),
+          ]),
+        ),
+        const SizedBox(height: 4),
+        Expanded(
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            for (final m in blocks)
+              Bouncy(
+                onTap: () => _select(m.id),
+                child: Container(
+                  width: 52,
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: sel == m.id ? const Color(0xFFFFF59D) : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sel == m.id ? Colors.orange : Colors.black12, width: sel == m.id ? 3 : 1),
+                  ),
+                  child: _MatSwatch(m),
+                ),
+              ),
+          ]),
+        ),
+      ]),
     );
   }
 
@@ -1926,11 +2244,15 @@ class _WorldPainter extends CustomPainter {
   final Animation<double> anim;
   _WorldPainter(this.s, this.anim) : super(repaint: anim);
 
-  static const _shade = [1.0, 0.80, 0.66, 0.72, 0.88];
+  static const _shade = [1.0, 0.80, 0.66, 0.72, 0.88, 0.55];
 
   @override
   void paint(Canvas canvas, Size size) {
     s.area = size;
+    if (s.firstPerson) {
+      _paintFP(canvas, size);
+      return;
+    }
     s.cam();
     _sea(canvas);
     final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null},'
@@ -1965,6 +2287,7 @@ class _WorldPainter extends CustomPainter {
     final dep = <double>[];
     for (var i = 0; i < faces.length; i++) {
       final f = faces[i];
+      if (f.dir == 5) continue;
       if (f.dir != 0) {
         final (nx, ny, _) = _dirs[f.dir];
         if (nx * sy + ny * cy <= 0) continue;
@@ -2064,6 +2387,199 @@ class _WorldPainter extends CustomPainter {
       ..count = n;
   }
 
+  // ================= birinci şahıs =================
+  double _ex = 0, _ey = 0, _ez = 0, _fx = 0, _fy = 1, _fz = 0, _rx = 1, _ry = 0, _ux = 0, _uy = 0, _uz = 1, _foc = 300;
+  Offset _c = Offset.zero;
+
+  void _fpCam(Size size) {
+    _ex = s.ax;
+    _ey = s.ay;
+    _ez = s.az + 1.55;
+    final th = s.look, ph = s.lookUp;
+    _fx = sin(th) * cos(ph);
+    _fy = cos(th) * cos(ph);
+    _fz = sin(ph);
+    _rx = cos(th);
+    _ry = -sin(th);
+    _ux = _ry * _fz;
+    _uy = -_rx * _fz;
+    _uz = _rx * _fy - _ry * _fx;
+    _foc = size.height * 0.5 / tan(0.62);
+    _c = Offset(size.width / 2, size.height / 2);
+  }
+
+  Offset? fpProj(double x, double y, double z) {
+    final dx = x - _ex, dy = y - _ey, dz = z - _ez;
+    final zc = dx * _fx + dy * _fy + dz * _fz;
+    if (zc < 0.06) return null;
+    final xc = dx * _rx + dy * _ry;
+    final yc = dx * _ux + dy * _uy + dz * _uz;
+    return Offset(_c.dx + xc / zc * _foc, _c.dy - yc / zc * _foc);
+  }
+
+  void _paintFP(Canvas canvas, Size size) {
+    _fpCam(size);
+    final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null}';
+    if (key != s._geoKey) {
+      s._geoKey = key;
+      _buildFP(size);
+    }
+    final paint = Paint();
+    final atlas = Tex.atlas;
+    if (atlas != null) {
+      paint.shader = ui.ImageShader(atlas, TileMode.clamp, TileMode.clamp, Matrix4.identity().storage, filterQuality: FilterQuality.none);
+    } else {
+      paint.color = Colors.white;
+    }
+    for (final v in s._verts) {
+      canvas.drawVertices(v, BlendMode.modulate, paint);
+    }
+    // hedeflenen blok çerçevesi
+    final a = s.aim;
+    if (a != null) {
+      final (x, y, z) = cxyz(a);
+      final pts = [
+        for (final p in const [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)])
+          fpProj(x + p.$1 * 1.0, y + p.$2 * 1.0, z + p.$3 * 1.0)
+      ];
+      final line = Paint()
+        ..color = Colors.black.withAlpha(200)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+      const edges = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)];
+      for (final e in edges) {
+        final p1 = pts[e.$1], p2 = pts[e.$2];
+        if (p1 != null && p2 != null) canvas.drawLine(p1, p2, line);
+      }
+    }
+    // parçacıklar
+    for (final p in s.parts) {
+      final o = fpProj(p.x, p.y, p.z);
+      if (o == null) continue;
+      canvas.drawRect(Rect.fromCenter(center: o, width: 8, height: 8), Paint()..color = p.c.withAlpha((255 * min(1, p.life * 2)).toInt()));
+    }
+    // nişangâh
+    final cp = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 3;
+    final shadow = Paint()
+      ..color = Colors.black54
+      ..strokeWidth = 5;
+    for (final pnt in [shadow, cp]) {
+      canvas.drawLine(_c - const Offset(11, 0), _c + const Offset(11, 0), pnt);
+      canvas.drawLine(_c - const Offset(0, 11), _c + const Offset(0, 11), pnt);
+    }
+    // kırma ilerlemesi
+    final bc = s.breakCell;
+    if (bc != null && s.world.blocks[bc] != null) {
+      final need = s._hitsFor(s.world.blocks[bc]!);
+      final f = ((s.hits + s.swing) / need).clamp(0.0, 1.0);
+      final r = Rect.fromLTWH(_c.dx - 30, _c.dy + 20, 60, 8);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(4)), Paint()..color = Colors.black45);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(r.left, r.top, r.width * f, r.height), const Radius.circular(4)),
+          Paint()..color = Colors.lightGreenAccent);
+    }
+    // eldeki alet / el
+    final tool = s.hand == null ? '✊' : tools.firstWhere((t) => t.id == s.hand).emoji;
+    final sw = s.swing > 0 ? sin(s.swing * pi) : 0.0;
+    final bob = sin(s.walk) * 6;
+    canvas.save();
+    canvas.translate(size.width - 70 - sw * 40, size.height - 70 + bob + sw * 10);
+    canvas.rotate(-0.4 - sw * 0.9);
+    final tp = TextPainter(text: TextSpan(text: tool, style: const TextStyle(fontSize: 76)), textDirection: TextDirection.ltr)..layout();
+    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
+  }
+
+  void _buildFP(Size size) {
+    for (final v in s._verts) {
+      v.dispose();
+    }
+    s._verts.clear();
+    const range = 24.0;
+    final faces = s.exposed;
+    final items = <int>[];
+    final dist = <double>[];
+    for (var i = 0; i < faces.length; i++) {
+      final f = faces[i];
+      final (x, y, z) = cxyz(f.cell);
+      final (nx, ny, nz) = _dirs[f.dir];
+      final cx = x + 0.5 + nx * 0.5, cy = y + 0.5 + ny * 0.5, cz = z + 0.5 + nz * 0.5;
+      final vx = _ex - cx, vy = _ey - cy, vz = _ez - cz;
+      if (nx * vx + ny * vy + nz * vz <= 0) continue;
+      if (vx.abs() > range || vy.abs() > range) continue;
+      if (-(vx * _fx + vy * _fy + vz * _fz) < -1.2) continue; // arkada
+      items.add(i);
+      dist.add(vx * vx + vy * vy + vz * vz);
+    }
+    final order = List<int>.generate(items.length, (i) => i)..sort((a, b) => dist[b].compareTo(dist[a]));
+    var pos = <double>[], uv = <double>[];
+    var col = <int>[];
+    var idx = <int>[];
+    void flush() {
+      if (pos.isEmpty) return;
+      s._verts.add(ui.Vertices.raw(ui.VertexMode.triangles, Float32List.fromList(pos),
+          textureCoordinates: Float32List.fromList(uv), colors: Int32List.fromList(col), indices: Uint16List.fromList(idx)));
+      pos = [];
+      uv = [];
+      col = [];
+      idx = [];
+    }
+
+    for (final o in order) {
+      final f = faces[items[o]];
+      final (x, y, z) = cxyz(f.cell);
+      final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
+      final r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
+      final us = [r.left + 0.02, r.right - 0.02, r.right - 0.02, r.left + 0.02];
+      final vs = [r.top + 0.02, r.top + 0.02, r.bottom - 0.02, r.bottom - 0.02];
+      // kamera uzayı
+      var poly = <List<double>>[];
+      for (var k = 0; k < 4; k++) {
+        final dx = c[k * 3] - _ex, dy = c[k * 3 + 1] - _ey, dz = c[k * 3 + 2] - _ez;
+        poly.add([dx * _rx + dy * _ry, dx * _ux + dy * _uy + dz * _uz, dx * _fx + dy * _fy + dz * _fz, us[k], vs[k]]);
+      }
+      // yakın düzlem kırpma
+      const near = 0.06;
+      if (poly.any((p) => p[2] < near)) {
+        final out = <List<double>>[];
+        for (var k = 0; k < poly.length; k++) {
+          final a = poly[k], b = poly[(k + 1) % poly.length];
+          final ain = a[2] >= near, bin = b[2] >= near;
+          if (ain) out.add(a);
+          if (ain != bin) {
+            final t = (near - a[2]) / (b[2] - a[2]);
+            out.add([for (var j = 0; j < 5; j++) a[j] + (b[j] - a[j]) * t]);
+          }
+        }
+        poly = out;
+        if (poly.length < 3) continue;
+      }
+      final sh = _shade[f.dir];
+      int cc;
+      if (Tex.atlas != null) {
+        final g = (255 * sh).round();
+        cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+      } else {
+        final mc = mats[f.mat].color;
+        cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+      }
+      if (pos.length ~/ 2 + poly.length > 60000) flush();
+      final base = pos.length ~/ 2;
+      for (final p in poly) {
+        pos.add(_c.dx + p[0] / p[2] * _foc);
+        pos.add(_c.dy - p[1] / p[2] * _foc);
+        uv.add(p[3]);
+        uv.add(p[4]);
+        col.add(cc);
+      }
+      for (var k = 1; k < poly.length - 1; k++) {
+        idx.addAll([base, base + k, base + k + 1]);
+      }
+    }
+    flush();
+  }
+
   void _overlay(Canvas canvas) {
     final t = anim.value;
     for (final p in s.parts) {
@@ -2116,8 +2632,10 @@ class _WorldPainter extends CustomPainter {
         return [x, y, z + 1, x, y + 1, z + 1, x, y + 1, z, x, y, z];
       case 3:
         return [x, y + 1, z + 1, x + 1, y + 1, z + 1, x + 1, y + 1, z, x, y + 1, z];
-      default:
+      case 4:
         return [x + 1, y, z + 1, x, y, z + 1, x, y, z, x + 1, y, z];
+      default:
+        return [x, y + 1, z, x + 1, y + 1, z, x + 1, y, z, x, y, z];
     }
   }
 
@@ -2668,6 +3186,65 @@ class _ToolDialog extends StatelessWidget {
           SylText(t.name, size: 34),
           const SizedBox(height: 14),
           FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Harika!', style: TextStyle(fontSize: 20))),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ViewSwitch extends StatelessWidget {
+  final bool fp;
+  final VoidCallback onTap;
+  const _ViewSwitch(this.fp, this.onTap);
+
+  @override
+  Widget build(BuildContext context) => Bouncy(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.all(2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: fp ? const Color(0xFF7E57C2) : const Color(0xFFFFB300),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+          ),
+          child: Column(children: [
+            Text(fp ? '🎥' : '👁️', style: const TextStyle(fontSize: 22)),
+            Text(fp ? 'Dışarıdan' : 'İçeriden',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
+          ]),
+        ),
+      );
+}
+
+class _ActionBtn extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final Color color;
+  final VoidCallback down;
+  final VoidCallback? up;
+  final bool big;
+  const _ActionBtn(this.emoji, this.label, this.color, {required this.down, this.up, this.big = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final sz = big ? 84.0 : 66.0;
+    return Listener(
+      onPointerDown: (_) => down(),
+      onPointerUp: (_) => up?.call(),
+      onPointerCancel: (_) => up?.call(),
+      child: Container(
+        width: sz,
+        height: sz,
+        decoration: BoxDecoration(
+          color: color.withAlpha(225),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 5, offset: Offset(0, 3))],
+        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(emoji, style: TextStyle(fontSize: big ? 30 : 22)),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
         ]),
       ),
     );
