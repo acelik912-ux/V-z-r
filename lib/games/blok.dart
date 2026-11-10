@@ -1945,13 +1945,13 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final owned = tools.where((t) => game.blockTools.contains(t.id) && t.id != 'kalkan').toList();
     final blocks = mats.where((m) => m.tab != 9 && unlocked(m.id)).toList();
     return Container(
-      height: 118,
+      height: 128,
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
       child: Column(children: [
         SizedBox(
-          height: 44,
+          height: 54,
           child: ListView(scrollDirection: Axis.horizontal, children: [
             _toolChip('✊', 'el', hand == null, () => setState(() => hand = null)),
             for (final t in owned) _toolChip(t.emoji, t.name, hand == t.id, () => setState(() => hand = t.id)),
@@ -2484,9 +2484,9 @@ class _WorldPainter extends CustomPainter {
     final sw = s.swing > 0 ? sin(s.swing * pi) : 0.0;
     final bob = sin(s.walk) * 6;
     canvas.save();
-    canvas.translate(size.width - 70 - sw * 40, size.height - 70 + bob + sw * 10);
+    canvas.translate(size.width * 0.58 - sw * 40, size.height - 46 + bob + sw * 10);
     canvas.rotate(-0.4 - sw * 0.9);
-    final tp = TextPainter(text: TextSpan(text: tool, style: const TextStyle(fontSize: 76)), textDirection: TextDirection.ltr)..layout();
+    final tp = TextPainter(text: TextSpan(text: tool, style: const TextStyle(fontSize: 64)), textDirection: TextDirection.ltr)..layout();
     tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
     canvas.restore();
   }
