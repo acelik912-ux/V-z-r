@@ -57,6 +57,7 @@ void main() {
     await tester.runAsync(() async {
       await game.load();
       await _loadFonts();
+      await Tex.load(mats.map((m) => m.id).toList());
     });
     game.driverName = 'Yusuf';
     game.carName = 'Şimşek';

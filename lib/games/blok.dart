@@ -1202,7 +1202,7 @@ class _WorldPainter extends CustomPainter {
     if (atlas != null) {
       paint.shader = ui.ImageShader(atlas, TileMode.clamp, TileMode.clamp, Matrix4.identity().storage, filterQuality: FilterQuality.none);
     } else {
-      paint.color = const Color(0xFF7CB342);
+      paint.color = Colors.white;
     }
     for (final v in s._verts) {
       canvas.drawVertices(v, BlendMode.modulate, paint);
@@ -1260,8 +1260,15 @@ class _WorldPainter extends CustomPainter {
         final r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
         final u0 = (r.left + 0.02) , v0 = (r.top + 0.02), u1 = (r.right - 0.02), v1 = (r.bottom - 0.02);
         uv.setAll(j * 8, [u0, v0, u1, v0, u1, v1, u0, v1]);
-        final g = (255 * _shade[f.dir]).round();
-        final cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+        final sh = _shade[f.dir];
+        int cc;
+        if (Tex.atlas != null) {
+          final g = (255 * sh).round();
+          cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+        } else {
+          final mc = mats[f.mat].color;
+          cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+        }
         col.setAll(j * 4, [cc, cc, cc, cc]);
         final b = j * 4;
         idx.setAll(j * 6, [b, b + 1, b + 2, b, b + 2, b + 3]);
