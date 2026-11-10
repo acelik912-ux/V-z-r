@@ -44,6 +44,17 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   double speechRate = 0.5;
   bool neuralVoice = true;
   double speechPitch = 1.05;
+  bool musicOn = true;
+
+  // Macera ve mini oyunlar
+  Map<String, int> levelStars = {};
+  Set<String> stickers = <String>{};
+  String blockWorld = '';
+  Set<String> blockQuests = <String>{};
+  Set<String> blockItems = <String>{};
+  Set<String> todayPlayed = <String>{};
+  Set<String> taskClaimed = <String>{};
+  int storyRead = 0;
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -110,6 +121,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
       playedSecToday = 0;
       bonusMinToday = 0;
       bonusCountToday = 0;
+      todayPlayed = {};
+      taskClaimed = {};
     }
   }
 
@@ -229,6 +242,72 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     return true;
   }
 
+  // ---- Macera ----
+  int best(String id) => levelStars[id] ?? 0;
+  int get adventureStars => levelStars.values.fold(0, (a, b) => a + b);
+
+  /// Bir bölüm bitti. Yeni kazanılan yıldızları ve kalpleri ekler.
+  /// İlk kez 3 yıldız alınınca bir çıkartma verir; çıkartma adını döndürür.
+  String? finishLevel(String id, int stars, {int hearts = 0, String? sticker}) {
+    final prev = best(id);
+    if (stars > prev) {
+      levelStars[id] = stars;
+      this.stars += stars - prev;
+    }
+    this.hearts += hearts;
+    coins += stars * 3;
+    todayPlayed.add(id);
+    String? got;
+    if (stars >= 3 && sticker != null && !stickers.contains(sticker)) {
+      stickers.add(sticker);
+      got = sticker;
+    }
+    _changed();
+    return got;
+  }
+
+  void addSticker(String s) {
+    if (stickers.add(s)) _changed();
+  }
+
+  void markPlayed(String id) {
+    if (todayPlayed.add(id)) _changed();
+  }
+
+  void claimTask(String id, {int stars = 1, int hearts = 0}) {
+    if (!taskClaimed.add(id)) return;
+    this.stars += stars;
+    this.hearts += hearts;
+    _changed();
+  }
+
+  void saveBlocks(String w) {
+    blockWorld = w;
+    save();
+  }
+
+  void blockQuestDone(String q, {int stars = 0, int hearts = 0}) {
+    if (!blockQuests.add(q)) return;
+    this.stars += stars;
+    this.hearts += hearts;
+    _changed();
+  }
+
+  void addBlockItem(String it) {
+    if (blockItems.add(it)) _changed();
+  }
+
+  void setMusic(bool v) {
+    musicOn = v;
+    _changed();
+  }
+
+  void storyDone() {
+    storyRead++;
+    todayPlayed.add('hikaye');
+    _changed();
+  }
+
   // ---- Ebeveyn ayarları ----
   void setDailyLimit(int m) {
     dailyLimitMin = m;
@@ -319,6 +398,15 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'nightHour': nightHour,
         'pin': pin,
         'stats': stats,
+        'musicOn': musicOn,
+        'levelStars': levelStars,
+        'stickers': stickers.toList(),
+        'blockWorld': blockWorld,
+        'blockQuests': blockQuests.toList(),
+        'blockItems': blockItems.toList(),
+        'todayPlayed': todayPlayed.toList(),
+        'taskClaimed': taskClaimed.toList(),
+        'storyRead': storyRead,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -369,6 +457,17 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     nightLock = j['nightLock'] as bool? ?? true;
     nightHour = gi('nightHour', 21);
     pin = j['pin'] as String? ?? '';
+    musicOn = j['musicOn'] as bool? ?? true;
+    final ls = j['levelStars'];
+    if (ls is Map) levelStars = ls.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+    Set<String> ss(String k) => ((j[k] as List?) ?? const []).map((e) => e.toString()).toSet();
+    stickers = ss('stickers');
+    blockQuests = ss('blockQuests');
+    blockItems = ss('blockItems');
+    todayPlayed = ss('todayPlayed');
+    taskClaimed = ss('taskClaimed');
+    blockWorld = j['blockWorld'] as String? ?? '';
+    storyRead = gi('storyRead', 0);
     final st = j['stats'];
     if (st is Map) {
       stats = st.map((k, v) => MapEntry(k.toString(), (v as List).map((e) => (e as num).toInt()).toList()));

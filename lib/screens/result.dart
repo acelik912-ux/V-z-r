@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+
+import '../art.dart';
 
 import '../sfx.dart';
 import '../state.dart';
@@ -39,6 +43,8 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     game.addRaceResult(stars: widget.correct, hearts: widget.helped, cups: cup, coins: widget.coins);
+    game.markPlayed('yaris');
+    if (widget.rank == 1) game.addSticker('i_yildiz');
     Voice.say('Yarış bitti! ${ordinal(widget.rank)} oldun. Şimdi jetonlarını sayalım.');
     Future.delayed(const Duration(milliseconds: 3600), _startCount);
   }
@@ -78,7 +84,8 @@ class _ResultScreenState extends State<ResultScreen> {
   Widget build(BuildContext context) {
     final medal = widget.rank == 1 ? '🥇' : (widget.rank == 2 ? '🥈' : (widget.rank == 3 ? '🥉' : '🏁'));
     return Scaffold(
-      body: Container(
+      body: Stack(children: [
+        Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -88,11 +95,11 @@ class _ResultScreenState extends State<ResultScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               children: [
-                Text(medal, style: const TextStyle(fontSize: 90)),
-                Text('${widget.rank}. oldun!', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900)),
+                _Podium(rank: widget.rank),
+                Text('$medal ${widget.rank}. oldun!', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 8),
                 Text(
                   'Hece kapıları: ${widget.correct} / ${widget.gates}',
@@ -116,7 +123,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             AnimatedOpacity(
                               duration: const Duration(milliseconds: 300),
                               opacity: i < shown ? 1 : 0.15,
-                              child: const Text('🪙', style: TextStyle(fontSize: 34)),
+                              child: const Pic('i_jeton', width: 34, height: 34),
                             ),
                         ],
                       ),
@@ -162,6 +169,40 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
           ),
         ),
+      ),
+        if (widget.rank <= 3) const Positioned.fill(child: Confetti()),
+      ]),
+    );
+  }
+}
+
+class _Podium extends StatelessWidget {
+  final int rank;
+  const _Podium({required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    final h = min(w * 0.72, MediaQuery.of(context).size.height * 0.34);
+    // kürsü basamaklarının resimdeki yerleri (720x720 resim, ortalanmış kesit)
+    const spots = {1: Offset(0.5, 0.6), 2: Offset(0.31, 0.73), 3: Offset(0.69, 0.74)};
+    final at = spots[rank];
+    return SizedBox(
+      width: w,
+      height: h,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+        child: Stack(children: [
+          const Positioned.fill(child: Pic('sonuc_kursu', fit: BoxFit.cover)),
+          if (at != null)
+            Positioned(
+              left: at.dx * w - h * 0.25,
+              top: at.dy * h - h * 0.32,
+              child: SizedBox(width: h * 0.5, height: h * 0.36, child: Pic('arac_${game.selected('body')}')),
+            )
+          else
+            Positioned(right: 8, bottom: 8, child: SizedBox(height: h * 0.6, child: const Pic('k_surucu'))),
+        ]),
       ),
     );
   }

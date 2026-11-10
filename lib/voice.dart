@@ -75,7 +75,37 @@ class Voice {
   /// Ebeveyn panelindeki hız ayarını doğal sesin hızına çevirir (0.25-0.7 -> 0.9-1.45).
   static double get neuralSpeed => 0.9 + (game.speechRate - 0.25) / 0.45 * 0.55;
 
+  static bool _en = false;
+
+  /// Testlerde sesi tamamen kapatmak için.
+  static bool muted = false;
+
+  /// İngilizce cümle (telefonun İngilizce sesiyle).
+  static Future<void> sayEn(String text) async {
+    if (muted) return;
+    await NeuralVoice.stop();
+    try {
+      await _tts.stop();
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.42);
+      await _tts.setPitch(1.1);
+      _en = true;
+      await _tts.speak(text);
+    } catch (_) {}
+  }
+
+  static Future<void> _backToTurkish() async {
+    if (!_en) return;
+    _en = false;
+    try {
+      await _tts.setLanguage('tr-TR');
+      await apply();
+    } catch (_) {}
+  }
+
   static Future<void> say(String text) async {
+    if (muted) return;
+    await _backToTurkish();
     if (game.neuralVoice && !NeuralVoice.failed) {
       if (!NeuralVoice.ready) await NeuralVoice.whenReady();
       if (NeuralVoice.ready) {

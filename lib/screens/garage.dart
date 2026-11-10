@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../car3d/car_model.dart';
 import '../car3d/car_view.dart';
 import '../catalog.dart';
+import '../art.dart';
 import '../sfx.dart';
 import '../state.dart';
 import '../voice.dart';
@@ -174,7 +175,16 @@ class _GarageScreenState extends State<GarageScreen> {
     return Stack(
       children: [
         Positioned.fill(
+          child: Image.asset(
+            img(lightsOn ? 'garaj_gece' : 'garaj_gunduz'),
+            fit: BoxFit.cover,
+            alignment: const Alignment(0, 0.55),
+            gaplessPlayback: true,
+          ),
+        ),
+        Positioned.fill(
           child: CarViewer(
+            background: false,
             key: _viewerKey,
             config: shown,
             lightsOn: lightsOn,
@@ -358,7 +368,7 @@ class _GarageScreenState extends State<GarageScreen> {
     final met = game.reqMet(opt.req);
     Widget visual;
     if (row.key == 'body') {
-      visual = CarView(game.config.withPart('body', i), width: 84, shadow: false);
+      visual = Pic('arac_$i', width: 84, height: 62);
     } else if (opt.swatch != null) {
       final c = Color(opt.swatch!);
       visual = Container(

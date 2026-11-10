@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../art.dart';
 import '../state.dart';
 import '../voice.dart';
 import '../car3d/car_view.dart';
@@ -39,44 +40,58 @@ class _LockScreenState extends State<LockScreen> {
   Widget build(BuildContext context) {
     return Material(
       color: night ? const Color(0xFF1A237E) : const Color(0xFFFFE0B2),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(night ? '🌙  Zzz' : '⛽', style: const TextStyle(fontSize: 64)),
-                    const SizedBox(height: 16),
-                    CarView(game.config, width: 220),
-                    const SizedBox(height: 24),
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: night ? Colors.white : Colors.brown.shade900,
-                      ),
+      child: Container(
+        decoration: bgDeco(night ? 'kilit_gece' : 'kilit_benzin'),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                left: 16,
+                right: 16,
+                top: 40,
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: (night ? const Color(0xFF1A237E) : Colors.white).withAlpha(200),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                      color: night ? Colors.white : Colors.brown.shade900,
                     ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 30,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SizedBox(height: 170, child: Pic(night ? 'k_baykus_uyur' : 'k_tamirci_iyi')),
+                    CarView(game.config, width: 170),
                   ],
                 ),
               ),
-            ),
-            Positioned(
-              left: 4,
-              bottom: 4,
-              child: GestureDetector(
-                onLongPress: openParentPanel,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(Icons.settings, color: night ? Colors.white24 : Colors.black26),
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: GestureDetector(
+                  onLongPress: openParentPanel,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(Icons.settings, color: night ? Colors.white24 : Colors.black26),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

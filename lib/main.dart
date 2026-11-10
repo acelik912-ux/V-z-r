@@ -17,6 +17,7 @@ Future<void> main() async {
   await Voice.init();
   await Sfx.init();
   NeuralVoice.init();
+  Music.init();
   runApp(const VizirApp());
 }
 

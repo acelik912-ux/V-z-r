@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../art.dart';
 import '../car3d/car_model.dart';
 import '../car3d/renderer.dart';
 import '../catalog.dart';
@@ -88,6 +89,10 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     game.setInRace(true);
+    Music.hold();
+    Img.load(_raceImgs).then((_) {
+      if (mounted) setState(() {});
+    });
     final bank = Bank(game.letterGroup, game.step);
     for (double d = 1200; d < total - 600; d += 1400) {
       final opts = bank.gate(3);
@@ -123,6 +128,7 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
   void dispose() {
     _ticker.dispose();
     Sfx.engineStop();
+    Music.release();
     if (!finished) game.setInRace(false);
     super.dispose();
   }
@@ -396,6 +402,8 @@ class _RaceScreenState extends State<RaceScreen> with SingleTickerProviderStateM
   }
 }
 
+const _raceImgs = ['doku_cimen', 'd_agac', 'd_lale', 'd_cali', 'd_cam', 'd_meyve', 'd_saman', 'd_pembe', 'd_tas', 'd_cit', 'bitis_taki', 'i_jeton'];
+
 class _RacePainter extends CustomPainter {
   final _RaceScreenState s;
   _RacePainter(this.s);
@@ -413,28 +421,29 @@ class _RacePainter extends CustomPainter {
     final carW = laneW * 0.55;
     final carH = carW * 1.75;
 
-    // Çimen ve laleler
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF7CB342));
-    const flowerColors = [Color(0xFFE53935), Color(0xFFFFEB3B), Color(0xFFEC407A)];
-    for (var i = 0; i < 16; i++) {
-      final y = ((i * 97.0 + s.dist) % (h + 100)) - 50;
-      final x = i.isEven ? left * 0.45 + (i % 3) * 5 : w - left * 0.45 - (i % 3) * 5;
-      canvas.drawLine(Offset(x, y), Offset(x, y + 14), Paint()
-        ..color = const Color(0xFF33691E)
-        ..strokeWidth = 2);
-      canvas.drawCircle(Offset(x, y), 6, Paint()..color = flowerColors[i % 3]);
+    // Çimen
+    final grass = Img.get('doku_cimen');
+    if (grass != null) {
+      const tile = 220.0;
+      final m = Matrix4.identity()
+        ..translate(0.0, s.dist % tile)
+        ..scale(tile / grass.width);
+      canvas.drawRect(Offset.zero & size, Paint()..shader = ImageShader(grass, TileMode.repeated, TileMode.repeated, m.storage));
+    } else {
+      canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF7CB342));
     }
 
-    // Ağaçlar
-    if (left > 28) {
-      final r = min(18.0, left * 0.4);
-      for (var i = 0; i < 9; i++) {
-        final y = ((i * 173.0 + s.dist) % (h + 200)) - 100;
-        final x = i.isEven ? left * 0.42 : w - left * 0.42;
-        canvas.drawOval(Rect.fromCenter(center: Offset(x + 6, y + 8), width: r * 2.2, height: r * 1.6),
-            Paint()..color = Colors.black.withAlpha(45));
-        canvas.drawCircle(Offset(x, y), r, Paint()..color = const Color(0xFF2E7D32));
-        canvas.drawCircle(Offset(x - r * 0.3, y - r * 0.3), r * 0.55, Paint()..color = const Color(0xFF43A047));
+    // Yol kenarındaki süsler
+    if (left > 24) {
+      const deco = ['d_agac', 'd_lale', 'd_cali', 'd_cam', 'd_meyve', 'd_saman', 'd_pembe', 'd_tas', 'd_cit', 'd_lale'];
+      final sw = min(left * 0.9, 96.0);
+      for (var i = 0; i < 12; i++) {
+        final y = ((i * 151.0 + s.dist) % (h + 240)) - 120;
+        final x = i.isEven ? left * 0.5 : w - left * 0.5;
+        final name = deco[(i * 7) % deco.length];
+        final big = name == 'd_agac' || name == 'd_cam' || name == 'd_pembe';
+        final sz = big ? sw : sw * 0.7;
+        Img.draw(canvas, name, Rect.fromCenter(center: Offset(x, y), width: sz, height: sz * 1.1));
       }
     }
 
@@ -472,6 +481,11 @@ class _RacePainter extends CustomPainter {
 
     checker(yOf(0) + 30);
     checker(yOf(s.total) - 40);
+    final fy = yOf(s.total) - 20;
+    if (fy > -300 && fy < h + 40) {
+      final aw = roadW * 1.25;
+      Img.draw(canvas, 'bitis_taki', Rect.fromLTWH(w / 2 - aw / 2, fy - aw * 0.85, aw, aw * 0.9));
+    }
 
     // Jetonlar
     for (final c in s.coinList) {
@@ -479,8 +493,12 @@ class _RacePainter extends CustomPainter {
       final y = yOf(c.d);
       if (y < -40 || y > h + 40) continue;
       final o = Offset(laneX(c.lane.toDouble()), y);
-      canvas.drawCircle(o, 15, Paint()..color = const Color(0xFFFFA000));
-      canvas.drawCircle(o, 11, Paint()..color = const Color(0xFFFFD54F));
+      if (Img.get('i_jeton') != null) {
+        Img.draw(canvas, 'i_jeton', Rect.fromCenter(center: o, width: 34, height: 34));
+      } else {
+        canvas.drawCircle(o, 15, Paint()..color = const Color(0xFFFFA000));
+        canvas.drawCircle(o, 11, Paint()..color = const Color(0xFFFFD54F));
+      }
     }
 
     // Hece kapıları

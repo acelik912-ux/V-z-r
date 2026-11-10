@@ -202,6 +202,12 @@ class ParentPanel extends StatelessWidget {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                title: const Text('Fon müziği'),
+                value: game.musicOn,
+                onChanged: game.setMusic,
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
                 title: const Text('Doğal erkek sesi (önerilen)'),
                 subtitle: const Text('Kapalıysa telefonun kendi sesi kullanılır'),
                 value: game.neuralVoice,

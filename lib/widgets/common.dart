@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../art.dart';
 import '../catalog.dart';
 import '../state.dart';
 import '../syllables.dart';
@@ -56,16 +57,24 @@ class RewardBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget item(String pic, int n) => Container(
+          margin: const EdgeInsets.only(right: 5),
+          padding: const EdgeInsets.fromLTRB(4, 3, 10, 3),
+          decoration: BoxDecoration(color: Colors.white.withAlpha(225), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Pic(pic, width: 24, height: 24),
+            const SizedBox(width: 3),
+            Text('$n', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.black87)),
+          ]),
+        );
     return ListenableBuilder(
       listenable: game,
       builder: (context, _) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Pill('⭐ ${game.stars}'),
-          const SizedBox(width: 6),
-          Pill('❤️ ${game.hearts}'),
-          const SizedBox(width: 6),
-          Pill('🏆 ${game.cups}'),
+          item('i_yildiz', game.stars),
+          item('i_kalp', game.hearts),
+          item('i_kupa', game.cups),
         ],
       ),
     );
@@ -89,7 +98,7 @@ class FuelGauge extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.local_gas_station, color: c),
+              const Pic('i_benzin', width: 22, height: 22),
               const SizedBox(width: 4),
               SizedBox(
                 width: 54,

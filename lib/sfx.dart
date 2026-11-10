@@ -61,3 +61,41 @@ class Sfx {
     } catch (_) {}
   }
 }
+
+/// Hafif fon müziği. Ebeveyn panelinden kapatılabilir.
+class Music {
+  static AudioPlayer? _p;
+  static bool _playing = false;
+  static int _hold = 0;
+
+  static Future<void> _sync() async {
+    final want = game.musicOn && _hold == 0 && !game.showLock;
+    if (want == _playing) return;
+    _playing = want;
+    try {
+      if (want) {
+        _p ??= AudioPlayer();
+        await _p!.setReleaseMode(ReleaseMode.loop);
+        await _p!.play(AssetSource('sfx/muzik.mp3'), volume: 0.16);
+      } else {
+        await _p?.pause();
+      }
+    } catch (_) {}
+  }
+
+  static void init() {
+    game.addListener(_sync);
+    _sync();
+  }
+
+  /// Yarış gibi kendi sesi olan ekranlarda müziği durdurur.
+  static void hold() {
+    _hold++;
+    _sync();
+  }
+
+  static void release() {
+    _hold = _hold > 0 ? _hold - 1 : 0;
+    _sync();
+  }
+}

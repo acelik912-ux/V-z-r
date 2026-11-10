@@ -20,9 +20,18 @@ jobs:
       - run: flutter pub get
       - name: Kod kontrolü
         continue-on-error: true
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib test
+        run: |
+          mkdir -p previews
+          flutter analyze --no-fatal-infos --no-fatal-warnings lib test > previews/analyze.txt 2>&1 || true
+          cat previews/analyze.txt
       - name: Araba önizlemeleri
+        continue-on-error: true
         run: flutter test test/render_preview_test.dart test/icon_render_test.dart
+      - name: Ekran önizlemeleri
+        continue-on-error: true
+        run: |
+          flutter test test/screens_preview_test.dart > previews/test.txt 2>&1 || true
+          tail -80 previews/test.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -84,6 +84,7 @@ class CarViewer extends StatefulWidget {
   final bool autoRotate;
   final bool revving;
   final VoidCallback? onTap;
+  final bool background;
   const CarViewer({
     super.key,
     required this.config,
@@ -91,6 +92,7 @@ class CarViewer extends StatefulWidget {
     this.autoRotate = true,
     this.revving = false,
     this.onTap,
+    this.background = true,
   });
 
   @override
@@ -173,6 +175,7 @@ class CarViewerState extends State<CarViewer> with SingleTickerProviderStateMixi
           widget.lightsOn,
           widget.revving ? 0.012 * math.sin(_time * 70) : 0,
           _time,
+          widget.background,
         ),
         child: const SizedBox.expand(),
       ),
@@ -184,20 +187,22 @@ class _StudioPainter extends CustomPainter {
   final CarConfig cfg;
   final double yaw, pitch, zoom, bob, time;
   final bool lightsOn;
-  _StudioPainter(this.cfg, this.yaw, this.pitch, this.zoom, this.lightsOn, this.bob, this.time);
+  final bool background;
+  _StudioPainter(this.cfg, this.yaw, this.pitch, this.zoom, this.lightsOn, this.bob, this.time, [this.background = true]);
 
   @override
-  void paint(Canvas canvas, Size size) => paintStudio(canvas, size, cfg, yaw, pitch, zoom, lightsOn, bob);
+  void paint(Canvas canvas, Size size) => paintStudio(canvas, size, cfg, yaw, pitch, zoom, lightsOn, bob, background: background);
 
   @override
   bool shouldRepaint(_StudioPainter old) => true;
 }
 
 /// Garaj stüdyosu: arka plan, döner platform, yansımalı araba.
-void paintStudio(Canvas canvas, Size size, CarConfig cfg, double yaw, double pitch, double zoom, bool lightsOn, double bob) {
+void paintStudio(Canvas canvas, Size size, CarConfig cfg, double yaw, double pitch, double zoom, bool lightsOn, double bob,
+    {bool background = true}) {
   final rect = Offset.zero & size;
   // Stüdyo arka planı
-  canvas.drawRect(
+  if (background) canvas.drawRect(
     rect,
     Paint()
       ..shader = RadialGradient(
@@ -224,7 +229,7 @@ void paintStudio(Canvas canvas, Size size, CarConfig cfg, double yaw, double pit
   }
   canvas.drawPath(
     Path()..addPolygon(disc, true),
-    Paint()..color = lightsOn ? const Color(0xFF37474F) : const Color(0xFFCFD8DC),
+    Paint()..color = (lightsOn ? const Color(0xFF37474F) : const Color(0xFFCFD8DC)).withAlpha(background ? 255 : 150),
   );
   final ring = Paint()
     ..style = PaintingStyle.stroke
