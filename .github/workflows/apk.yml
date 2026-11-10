@@ -53,6 +53,7 @@ jobs:
         run: flutter test test/render_preview_test.dart
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         if: always()
         with:
           name: onizlemeler
@@ -74,6 +75,7 @@ jobs:
         run: cp build/app/outputs/flutter-apk/app-release.apk vizir-${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: vizir-apk
           path: vizir-${{ github.run_number }}.apk
