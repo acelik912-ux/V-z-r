@@ -19,7 +19,7 @@ class Tex {
   static ui.Image? atlas;
   static const cols = 16;
 
-  static Rect tile(int index) => Rect.fromLTWH((index % cols) * 16.0, (index ~/ cols) * 16.0, 16, 16);
+  static ui.Rect tile(int index) => ui.Rect.fromLTWH((index % cols) * 16.0, (index ~/ cols) * 16.0, 16, 16);
 
   static Future<void> _load(List<String> ids) async {
     final rows = (ids.length * 2 / cols).ceil();
