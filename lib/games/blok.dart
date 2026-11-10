@@ -2110,10 +2110,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: on ? Colors.orange : Colors.black12, width: on ? 3 : 1),
           ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text(emoji, style: const TextStyle(fontSize: 24)),
-            Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-          ]),
+          child: FittedBox(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(emoji, style: const TextStyle(fontSize: 24)),
+              Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+            ]),
+          ),
         ),
       );
 
