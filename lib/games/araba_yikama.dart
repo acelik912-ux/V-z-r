@@ -6,6 +6,7 @@ import '../art.dart';
 import '../car3d/car_view.dart';
 import '../sfx.dart';
 import '../state.dart';
+import '../syllables.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
 import 'kit.dart';

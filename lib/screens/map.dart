@@ -8,7 +8,6 @@ import '../games/registry.dart';
 import '../sfx.dart';
 import '../state.dart';
 import '../voice.dart';
-import '../widgets/common.dart';
 
 const _mapSize = Size(720, 1290);
 String _lastRegion = 'hece';
