@@ -15,15 +15,33 @@ class Tex {
     return _loading ??= _load(ids);
   }
 
+  /// Bütün dokular tek resimde: blok i için üst = 2i, yan = 2i+1 numaralı karo.
+  static ui.Image? atlas;
+  static const cols = 16;
+
+  static Rect tile(int index) => Rect.fromLTWH((index % cols) * 16.0, (index ~/ cols) * 16.0, 16, 16);
+
   static Future<void> _load(List<String> ids) async {
-    for (final id in ids) {
+    final rows = (ids.length * 2 / cols).ceil();
+    final big = Uint8List(cols * 16 * rows * 16 * 4);
+    for (var i = 0; i < ids.length; i++) {
       for (final side in [false, true]) {
-        final px = _paint(id, side);
+        final px = _paint(ids[i], side);
         final c = Completer<ui.Image>();
         ui.decodeImageFromPixels(px, 16, 16, ui.PixelFormat.rgba8888, c.complete);
-        _cache['$id${side ? 's' : 't'}'] = await c.future;
+        _cache['${ids[i]}${side ? 's' : 't'}'] = await c.future;
+        final t = i * 2 + (side ? 1 : 0);
+        final ox = (t % cols) * 16, oy = (t ~/ cols) * 16;
+        for (var y = 0; y < 16; y++) {
+          final src = y * 16 * 4;
+          final dst = ((oy + y) * cols * 16 + ox) * 4;
+          big.setRange(dst, dst + 64, px, src);
+        }
       }
     }
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromPixels(big, cols * 16, rows * 16, ui.PixelFormat.rgba8888, c.complete);
+    atlas = await c.future;
     ready = true;
   }
 
@@ -233,6 +251,129 @@ class Tex {
         }
         for (final p in const [(2, 2), (13, 2), (2, 13), (13, 13)]) {
           g.set(p.$1, p.$2, 0xFF8A8A8A);
+        }
+      case 'asfalt':
+        g.noise(0xFF4A4A50, 8);
+        g.specks(0xFF5E5E66, 20);
+      case 'yol':
+        g.noise(0xFF4A4A50, 8);
+        if (!side) {
+          for (var y = 2; y < 14; y++) {
+            g.set(7, y, 0xFFF5F5F5);
+            g.set(8, y, 0xFFF5F5F5);
+          }
+        }
+      case 'cicek':
+        if (side) {
+          g.noise(0xFF8B5A2B, 14);
+          for (var x = 0; x < 16; x++) {
+            for (var y = 0; y < 3 + g.r.nextInt(2); y++) {
+              g.set(x, y, g.vary(0xFF6DBE45, 16));
+            }
+          }
+        } else {
+          g.noise(0xFF6DBE45, 18);
+          const fl = [0xFFE53935, 0xFFFFEB3B, 0xFFF48FB1, 0xFFFFFFFF, 0xFFAB47BC];
+          for (var i = 0; i < 9; i++) {
+            final x = 1 + g.r.nextInt(14), y = 1 + g.r.nextInt(14);
+            final c = fl[i % fl.length];
+            g.set(x, y, c);
+            g.set(x + 1, y, c);
+            g.set(x, y + 1, c);
+            g.set(x + 1, y + 1, 0xFFFFC107);
+          }
+        }
+      case 'cit':
+        g.fill(0x00000000);
+        for (var y = 0; y < 16; y++) {
+          for (final x in [1, 2, 13, 14]) {
+            g.set(x, y, g.vary(0xFFB8834A, 8));
+          }
+        }
+        for (var x = 0; x < 16; x++) {
+          for (final y in [3, 4, 10, 11]) {
+            g.set(x, y, g.vary(0xFF9C6B3A, 8));
+          }
+        }
+      case 'cali':
+        g.noise(0xFF558B2F, 26);
+        g.specks(0xFF7CB342, 30);
+        g.specks(0xFF33691E, 20);
+      case 'kabak':
+        if (side) {
+          for (var x = 0; x < 16; x++) {
+            for (var y = 0; y < 16; y++) {
+              g.set(x, y, g.vary(x % 4 == 0 ? 0xFFD35400 : 0xFFF07F1A, 8));
+            }
+          }
+        } else {
+          g.noise(0xFFF07F1A, 8);
+          for (var y = 6; y < 10; y++) {
+            for (var x = 6; x < 10; x++) {
+              g.set(x, y, 0xFF5D7A2B);
+            }
+          }
+        }
+      case 'karpuz':
+        if (side) {
+          for (var x = 0; x < 16; x++) {
+            for (var y = 0; y < 16; y++) {
+              g.set(x, y, g.vary((x ~/ 2).isEven ? 0xFF2E7D32 : 0xFF66BB6A, 8));
+            }
+          }
+        } else {
+          g.noise(0xFF388E3C, 10);
+        }
+      case 'mantar':
+        g.noise(0xFFD32F2F, 10);
+        for (final p in const [(3, 3), (10, 2), (7, 8), (2, 11), (12, 11)]) {
+          for (var dy = 0; dy < 2; dy++) {
+            for (var dx = 0; dx < 2; dx++) {
+              g.set(p.$1 + dx, p.$2 + dy, 0xFFFFFFFF);
+            }
+          }
+        }
+      case 'bal':
+        g.noise(0xFFFFB300, 10);
+        g.border(0xFFE08E00);
+        for (var i = 3; i < 13; i += 4) {
+          for (var x = 1; x < 15; x++) {
+            g.set(x, i, 0xFFFFCA28);
+          }
+        }
+      case 'toprakyol':
+        g.noise(0xFFC9A26B, 10);
+        g.specks(0xFFA88552, 24);
+      case 'pencere':
+        g.fill(0x889EE6FF);
+        g.border(0xFF8D5524);
+        for (var i = 1; i < 15; i++) {
+          g.set(i, 7, 0xFF8D5524);
+          g.set(7, i, 0xFF8D5524);
+        }
+        g.set(3, 4, 0xCCFFFFFF);
+        g.set(4, 3, 0xCCFFFFFF);
+      case 'tasduvar':
+        g.fill(0xFF5A5A5A);
+        for (var row = 0; row < 2; row++) {
+          final off = row.isEven ? 0 : 4;
+          for (var col = -1; col < 2; col++) {
+            final c = g.vary(0xFF9A9A9A, 10);
+            for (var y = row * 8 + 1; y < row * 8 + 7; y++) {
+              for (var x = col * 8 + off + 1; x < col * 8 + off + 8; x++) {
+                if (x >= 0 && x < 16) g.set(x, y, g.vary(c, 7));
+              }
+            }
+          }
+        }
+      case 'mavicati':
+        for (var y = 0; y < 16; y++) {
+          for (var x = 0; x < 16; x++) {
+            final yy = y % 4;
+            final shift = (y ~/ 4).isEven ? 0 : 2;
+            final edge = yy == 3 || ((x + shift) % 4 == 0 && yy > 0);
+            g.set(x, y, g.vary(edge ? 0xFF0D3C7A : (yy == 0 ? 0xFF4F8FE0 : 0xFF1E5FB5), 8));
+          }
         }
       default:
         // yün / renkli bloklar

@@ -25,7 +25,7 @@ const stickerHints = <String, String>{
   'i_kalp': 'İyilik Teslimatı: 3 yıldız',
   'i_yildiz': 'Yarışta birinci ol',
   'k_surucu': 'Günün görevlerini bitir',
-  'k_tamirci_sevin': 'Blok Adası: bütün görevler',
+  'k_tamirci_sevin': 'Blok Şehri: bütün görevler',
   'd_lale': 'Hikâye: Yarım Elma',
   'd_pembe': 'Hikâye: Kırık Ayna',
   'd_agac': 'Hikâye: Bismillah',
@@ -114,7 +114,7 @@ List<DailyTask> todayTasks() {
     for (final r in regions)
       if (regionOpen(r))
         for (final g in r.games) DailyTask(g.id, g.title, g.emoji),
-    const DailyTask('blok', 'Blok Adası', '🧱'),
+    const DailyTask('blok', 'Blok Şehri', '🧱'),
     const DailyTask('hikaye', 'Bir hikâye oku', '📖'),
   ];
   final rnd = Random(game.dayKey.hashCode);

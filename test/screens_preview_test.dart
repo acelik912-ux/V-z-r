@@ -66,7 +66,7 @@ void main() {
     game.cups = 2;
     game.levelStars = {'hece_kamyonu': 3, 'araba_yikama': 2, 'kopru_kur': 1};
     game.stickers = {'arac_10', 'k_robot', 'i_yildiz'};
-    game.blockItems = {'kiremit', 'agac', 'tugla', 'cam', 'lale'};
+    game.blockItems = {'beyaz', 'altin', 'fener'};
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.625;
     Directory('previews').createSync(recursive: true);

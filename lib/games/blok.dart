@@ -15,19 +15,19 @@ import 'kit.dart';
 
 // ======================= MALZEMELER =======================
 
-/// Sekmeler: 0 yapı, 1 renkler, 2 doğa, 3 özel
+/// Sekmeler: 0 yapı, 1 renkler, 2 doğa, 3 özel (4 = hazır yapılar)
 class BlockMat {
   final String id;
   final String name;
-  final Color color; // ortalama renk (doku yüklenmeden önce ve küçük resimler için)
+  final Color color;
   final int tab;
   final bool start;
-  final bool see; // saydam (cam, su, buz)
+  final bool see; // saydam (cam, su, buz, çit)
   final bool glow;
   const BlockMat(this.id, this.name, this.color, this.tab, {this.start = false, this.see = false, this.glow = false});
 }
 
-// Sıra önemli: kayıtlı adalar bu sıradaki numaraları kullanır. Yeni bloklar sona eklenir.
+// Sıra önemli: kayıtlı şehirler bu numaraları kullanır. Yeni bloklar sona eklenir.
 const mats = <BlockMat>[
   BlockMat('cim', 'çim', Color(0xFF6DBE45), 2, start: true),
   BlockMat('toprak', 'toprak', Color(0xFF8B5A2B), 2, start: true),
@@ -37,23 +37,23 @@ const mats = <BlockMat>[
   BlockMat('mavi', 'mavi', Color(0xFF1E88E5), 1, start: true),
   BlockMat('sari', 'sarı', Color(0xFFFDD835), 1, start: true),
   BlockMat('yesil', 'yeşil', Color(0xFF43A047), 1, start: true),
-  BlockMat('kiremit', 'kiremit', Color(0xFFC0442A), 0),
-  BlockMat('tugla', 'tuğla', Color(0xFFB04A2F), 0),
-  BlockMat('cam', 'cam', Color(0xFF9EE6FF), 0, see: true),
+  BlockMat('kiremit', 'kiremit', Color(0xFFC0442A), 0, start: true),
+  BlockMat('tugla', 'tuğla', Color(0xFFB04A2F), 0, start: true),
+  BlockMat('cam', 'cam', Color(0xFF9EE6FF), 0, see: true, start: true),
   BlockMat('beyaz', 'mermer', Color(0xFFF2F0EA), 0),
   BlockMat('altin', 'altın', Color(0xFFFFC928), 3),
-  BlockMat('su', 'su', Color(0xFF2E9AE6), 2, see: true),
+  BlockMat('su', 'su', Color(0xFF2E9AE6), 2, see: true, start: true),
   BlockMat('kum', 'kum', Color(0xFFE8D29A), 2, start: true),
   BlockMat('parke', 'parke taşı', Color(0xFF7A7A7A), 0, start: true),
   BlockMat('koyu', 'koyu tahta', Color(0xFF6B4423), 0),
-  BlockMat('kutuk', 'kütük', Color(0xFF6B4A2B), 2),
-  BlockMat('yaprak', 'yaprak', Color(0xFF2E7D32), 2),
+  BlockMat('kutuk', 'kütük', Color(0xFF6B4A2B), 2, start: true),
+  BlockMat('yaprak', 'yaprak', Color(0xFF2E7D32), 2, start: true),
   BlockMat('kumtasi', 'kumtaşı', Color(0xFFDCC384), 0),
   BlockMat('kar', 'kar', Color(0xFFF8FBFF), 2),
   BlockMat('buz', 'buz', Color(0xFFA8DDF5), 2, see: true),
   BlockMat('saman', 'saman', Color(0xFFE3C14B), 2),
   BlockMat('kitaplik', 'kitaplık', Color(0xFF9C6B3A), 3),
-  BlockMat('kapi', 'kapı', Color(0xFF7A4E2A), 3),
+  BlockMat('kapi', 'kapı', Color(0xFF7A4E2A), 3, start: true),
   BlockMat('fener', 'fener', Color(0xFFFFC107), 3, glow: true),
   BlockMat('elmas', 'elmas', Color(0xFF4DD0E1), 3),
   BlockMat('demir', 'demir', Color(0xFFD6D6D6), 0),
@@ -62,61 +62,352 @@ const mats = <BlockMat>[
   BlockMat('pembe', 'pembe', Color(0xFFF48FB1), 1),
   BlockMat('siyah', 'siyah', Color(0xFF37373F), 1),
   BlockMat('acikmavi', 'açık mavi', Color(0xFF81D4FA), 1),
-];
-
-class PropDef {
-  final String id;
-  final String name;
-  final String pic;
-  final double h; // karo genişliğine göre yükseklik
-  const PropDef(this.id, this.name, this.pic, this.h);
-}
-
-const props = <PropDef>[
-  PropDef('agac', 'ağaç', 'd_agac', 1.9),
-  PropDef('lale', 'lale', 'd_lale', 0.9),
-  PropDef('cit', 'çit', 'd_cit', 1.0),
-  PropDef('camagaci', 'çam', 'd_cam', 2.1),
-  PropDef('meyve', 'meyve çalısı', 'd_meyve', 1.2),
-  PropDef('pembe_agac', 'pembe ağaç', 'd_pembe', 1.9),
-  PropDef('saman_balya', 'balya', 'd_saman', 1.0),
-  PropDef('kaya', 'kaya', 'd_tas', 0.9),
-  PropDef('cali', 'çalı', 'd_cali', 1.0),
+  BlockMat('asfalt', 'asfalt', Color(0xFF4A4A50), 0, start: true),
+  BlockMat('yol', 'yol çizgisi', Color(0xFF55555B), 0, start: true),
+  BlockMat('cicek', 'çiçekli çim', Color(0xFF6DBE45), 2, start: true),
+  BlockMat('cit', 'çit', Color(0xFFB8834A), 2, see: true),
+  BlockMat('cali', 'çalı', Color(0xFF558B2F), 2),
+  BlockMat('kabak', 'kabak', Color(0xFFF07F1A), 2),
+  BlockMat('karpuz', 'karpuz', Color(0xFF388E3C), 2),
+  BlockMat('mantar', 'mantar', Color(0xFFD32F2F), 2),
+  BlockMat('bal', 'bal', Color(0xFFFFB300), 3),
+  BlockMat('toprakyol', 'patika', Color(0xFFC9A26B), 2),
+  BlockMat('pencere', 'pencere', Color(0xFF9EE6FF), 0, see: true),
+  BlockMat('tasduvar', 'taş duvar', Color(0xFF8A8A8A), 0),
+  BlockMat('mavicati', 'mavi çatı', Color(0xFF1E5FB5), 0),
 ];
 
 /// Hece sandığı her açılışta bir grup verir.
 const unlockGroups = [
-  ['kiremit', 'agac', 'cam'],
-  ['tugla', 'lale', 'kapi'],
   ['beyaz', 'altin', 'fener'],
-  ['kutuk', 'yaprak', 'camagaci'],
-  ['koyu', 'kitaplik', 'cit'],
-  ['su', 'kar', 'buz'],
+  ['koyu', 'pencere', 'cit'],
+  ['tasduvar', 'mavicati', 'kitaplik'],
   ['mor', 'pembe', 'acikmavi', 'siyah'],
-  ['kumtasi', 'saman', 'meyve'],
-  ['elmas', 'demir', 'pembe_agac'],
-  ['saman_balya', 'kaya', 'cali'],
+  ['cali', 'kabak', 'karpuz'],
+  ['kar', 'buz', 'toprakyol'],
+  ['kumtasi', 'saman', 'demir'],
+  ['mantar', 'bal', 'elmas'],
 ];
 
 int matIndex(String id) => mats.indexWhere((m) => m.id == id);
-PropDef? propById(String id) {
-  for (final p in props) {
+String itemName(String id) {
+  final m = matIndex(id);
+  if (m >= 0) return mats[m].name;
+  return prefabById(id)?.name ?? id;
+}
+
+// ======================= HAZIR YAPILAR =======================
+
+class Prefab {
+  final String id;
+  final String name;
+  final String emoji;
+  final List<(int, int, int, int)> Function() cells; // dx (sağ), dy (ileri), dz, malzeme
+  const Prefab(this.id, this.name, this.emoji, this.cells);
+}
+
+List<(int, int, int, int)> _tree() {
+  final k = matIndex('kutuk'), y = matIndex('yaprak');
+  return [
+    for (var z = 0; z < 3; z++) (0, 0, z, k),
+    for (var dx = -1; dx <= 1; dx++)
+      for (var dy = -1; dy <= 1; dy++)
+        for (var z = 2; z <= 3; z++)
+          if (!(dx == 0 && dy == 0 && z == 2)) (dx, dy, z, y),
+    (0, 0, 4, y),
+  ];
+}
+
+List<(int, int, int, int)> _pine() {
+  final k = matIndex('kutuk'), y = matIndex('yaprak');
+  return [
+    for (var z = 0; z < 2; z++) (0, 0, z, k),
+    for (var dx = -1; dx <= 1; dx++)
+      for (var dy = -1; dy <= 1; dy++) (dx, dy, 2, y),
+    for (final d in const [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]) (d.$1, d.$2, 3, y),
+    (0, 0, 4, y),
+    (0, 0, 5, y),
+  ];
+}
+
+List<(int, int, int, int)> _house() {
+  final t = matIndex('tugla'), k = matIndex('kiremit'), c = matIndex('pencere'), d = matIndex('kapi'), w = matIndex('tahta');
+  final out = <(int, int, int, int)>[];
+  for (var z = 0; z < 3; z++) {
+    for (var dx = -2; dx <= 2; dx++) {
+      for (var dy = 0; dy <= 4; dy++) {
+        final edge = dx.abs() == 2 || dy == 0 || dy == 4;
+        if (!edge) continue;
+        var m = t;
+        if (dy == 0 && dx == 0 && z < 2) m = d;
+        if (z == 1 && ((dx.abs() == 2 && dy == 2) || (dy == 4 && dx == 0) || (dy == 0 && dx.abs() == 1))) m = c;
+        out.add((dx, dy, z, m));
+      }
+    }
+  }
+  for (var dx = -1; dx <= 1; dx++) {
+    for (var dy = 1; dy <= 3; dy++) {
+      out.add((dx, dy, -1, w)); // döşeme
+    }
+  }
+  for (var dx = -2; dx <= 2; dx++) {
+    for (var dy = 0; dy <= 4; dy++) {
+      out.add((dx, dy, 3, k));
+    }
+  }
+  for (var dx = -1; dx <= 1; dx++) {
+    for (var dy = 1; dy <= 3; dy++) {
+      out.add((dx, dy, 4, k));
+    }
+  }
+  out.add((0, 2, 5, k));
+  return out;
+}
+
+List<(int, int, int, int)> _mosque() {
+  final b = matIndex('beyaz'), a = matIndex('altin'), d = matIndex('kapi'), c = matIndex('pencere');
+  final out = <(int, int, int, int)>[];
+  for (var z = 0; z < 3; z++) {
+    for (var dx = -2; dx <= 2; dx++) {
+      for (var dy = 0; dy <= 4; dy++) {
+        final edge = dx.abs() == 2 || dy == 0 || dy == 4;
+        if (!edge) continue;
+        var m = b;
+        if (dy == 0 && dx == 0 && z < 2) m = d;
+        if (z == 1 && dx.abs() == 2 && dy == 2) m = c;
+        out.add((dx, dy, z, m));
+      }
+    }
+  }
+  for (var dx = -2; dx <= 2; dx++) {
+    for (var dy = 0; dy <= 4; dy++) {
+      out.add((dx, dy, 3, b));
+    }
+  }
+  for (var dx = -1; dx <= 1; dx++) {
+    for (var dy = 1; dy <= 3; dy++) {
+      out.add((dx, dy, 4, a));
+    }
+  }
+  out.add((0, 2, 5, a));
+  for (var z = 0; z < 7; z++) {
+    out.add((3, 0, z, b)); // minare
+  }
+  out.add((3, 0, 7, a));
+  return out;
+}
+
+List<(int, int, int, int)> _bridge() {
+  final t = matIndex('tahta'), c = matIndex('cit');
+  return [
+    for (var dy = 0; dy < 6; dy++) ...[(0, dy, 0, t), (-1, dy, 0, t), (1, dy, 1, c), (-2, dy, 1, c)],
+  ];
+}
+
+List<(int, int, int, int)> _lamp() {
+  final d = matIndex('demir'), f = matIndex('fener');
+  return [(0, 0, 0, d), (0, 0, 1, d), (0, 0, 2, d), (0, 0, 3, f)];
+}
+
+List<(int, int, int, int)> _pool() {
+  final m = matIndex('beyaz'), s = matIndex('su');
+  return [
+    for (var dx = -2; dx <= 2; dx++)
+      for (var dy = 0; dy <= 4; dy++) (dx, dy, 0, (dx.abs() == 2 || dy == 0 || dy == 4) ? m : s),
+  ];
+}
+
+List<(int, int, int, int)> _garden() {
+  final c = matIndex('cit'), f = matIndex('cicek');
+  return [
+    for (var dx = -2; dx <= 2; dx++)
+      for (var dy = 0; dy <= 4; dy++)
+        if (dx.abs() == 2 || dy == 0 || dy == 4) (dx, dy, 0, c) else (dx, dy, -1, f),
+  ];
+}
+
+List<(int, int, int, int)> _road() {
+  final a = matIndex('asfalt'), y = matIndex('yol');
+  return [for (var dy = 0; dy < 8; dy++) ...[(-1, dy, -1, a), (0, dy, -1, dy.isEven ? y : a), (1, dy, -1, a)]];
+}
+
+final prefabs = <Prefab>[
+  const Prefab('p_agac', 'ağaç', '🌳', _tree),
+  const Prefab('p_cam', 'çam ağacı', '🌲', _pine),
+  const Prefab('p_ev', 'ev', '🏠', _house),
+  const Prefab('p_cami', 'cami', '🕌', _mosque),
+  const Prefab('p_kopru', 'köprü', '🌉', _bridge),
+  const Prefab('p_fener', 'sokak lambası', '💡', _lamp),
+  const Prefab('p_havuz', 'havuz', '⛲', _pool),
+  const Prefab('p_bahce', 'çiçek bahçesi', '🌷', _garden),
+  const Prefab('p_yol', 'yol', '🛣️', _road),
+];
+
+Prefab? prefabById(String id) {
+  for (final p in prefabs) {
     if (p.id == id) return p;
   }
   return null;
 }
 
-String itemName(String id) {
-  final m = matIndex(id);
-  if (m >= 0) return mats[m].name;
-  return propById(id)?.name ?? id;
-}
-
 // ======================= DÜNYA =======================
 
-const W = 10, D = 10, H = 12;
+const W = 40, D = 40, H = 20;
 int ck(int x, int y, int z) => x + y * W + z * W * D;
 (int, int, int) cxyz(int k) => (k % W, (k ~/ W) % D, k ~/ (W * D));
+bool inside(int x, int y, int z) => x >= 0 && y >= 0 && z >= 0 && x < W && y < D && z < H;
+
+// Şehirdeki önemli yerler
+const riverY = 21;
+const roadX = 19;
+const roadY = 10;
+
+class BlockWorld {
+  final Map<int, int> blocks = {};
+  int version = 0;
+
+  int count(String mat) {
+    final i = matIndex(mat);
+    return blocks.values.where((v) => v == i).length;
+  }
+
+  int treeCount() {
+    final k = matIndex('kutuk');
+    var n = 0;
+    for (var x = 0; x < W; x++) {
+      for (var y = 0; y < D; y++) {
+        if (blocks[ck(x, y, 1)] == k) n++;
+      }
+    }
+    return n;
+  }
+
+  int topZ(int x, int y) {
+    for (var z = H - 1; z >= 0; z--) {
+      if (blocks.containsKey(ck(x, y, z))) return z;
+    }
+    return -1;
+  }
+
+  void put(int x, int y, int z, int m) {
+    if (inside(x, y, z)) blocks[ck(x, y, z)] = m;
+  }
+
+  String encode() {
+    final b = blocks.entries.map((e) => '${e.key}:${e.value}').join(',');
+    return 'v3|$b|';
+  }
+
+  bool decode(String s) {
+    final parts = s.split('|');
+    if (parts.length != 3) return false;
+    if (parts[0] == 'v3') {
+      blocks.clear();
+      for (final e in parts[1].split(',')) {
+        final kv = e.split(':');
+        if (kv.length == 2) blocks[int.parse(kv[0])] = int.parse(kv[1]);
+      }
+      version++;
+      return true;
+    }
+    if (parts[0] == 'v1' || parts[0] == 'v2') {
+      // Eski 10x10 adayı yeni şehrin ortasına taşı
+      seed();
+      const o = 15;
+      for (var x = o; x < o + 10; x++) {
+        for (var y = o; y < o + 10; y++) {
+          for (var z = 0; z < H; z++) {
+            blocks.remove(ck(x, y, z));
+          }
+        }
+      }
+      for (final e in parts[1].split(',')) {
+        final kv = e.split(':');
+        if (kv.length != 2) continue;
+        final k = int.parse(kv[0]);
+        final x = k % 10, y = (k ~/ 10) % 10, z = k ~/ 100;
+        put(x + o, y + o, z, int.parse(kv[1]));
+      }
+      for (final e in parts[2].split(',')) {
+        final kv = e.split(':');
+        if (kv.length != 2) continue;
+        final k = int.parse(kv[0]);
+        final x = k % 10 + o, y = (k ~/ 10) % 10 + o, z = k ~/ 100;
+        if (const {'agac', 'camagaci', 'pembe', 'pembe_agac', 'meyve', 'cali'}.contains(kv[1])) {
+          stamp(_tree(), x, y, z, 0);
+        } else if (kv[1] == 'lale') {
+          put(x, y, z - 1, matIndex('cicek'));
+        }
+      }
+      version++;
+      return true;
+    }
+    return false;
+  }
+
+  /// Hazır yapıyı yerleştirir. dir: 0 +y ileri, 1 +x, 2 -y, 3 -x
+  int stamp(List<(int, int, int, int)> cells, int x, int y, int z, int dir) {
+    var n = 0;
+    for (final c in cells) {
+      int dx = c.$1, dy = c.$2;
+      switch (dir) {
+        case 1:
+          (dx, dy) = (c.$2, -c.$1);
+        case 2:
+          (dx, dy) = (-c.$1, -c.$2);
+        case 3:
+          (dx, dy) = (-c.$2, c.$1);
+      }
+      final xx = x + dx, yy = y + dy, zz = z + c.$3;
+      if (!inside(xx, yy, zz)) continue;
+      if (c.$3 < 0 || !blocks.containsKey(ck(xx, yy, zz))) {
+        blocks[ck(xx, yy, zz)] = c.$4;
+        n++;
+      }
+    }
+    version++;
+    return n;
+  }
+
+  void seed() {
+    blocks.clear();
+    final cim = matIndex('cim'), su = matIndex('su'), kum = matIndex('kum'), cicek = matIndex('cicek');
+    final asf = matIndex('asfalt'), yol = matIndex('yol');
+    for (var x = 0; x < W; x++) {
+      for (var y = 0; y < D; y++) {
+        var m = cim;
+        final ry = riverY + (sin(x / 6) * 1.2).round();
+        if (y == ry || y == ry + 1) {
+          m = su;
+        } else if ((y == ry - 1 || y == ry + 2) && x % 7 < 4) {
+          m = kum;
+        }
+        if (x == roadX && (y < ry - 1 || y > ry + 2)) m = (y % 2 == 0) ? yol : asf;
+        if ((x == roadX - 1 || x == roadX + 1) && (y < ry - 1 || y > ry + 2)) m = asf;
+        if (y == roadY) m = (x % 2 == 0 && x != roadX) ? yol : asf;
+        if (m == cim && (x * 7 + y * 13) % 23 == 0) m = cicek;
+        blocks[ck(x, y, 0)] = m;
+      }
+    }
+    // Köprünün iki ucu (orta boş, görev)
+    // Komşu teyzenin evi (çatısında delikler var)
+    stamp(_house(), 25, 13, 1, 0);
+    for (final c in roofHoles) {
+      blocks.remove(c);
+    }
+    // ağaçlar
+    for (final p in const [(4, 4), (9, 30), (31, 5), (34, 33), (12, 15), (28, 27), (5, 15), (36, 14), (15, 35)]) {
+      stamp(_tree(), p.$1, p.$2, 1, 0);
+    }
+    stamp(_pine(), 7, 34, 1, 0);
+    stamp(_pine(), 33, 2, 1, 0);
+    version++;
+  }
+
+  static final roofHoles = {ck(23, 15, 4), ck(27, 15, 4), ck(25, 13, 4), ck(26, 17, 4)};
+}
+
+// ======================= GÖREVLER =======================
 
 class Quest {
   final String id;
@@ -125,12 +416,13 @@ class Quest {
   final String speech;
   final int stars;
   final int hearts;
-  final Map<int, int> ghost; // hücre -> malzeme (-1: herhangi bir blok)
-  final (int, int) Function(BlockWorld w)? progress; // (şu an, hedef)
+  final Map<int, int> ghost; // hücre -> malzeme (-1: herhangi)
+  final (int, int) Function(BlockWorld w)? progress;
   final bool exact;
   final String? needs;
   final String? unit;
-  const Quest(this.id, this.who, this.text, this.speech,
+  final (int, int) focus;
+  const Quest(this.id, this.who, this.text, this.speech, this.focus,
       {this.stars = 1, this.hearts = 0, this.ghost = const {}, this.progress, this.exact = false, this.needs, this.unit});
 
   (int, int) prog(BlockWorld w) {
@@ -145,149 +437,47 @@ class Quest {
   }
 }
 
-class BlockWorld {
-  final Map<int, int> blocks = {};
-  final Map<int, String> propsAt = {};
-
-  int count(String mat) {
-    final i = matIndex(mat);
-    return blocks.values.where((v) => v == i).length;
-  }
-
-  int propCount(Set<String> ids) => propsAt.values.where(ids.contains).length;
-
-  int tallest() {
-    var best = 0;
-    for (var x = 0; x < W; x++) {
-      for (var y = 0; y < D; y++) {
-        var h = 0;
-        while (blocks.containsKey(ck(x, y, h + 1))) {
-          h++;
-        }
-        if (h > best) best = h;
-      }
-    }
-    return best;
-  }
-
-  /// (x,y) sütunundaki en üst dolu z (yoksa -1).
-  int top(int x, int y) {
-    for (var z = H - 1; z >= 0; z--) {
-      if (blocks.containsKey(ck(x, y, z)) || propsAt.containsKey(ck(x, y, z))) return z;
-    }
-    return -1;
-  }
-
-  String encode() {
-    final b = blocks.entries.map((e) => '${e.key}:${e.value}').join(',');
-    final p = propsAt.entries.map((e) => '${e.key}:${e.value}').join(',');
-    return 'v2|$b|$p';
-  }
-
-  bool decode(String s) {
-    final parts = s.split('|');
-    if (parts.length != 3 || (parts[0] != 'v1' && parts[0] != 'v2')) return false;
-    final oldH = parts[0] == 'v1' ? 10 : H;
-    blocks.clear();
-    propsAt.clear();
-    int conv(int k) {
-      if (oldH == H) return k;
-      final x = k % W, y = (k ~/ W) % D, z = k ~/ (W * D);
-      return ck(x, y, z);
-    }
-
-    for (final e in parts[1].split(',')) {
-      final kv = e.split(':');
-      if (kv.length == 2) blocks[conv(int.parse(kv[0]))] = int.parse(kv[1]);
-    }
-    for (final e in parts[2].split(',')) {
-      final kv = e.split(':');
-      if (kv.length == 2) {
-        final id = kv[1] == 'pembe' ? 'pembe_agac' : (kv[1] == 'saman' ? 'saman_balya' : kv[1]);
-        propsAt[conv(int.parse(kv[0]))] = id;
-      }
-    }
-    return true;
-  }
-
-  void seed() {
-    blocks.clear();
-    propsAt.clear();
-    final cim = matIndex('cim'), su = matIndex('su'), tug = matIndex('tugla'), tah = matIndex('tahta'), kir = matIndex('kiremit');
-    final kum = matIndex('kum'), parke = matIndex('parke');
-    for (var x = 0; x < W; x++) {
-      for (var y = 0; y < D; y++) {
-        blocks[ck(x, y, 0)] = y == 6 ? su : ((y == 5 || y == 7) && x > 6 ? kum : cim);
-      }
-    }
-    for (var y = 0; y < 6; y++) {
-      blocks[ck(4, y, 0)] = parke;
-    }
-    for (var y = 7; y < D; y++) {
-      blocks[ck(4, y, 0)] = parke;
-    }
-    // Komşu teyzenin evi (çatısı eksik)
-    for (var z = 1; z <= 2; z++) {
-      for (var x = 6; x <= 8; x++) {
-        for (var y = 1; y <= 3; y++) {
-          final edge = x == 6 || x == 8 || y == 1 || y == 3;
-          if (!edge) continue;
-          if (y == 3 && x == 7 && z == 1) continue; // kapı
-          blocks[ck(x, y, z)] = (z == 2 && x == 7) ? tah : tug;
-        }
-      }
-    }
-    for (var x = 6; x <= 8; x++) {
-      for (var y = 1; y <= 3; y++) {
-        if (!roofMissing.contains(ck(x, y, 3))) blocks[ck(x, y, 3)] = kir;
-      }
-    }
-    propsAt[ck(1, 1, 1)] = 'agac';
-    propsAt[ck(0, 4, 1)] = 'agac';
-    propsAt[ck(9, 9, 1)] = 'camagaci';
-    propsAt[ck(2, 2, 1)] = 'lale';
-  }
-
-  static final roofAll = [for (var x = 6; x <= 8; x++) for (var y = 1; y <= 3; y++) ck(x, y, 3)];
-  static final roofMissing = {ck(7, 1, 3), ck(6, 2, 3), ck(8, 2, 3), ck(7, 3, 3)};
-}
+int _seedTrees = 11;
 
 final List<Quest> quests = [
-  Quest('kule', Who.tamirci, 'Parlayan yere 5 bloklu kule yap', 'Parlayan yere, blokları üst üste koyarak beş bloklu bir kule yap!',
-      ghost: {for (var z = 1; z <= 5; z++) ck(2, 4, z): -1}),
+  Quest('kule', Who.tamirci, 'Parlayan yere 5 bloklu kule yap', 'Parlayan yere, blokları üst üste koyarak beş bloklu bir kule yap!', (16, 16),
+      ghost: {for (var z = 1; z <= 5; z++) ck(16, 16, z): -1}),
   Quest('cati', Who.tozbulut, 'Komşu teyzenin çatısına kiremit koy', 'Komşu teyzenin evinin çatısı akıyor! Parlayan yerlere kiremit koyalım.',
-      hearts: 1, needs: 'kiremit', ghost: {for (final c in BlockWorld.roofMissing) c: matIndex('kiremit')}),
-  Quest('tas7', Who.robot, 'Adaya tam 7 taş blok koy', 'Adaya tam yedi tane taş blok koy. Ne eksik ne fazla!',
+      (25, 15), hearts: 1, ghost: {for (final c in BlockWorld.roofHoles) c: matIndex('kiremit')}),
+  Quest('tas7', Who.robot, 'Şehre tam 7 taş blok koy', 'Şehre tam yedi tane taş blok koy. Ne eksik ne fazla!', (16, 16),
       exact: true, unit: 'taş', progress: (w) => (w.count('tas'), 7)),
-  Quest('blue', Who.papagan, 'Use four blue blocks! (4 mavi blok)', 'Use four blue blocks! Dört mavi blok kullan.',
+  Quest('blue', Who.papagan, 'Use four blue blocks! (4 mavi blok)', 'Use four blue blocks! Dört mavi blok kullan.', (16, 16),
       unit: 'mavi', progress: (w) => (min(w.count('mavi'), 4), 4)),
-  Quest('agac3', Who.tozbulut, '3 ağaç dik', 'Ağaç dikmek sadakadır. Adaya üç ağaç daha dikelim!', needs: 'agac', unit: 'ağaç',
-      progress: (w) => (max(0, min(3, w.propCount({'agac', 'camagaci', 'pembe_agac'}) - 3)), 3)),
-  Quest('kopru', Who.tamirci, 'Dereye tahta köprü yap', 'Dereyi geçmek için parlayan yerlere tahta köprü kuralım.',
-      ghost: {ck(4, 6, 1): matIndex('tahta')}),
-  Quest('fener', Who.baykus, 'Yola 2 fener koy', 'Akşam olunca yol karanlık oluyor. Yolun kenarına iki fener koyalım!', needs: 'fener', unit: 'fener',
-      progress: (w) => (min(w.count('fener'), 2), 2)),
-  Quest('mescit', Who.baykus, 'Köye küçük bir mescit yap', 'Köyümüze küçük bir mescit yapalım. Parlayan yerlere mermer ve altın koy!',
-      stars: 2, hearts: 2, needs: 'altin', ghost: mescitGhost()),
+  Quest('agac3', Who.tozbulut, '3 ağaç dik (🌳 Hazır)', 'Ağaç dikmek sadakadır. Hazır sekmesinden üç ağaç dikelim!', (12, 26),
+      unit: 'ağaç', progress: (w) => (max(0, min(3, w.treeCount() - _seedTrees)), 3)),
+  Quest('kopru', Who.tamirci, 'Nehrin üstüne köprü kur (🌉 Hazır)', 'Yolumuz nehirde bitiyor! Parlayan yerlere köprü kuralım.', (roadX, riverY),
+      ghost: {for (var y = riverY - 1; y <= riverY + 2; y++) ck(roadX, y, 1): -1}),
+  Quest('fener', Who.baykus, 'Yola 2 fener koy', 'Akşam olunca yol karanlık oluyor. Yolun kenarına iki fener koyalım!', (roadX, 14),
+      needs: 'fener', unit: 'fener', progress: (w) => (min(w.count('fener'), 2), 2)),
+  Quest('mescit', Who.baykus, 'Şehre bir cami yap (🕌 Hazır)', 'Şehrimize güzel bir cami yapalım! Hazır sekmesindeki camiyi kullanabilirsin.', (12, 30),
+      stars: 2, hearts: 2, needs: 'altin', unit: 'altın', progress: (w) => (min(w.count('altin'), 10), 10)),
 ];
 
-Map<int, int> mescitGhost() {
-  final b = matIndex('beyaz'), a = matIndex('altin');
-  final g = <int, int>{};
-  for (var z = 1; z <= 2; z++) {
-    for (var x = 1; x <= 3; x++) {
-      for (var y = 7; y <= 9; y++) {
-        if (x == 2 && y == 7 && z == 1) continue; // kapı boşluğu
-        g[ck(x, y, z)] = b;
-      }
-    }
-  }
-  g[ck(2, 8, 3)] = a; // kubbe
-  for (var z = 1; z <= 4; z++) {
-    g[ck(0, 9, z)] = b; // minare
-  }
-  g[ck(0, 9, 5)] = a;
-  return g;
+/// Robot Rakam'ın matematik görevi.
+class MathTask {
+  final int kind; // 0 toplama, 1 çıkarma, 2 eşitleme
+  final int a, b;
+  final int x, y;
+  final Map<int, int> add = {};
+  final Set<int> remove = {};
+  bool asked = false;
+  MathTask(this.kind, this.a, this.b, this.x, this.y);
+
+  int get answer => kind == 0 ? a + b : (kind == 1 ? a - b : b - a);
+  String get question => kind == 0 ? '$a + $b = ?' : (kind == 1 ? '$a − $b = ?' : '$a + ? = $b');
+  String get say => kind == 0
+      ? '$a artı $b kaç eder?'
+      : (kind == 1 ? '$a blok vardı, $b tanesini sildin. Kaç blok kaldı?' : '$a bloklu kuleye kaç blok ekledin ki $b oldu?');
+  String get intro => kind == 0
+      ? 'Kırmızı kulede $a blok var. Üstüne $b mavi blok koy!'
+      : (kind == 1 ? 'Bu kulede $a blok var. Parlayan $b bloğu sil!' : 'Kuleleri eşitle! Kısa kuleye blok ekle.');
+  bool built(BlockWorld w) =>
+      add.entries.every((e) => w.blocks.containsKey(e.key)) && remove.every((c) => !w.blocks.containsKey(c));
 }
 
 // ======================= EKRAN =======================
@@ -299,37 +489,42 @@ class BlokAdasi extends StatefulWidget {
   State<BlokAdasi> createState() => _BlokAdasiState();
 }
 
+/// Görünen bir yüz: hücre + yön (0 üst, 1 +x, 2 -x, 3 +y, 4 -y)
 class _Face {
-  final Path path;
   final int cell;
-  final int nx, ny, nz; // dünyadaki yön
-  final bool prop;
-  _Face(this.path, this.cell, this.nx, this.ny, this.nz, {this.prop = false});
+  final int dir;
+  final int mat;
+  _Face(this.cell, this.dir, this.mat);
 }
+
+const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)];
 
 class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
-  int rot = 0;
   String sel = 'tahta';
   bool erase = false;
   int tab = 0;
+  bool moveMode = false;
   final List<String> undo = [];
-  List<_Face> faces = [];
-  Size? lastSize;
-  bool dirty = true;
-  ui.Picture? picture;
-  final Map<String, ui.Image> sprites = {};
-  // yakınlaştırma ve kaydırma
-  double zoom = 1.12;
-  Offset pan = Offset.zero;
-  double _z0 = 1;
-  Offset _p0 = Offset.zero, _f0 = Offset.zero;
+  List<_Face> exposed = [];
+  int exposedVersion = -1;
+  // kamera
+  double yaw = 0.78, pitch = 0.62, zoom = 1.0;
+  double fx = 19.5, fy = 17, fz = 0;
+  double _y0 = 0, _p0 = 0, _z0 = 1;
+  Offset _f0 = Offset.zero;
+  double _fx0 = 0, _fy0 = 0;
   bool _moved = false;
-  // dokunmadan önce gösterilen yer
+  int _pointers = 1;
+  Size area = Size.zero;
+  // önizleme
   int? previewCell;
   bool previewErase = false;
+  MathTask? task;
   final night = DateTime.now().hour >= 19 || DateTime.now().hour < 6;
+  // son çizimin dokunma bilgisi
+  final _hit = _HitData();
 
   Quest? get quest {
     for (final q in quests) {
@@ -341,6 +536,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
   bool get questReady => quest != null && (quest!.needs == null || unlocked(quest!.needs!));
 
   bool unlocked(String id) {
+    if (id.startsWith('p_')) return true;
     final m = matIndex(id);
     if (m >= 0 && mats[m].start) return true;
     return game.blockItems.contains(id);
@@ -352,37 +548,44 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
     game.markPlayed('blok');
     Tex.load(mats.map((m) => m.id).toList()).then((_) {
-      if (mounted) setState(() => dirty = true);
+      if (mounted) setState(() {});
     });
-    _loadSprites();
+    final q = quest;
+    if (q != null) _lookAt(q.focus.$1, q.focus.$2);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Say.show(context, Who.tamirci, 'Aşağıdan bir blok seç, sonra adaya dokun. Blok, parlayan çerçevenin olduğu yere konur.', mood: 'iyi');
-      Future.delayed(const Duration(milliseconds: 6000), _sayQuest);
+      Say.show(context, Who.tamirci, 'Blok Şehrine hoş geldin! Parmağınla sürükle, şehir dönsün. Bir blok seç ve dokunarak koy.', mood: 'iyi');
+      Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
     });
   }
 
   @override
   void dispose() {
     pulse.dispose();
+    for (final v in _verts) {
+      v.dispose();
+    }
     game.saveBlocks(world.encode());
     super.dispose();
   }
 
-  Future<void> _loadSprites() async {
-    await Img.load(props.map((p) => p.pic).toList());
-    if (!mounted) return;
-    setState(() {
-      for (final p in props) {
-        final im = Img.get(p.pic);
-        if (im != null) sprites[p.id] = im;
-      }
-      dirty = true;
-    });
+  void _lookAt(int x, int y) {
+    fx = x + 0.5;
+    fy = y + 0.5;
   }
 
+  // ---------- görevler ----------
   void _sayQuest() {
+    if (!mounted) return;
+    final t = task;
+    if (t != null) {
+      Say.show(context, Who.robot, t.intro);
+      return;
+    }
     final q = quest;
-    if (!mounted || q == null) return;
+    if (q == null) {
+      Say.show(context, Who.robot, 'Bütün görevler bitti! 🤖 tuşuna basarsan sana matematik görevi veririm.');
+      return;
+    }
     if (!questReady) {
       Say.show(context, q.who, '${q.text}. Önce 🎁 hece sandığını aç, ${itemName(q.needs!)} çıksın!', mood: 'anlat');
       return;
@@ -395,7 +598,25 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     }
   }
 
-  void _checkQuest() {
+  void _goQuest() {
+    final t = task;
+    setState(() {
+      if (t != null) {
+        _lookAt(t.x, t.y);
+      } else if (quest != null) {
+        _lookAt(quest!.focus.$1, quest!.focus.$2);
+      }
+      zoom = max(zoom, 1.3);
+    });
+    _sayQuest();
+  }
+
+  void _check() {
+    final t = task;
+    if (t != null && !t.asked && t.built(world)) {
+      t.asked = true;
+      Future.delayed(const Duration(milliseconds: 400), () => _askMath(t));
+    }
     final q = quest;
     if (q == null || !questReady) return;
     if (q.exact && q.unit != null) {
@@ -410,187 +631,165 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     Sfx.play('finish');
     Say.show(context, q.who, 'Görev tamam! ${q.hearts > 0 ? 'İyilik kalbi kazandın!' : 'Yıldız kazandın!'}', mood: 'sevin');
     if (quest != null) {
-      Future.delayed(const Duration(milliseconds: 4200), _sayQuest);
+      Future.delayed(const Duration(milliseconds: 4200), _goQuest);
     } else {
       game.addSticker('k_tamirci_sevin');
     }
   }
 
-  // ---- Görünüm ----
-  (int, int) _r(int x, int y) {
-    switch (rot) {
-      case 1:
-        return (D - 1 - y, x);
-      case 2:
-        return (W - 1 - x, D - 1 - y);
-      case 3:
-        return (y, W - 1 - x);
-      default:
-        return (x, y);
+  /// Robot Rakam'dan yeni matematik görevi.
+  void _newMath() {
+    final r = Random();
+    // kameranın baktığı yerin yakınında boş iki sütun bul
+    (int, int)? spot;
+    for (var tries = 0; tries < 200 && spot == null; tries++) {
+      final x = (fx + r.nextInt(9) - 4).round().clamp(1, W - 3).toInt(), y = (fy + r.nextInt(9) - 4).round().clamp(1, D - 2).toInt();
+      var ok = true;
+      for (final xx in [x, x + 1]) {
+        if (world.topZ(xx, y) != 0) ok = false;
+        final g = world.blocks[ck(xx, y, 0)];
+        if (g == matIndex('su')) ok = false;
+      }
+      if (ok) spot = (x, y);
     }
-  }
-
-  (int, int) _rd(int dx, int dy) {
-    switch (rot) {
-      case 1:
-        return (-dy, dx);
-      case 2:
-        return (-dx, -dy);
-      case 3:
-        return (dy, -dx);
-      default:
-        return (dx, dy);
+    if (spot == null) {
+      Say.show(context, Who.robot, 'Burada boş yer yok. Şehrin başka bir yerine git, sonra tekrar bas.');
+      return;
     }
-  }
-
-  (int, int) _worldDir(int du, int dv) {
-    for (final d in const [(1, 0), (-1, 0), (0, 1), (0, -1)]) {
-      final r = _rd(d.$1, d.$2);
-      if (r.$1 == du && r.$2 == dv) return d;
+    final kind = r.nextInt(3);
+    final red = matIndex('kirmizi'), blue = matIndex('mavi');
+    late MathTask t;
+    _push();
+    if (kind == 0) {
+      final a = 1 + r.nextInt(4), b = 1 + r.nextInt(4);
+      t = MathTask(0, a, b, spot.$1, spot.$2);
+      for (var z = 1; z <= a; z++) {
+        world.put(t.x, t.y, z, red);
+      }
+      for (var z = a + 1; z <= a + b; z++) {
+        t.add[ck(t.x, t.y, z)] = blue;
+      }
+    } else if (kind == 1) {
+      final a = 3 + r.nextInt(5), b = 1 + r.nextInt(min(3, a - 1));
+      t = MathTask(1, a, b, spot.$1, spot.$2);
+      for (var z = 1; z <= a; z++) {
+        world.put(t.x, t.y, z, blue);
+      }
+      for (var z = a - b + 1; z <= a; z++) {
+        t.remove.add(ck(t.x, t.y, z));
+      }
+    } else {
+      final a = 1 + r.nextInt(4), b = a + 1 + r.nextInt(4);
+      t = MathTask(2, a, b, spot.$1, spot.$2);
+      for (var z = 1; z <= a; z++) {
+        world.put(t.x, t.y, z, red);
+      }
+      for (var z = 1; z <= b; z++) {
+        world.put(t.x + 1, t.y, z, matIndex('sari'));
+      }
+      for (var z = a + 1; z <= b; z++) {
+        t.add[ck(t.x, t.y, z)] = red;
+      }
     }
-    return (0, 0);
+    world.version++;
+    setState(() {
+      task = t;
+      _lookAt(t.x, t.y);
+      zoom = max(zoom, 1.5);
+      sel = kind == 0 ? 'mavi' : 'kirmizi';
+      tab = 1;
+      erase = kind == 1;
+    });
+    Sfx.play('unlock');
+    Say.show(context, Who.robot, t.intro);
   }
 
-  double tw = 30;
-  Offset origin = Offset.zero;
-  Size area = Size.zero;
-
-  Offset _p(double u, double v, double z) {
-    final th = tw / 2, bh = tw * 0.6;
-    return origin + Offset((u - v) * tw / 2, (u + v) * th / 2 - z * bh);
+  Future<void> _askMath(MathTask t) async {
+    final ok = await showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => _MathDialog(t.question, t.say, t.answer));
+    if (!mounted || ok != true) return;
+    game.addStars(1);
+    Sfx.play('finish');
+    setState(() {
+      task = null;
+      erase = false;
+    });
+    Say.show(context, Who.robot, 'Aferin! ${t.question.replaceAll('?', '${t.answer}')}. Bir yıldız kazandın!');
   }
 
-  void _layout(Size s) {
-    area = s;
-    tw = min(s.width * 0.96 * 2 / (W + D), s.height / ((W + D) / 4 + 4.5));
-    final islandH = (W + D) * tw / 4;
-    origin = Offset(s.width / 2, s.height - islandH - tw * 1.6);
+  // ---------- kamera ----------
+  double get scale => min(area.width, area.height) / 22 * zoom;
+
+  double _sy = 0, _cy = 1, _sp = 0.5, _cp = 0.8, _s = 20;
+
+  /// Kamera açılarını önbelleğe alır (her çizimden önce).
+  void cam() {
+    _sy = sin(yaw);
+    _cy = cos(yaw);
+    _sp = sin(pitch);
+    _cp = cos(pitch);
+    _s = scale;
   }
 
-  Offset _toWorld(Offset p) {
-    final c = Offset(area.width / 2, area.height / 2);
-    return (p - c - pan) / zoom + c;
+  Offset proj(double x, double y, double z) {
+    final dx = x - fx, dy = y - fy, dz = z - fz;
+    return Offset(area.width / 2 + (dx * _cy - dy * _sy) * _s, area.height * 0.55 + (dx * _sy + dy * _cy) * _sp * _s - dz * _cp * _s);
   }
 
-  List<(int, int, double)> _order() {
-    final items = <(int, int, double)>[];
-    for (final k in world.blocks.keys) {
-      final (x, y, z) = cxyz(k);
-      final (u, v) = _r(x, y);
-      items.add((k, 0, (u + v) * 100 + z * 2.0));
-    }
-    for (final k in world.propsAt.keys) {
-      final (x, y, z) = cxyz(k);
-      final (u, v) = _r(x, y);
-      items.add((k, 1, (u + v) * 100 + z * 2.0 + 0.5));
-    }
-    items.sort((a, b) => a.$3.compareTo(b.$3));
-    return items;
+  double depth(double x, double y, double z) {
+    final dx = x - fx, dy = y - fy, dz = z - fz;
+    return (dx * _sy + dy * _cy) * _cp + dz * _sp;
   }
 
-  Path _quad(Offset a, Offset b, Offset c, Offset d) => Path()
-    ..moveTo(a.dx, a.dy)
-    ..lineTo(b.dx, b.dy)
-    ..lineTo(c.dx, c.dy)
-    ..lineTo(d.dx, d.dy)
-    ..close();
+  // çizim önbelleği
+  String _geoKey = '';
+  final List<ui.Vertices> _verts = [];
 
-  /// Dünyayı bir kez resme çizer; dokunma için yüzeyleri saklar.
-  void _rebuild() {
-    final order = _order();
-    faces = [];
-    final rotMap = <int, int>{};
+  /// Kameranın "ileri" yönüne en yakın eksen (0 +y, 1 +x, 2 -y, 3 -x): ekranın yukarısı.
+  int get forwardDir {
+    // ekranda yukarı = -(sin yaw, cos yaw)
+    final ax = -sin(yaw), ay = -cos(yaw);
+    if (ax.abs() > ay.abs()) return ax > 0 ? 1 : 3;
+    return ay > 0 ? 0 : 2;
+  }
+
+  // ---------- görünen yüzler ----------
+  void _rebuildExposed() {
+    if (exposedVersion == world.version) return;
+    exposedVersion = world.version;
+    final out = <_Face>[];
     for (final e in world.blocks.entries) {
       final (x, y, z) = cxyz(e.key);
-      final (u, v) = _r(x, y);
-      rotMap[ck(u, v, z)] = e.value;
-    }
-    bool solid(int u, int v, int z) {
-      final m = rotMap[ck(u, v, z)];
-      return m != null && !mats[m].see;
-    }
-
-    final rec = ui.PictureRecorder();
-    final canvas = Canvas(rec);
-    _paintSea(canvas);
-    final du = _worldDir(1, 0), dv = _worldDir(0, 1);
-    for (final it in order) {
-      final (x, y, z) = cxyz(it.$1);
-      final (u, v) = _r(x, y);
-      if (it.$2 == 1) {
-        final id = world.propsAt[it.$1]!;
-        final pd = propById(id);
-        final hgt = (pd?.h ?? 1) * tw;
-        final base = _p(u + 0.5, v + 0.5, z.toDouble());
-        final im = sprites[id];
-        if (im != null && pd != null) {
-          final wid = hgt * im.width / im.height;
-          canvas.drawImageRect(im, Rect.fromLTWH(0, 0, im.width.toDouble(), im.height.toDouble()),
-              Rect.fromLTWH(base.dx - wid / 2, base.dy - hgt + tw * 0.12, wid, hgt), Paint()..filterQuality = FilterQuality.medium);
+      final m = mats[e.value];
+      for (var d = 0; d < 5; d++) {
+        final (nx, ny, nz) = _dirs[d];
+        final xx = x + nx, yy = y + ny, zz = z + nz;
+        if (inside(xx, yy, zz)) {
+          final o = world.blocks[ck(xx, yy, zz)];
+          if (o != null && (!mats[o].see || (m.see && o == e.value))) continue;
         }
-        faces.add(_Face(Path()..addRect(Rect.fromCenter(center: base - Offset(0, hgt / 2), width: tw * 0.8, height: hgt)), it.$1, 0, 0, 0,
-            prop: true));
-        continue;
+        out.add(_Face(e.key, d, e.value));
       }
-      final mi = world.blocks[it.$1]!;
-      final m = mats[mi];
-      bool hidden(int uu, int vv, int zz) => solid(uu, vv, zz) || (m.see && rotMap[ck(uu, vv, zz)] == mi);
-      final topF = z + 1 >= H || !hidden(u, v, z + 1);
-      final rightF = u + 1 >= W || !hidden(u + 1, v, z);
-      final leftF = v + 1 >= D || !hidden(u, v + 1, z);
-      drawTexCube(canvas, m, _p, u, v, z, topF, rightF, leftF);
-      final fz = z.toDouble(), fu = u.toDouble(), fv = v.toDouble();
-      faces.add(_Face(_quad(_p(fu + 1, fv, fz + 1), _p(fu + 1, fv + 1, fz + 1), _p(fu + 1, fv + 1, fz), _p(fu + 1, fv, fz)), it.$1, du.$1,
-          du.$2, 0));
-      faces.add(_Face(_quad(_p(fu, fv + 1, fz + 1), _p(fu + 1, fv + 1, fz + 1), _p(fu + 1, fv + 1, fz), _p(fu, fv + 1, fz)), it.$1, dv.$1,
-          dv.$2, 0));
-      faces.add(_Face(_quad(_p(fu, fv, fz + 1), _p(fu + 1, fv, fz + 1), _p(fu + 1, fv + 1, fz + 1), _p(fu, fv + 1, fz + 1)), it.$1, 0, 0, 1));
     }
-    picture?.dispose();
-    picture = rec.endRecording();
+    exposed = out;
   }
 
-  void _paintSea(Canvas canvas) {
-    const m = 2.2;
-    final a = _p(-m, -m, 0), b = _p(W + m, -m, 0), c = _p(W + m, D + m, 0), d = _p(-m, D + m, 0);
-    final sea = _quad(a, b, c, d);
-    canvas.drawPath(
-        sea,
-        Paint()
-          ..shader = ui.Gradient.linear(a, c, [const Color(0xFF4FC3F7), const Color(0xFF0288D1)])
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-    final wave = Paint()
-      ..color = Colors.white.withAlpha(90)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < 6; i++) {
-      final t = -1.6 + i * 0.4;
-      canvas.drawLine(_p(t, -1.0 - i * 0.15, 0), _p(t + 1.2, -1.0 - i * 0.15, 0), wave);
-      canvas.drawLine(_p(W + 0.6 + i * 0.12, 2.0 + i * 1.3, 0), _p(W + 0.6 + i * 0.12, 3.0 + i * 1.3, 0), wave);
-    }
-    // adanın kumsal kenarı
-    final e = 0.35;
-    canvas.drawPath(_quad(_p(-e, -e, 0), _p(W + e, -e, 0), _p(W + e, D + e, 0), _p(-e, D + e, 0)), Paint()..color = const Color(0xFFF2DFA6));
-  }
-
-  /// Dokunulan yerde ne olacağını bulur: (hücre, sil mi)
-  (int, bool)? _target(Offset screen) {
-    final p = _toWorld(screen);
-    for (var i = faces.length - 1; i >= 0; i--) {
-      final f = faces[i];
-      if (!f.path.contains(p)) continue;
+  // ---------- dokunma ----------
+  (int, bool, int)? _target(Offset p) {
+    final n = _hit.count;
+    for (var i = n - 1; i >= 0; i--) {
+      if (!_hit.contains(i, p)) continue;
+      final f = _hit.faces[i];
       final (x, y, z) = cxyz(f.cell);
       if (erase) {
-        if (!f.prop && z == 0 && world.blocks.length < 2) return null;
-        return (f.cell, true);
+        if (z == 0 && world.blocks.length < 2) return null;
+        return (f.cell, true, f.dir);
       }
-      if (f.prop) return null;
-      final nx = x + f.nx, ny = y + f.ny, nz = z + f.nz;
-      if (nx < 0 || ny < 0 || nz < 0 || nx >= W || ny >= D || nz >= H) return null;
-      final k = ck(nx, ny, nz);
-      if (world.blocks.containsKey(k) || world.propsAt.containsKey(k)) return null;
-      if (propById(sel) != null && f.nz != 1) return null; // süsler sadece üste
-      return (k, false);
+      final (nx, ny, nz) = _dirs[f.dir];
+      final xx = x + nx, yy = y + ny, zz = z + nz;
+      if (!inside(xx, yy, zz)) return null;
+      final k = ck(xx, yy, zz);
+      if (world.blocks.containsKey(k)) return null;
+      return (k, false, f.dir);
     }
     return null;
   }
@@ -603,38 +802,61 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     });
   }
 
-  void _up(Offset p) {
+  Future<void> _up(Offset p) async {
     final t = _target(p);
     setState(() => previewCell = null);
     if (t == null) return;
-    final (k, del) = t;
-    _push();
+    final (k, del, dir) = t;
     if (del) {
-      if (world.propsAt.remove(k) == null) {
-        world.blocks.remove(k);
-        final (x, y, z) = cxyz(k);
-        world.propsAt.remove(ck(x, y, z + 1));
-      }
+      _push();
+      world.blocks.remove(k);
+      world.version++;
       Sfx.play('pop');
-    } else if (propById(sel) != null) {
-      world.propsAt[k] = sel;
-      Sfx.play('pop');
-    } else {
-      world.blocks[k] = matIndex(sel);
-      Sfx.play(mats[matIndex(sel)].tab == 1 ? 'pop' : 'tok');
+      _changed();
+      return;
     }
+    final pf = prefabById(sel);
+    if (pf != null) {
+      if (dir != 0) return; // hazır yapılar zemine konur
+      final ok = await _prefabQuestion(pf);
+      if (!ok || !mounted) return;
+      _push();
+      final (x, y, z) = cxyz(k);
+      final n = world.stamp(pf.cells(), x, y, z, forwardDir); // kapı kameraya bakar, yapı ileri doğru uzar
+      Sfx.play('finish');
+      Voice.say('${trCapitalize(pf.name)} hazır! $n blok kullandık.');
+      _changed();
+      return;
+    }
+    _push();
+    world.blocks[k] = matIndex(sel);
+    world.version++;
+    Sfx.play(mats[matIndex(sel)].tab == 1 ? 'pop' : 'tok');
     _changed();
+  }
+
+  Future<bool> _prefabQuestion(Prefab pf) async {
+    final r = Random();
+    final add = r.nextBool();
+    final a = 2 + r.nextInt(6);
+    final b = add ? 1 + r.nextInt(min(4, 10 - a)) : 1 + r.nextInt(a - 1);
+    final q = add ? '$a + $b = ?' : '$a − $b = ?';
+    final say = add
+        ? '${trCapitalize(pf.name)} için Robot Rakam soruyor: $a artı $b kaç eder?'
+        : '${trCapitalize(pf.name)} için Robot Rakam soruyor: $a eksi $b kaç eder?';
+    final ok = await showDialog<bool>(context: context, builder: (_) => _MathDialog(q, say, add ? a + b : a - b, emoji: pf.emoji));
+    return ok == true;
   }
 
   void _push() {
     undo.add(world.encode());
-    if (undo.length > 60) undo.removeAt(0);
+    if (undo.length > 30) undo.removeAt(0);
   }
 
   void _changed() {
-    setState(() => dirty = true);
+    setState(() {});
     game.saveBlocks(world.encode());
-    _checkQuest();
+    _check();
   }
 
   void _undo() {
@@ -648,7 +870,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Adayı baştan kuralım mı?'),
+        title: const Text('Şehri baştan kuralım mı?'),
         content: const Text('Yaptığın her şey silinir. Açtığın bloklar ve görevler kalır.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hayır', style: TextStyle(fontSize: 18))),
@@ -659,6 +881,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     if (ok != true) return;
     _push();
     world.seed();
+    task = null;
     _changed();
   }
 
@@ -676,15 +899,13 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
       }
       setState(() {
         sel = group.first;
-        final m = matIndex(sel);
-        tab = m >= 0 ? mats[m].tab : 2;
+        tab = mats[matIndex(sel)].tab;
         erase = false;
       });
       Sfx.play('unlock');
       await showDialog<void>(context: context, builder: (_) => _NewItems(group));
       if (!mounted) return;
-      setState(() => dirty = true);
-      _checkQuest();
+      _check();
       if (questReady) Future.delayed(const Duration(milliseconds: 500), _sayQuest);
     }
   }
@@ -700,52 +921,55 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final q = quest;
+    _rebuildExposed();
     return Scaffold(
       body: Stack(children: [
         Positioned.fill(child: CustomPaint(painter: _SkyPainter(night))),
         SafeArea(
           child: Column(children: [
-            TopBar('Blok Adası', trailing: _Tool(Icons.refresh, _reset, small: true)),
-            if (q != null) _questBar(q) else _allDone(),
+            TopBar('Blok Şehri', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              _Tool(Icons.smart_toy, _newMath, color: const Color(0xFFB3E5FC)),
+              _Tool(Icons.refresh, _reset),
+            ])),
+            _questBar(),
             Expanded(
               child: LayoutBuilder(builder: (_, c) {
-                final s = Size(c.maxWidth, c.maxHeight);
-                if (s != lastSize) {
-                  lastSize = s;
-                  _layout(s);
-                  dirty = true;
-                }
-                if (dirty) {
-                  _rebuild();
-                  dirty = false;
-                }
+                area = Size(c.maxWidth, c.maxHeight);
                 return GestureDetector(
                   onTapDown: (d) => _down(d.localPosition),
                   onTapUp: (d) => _up(d.localPosition),
                   onTapCancel: () => setState(() => previewCell = null),
                   onScaleStart: (d) {
+                    _y0 = yaw;
+                    _p0 = pitch;
                     _z0 = zoom;
-                    _p0 = pan;
                     _f0 = d.localFocalPoint;
+                    _fx0 = fx;
+                    _fy0 = fy;
                     _moved = false;
+                    _pointers = d.pointerCount;
                   },
                   onScaleUpdate: (d) {
                     final delta = d.localFocalPoint - _f0;
                     if (!_moved && delta.distance < 8 && d.pointerCount < 2) return;
                     _moved = true;
+                    if (d.pointerCount > _pointers) _pointers = d.pointerCount;
                     setState(() {
                       previewCell = null;
-                      zoom = (_z0 * d.scale).clamp(0.8, 2.6).toDouble();
-                      pan = Offset(
-                        (_p0.dx + delta.dx).clamp(-s.width * zoom * 0.5, s.width * zoom * 0.5).toDouble(),
-                        (_p0.dy + delta.dy).clamp(-s.height * zoom * 0.5, s.height * zoom * 0.5).toDouble(),
-                      );
+                      if (_pointers >= 2 || moveMode) {
+                        zoom = (_z0 * d.scale).clamp(0.5, 3.0).toDouble();
+                        final s = scale, sp = sin(pitch);
+                        final a = delta.dx / s, b = delta.dy / (sp * s);
+                        final wx = a * cos(yaw) + b * sin(yaw), wy = -a * sin(yaw) + b * cos(yaw);
+                        fx = (_fx0 - wx).clamp(0, W.toDouble()).toDouble();
+                        fy = (_fy0 - wy).clamp(0, D.toDouble()).toDouble();
+                      } else {
+                        yaw = _y0 - delta.dx * 0.008;
+                        pitch = (_p0 + delta.dy * 0.004).clamp(0.35, 1.25).toDouble();
+                      }
                     });
                   },
-                  child: ClipRect(
-                    child: CustomPaint(size: s, painter: _WorldPainter(this, pulse)),
-                  ),
+                  child: ClipRect(child: CustomPaint(size: area, painter: _WorldPainter(this, pulse))),
                 );
               }),
             ),
@@ -758,76 +982,85 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _questBar(Quest q) {
-    final ready = questReady;
-    final (a, b) = q.prog(world);
-    final over = q.exact && a > b;
+  Widget _questBar() {
+    final t = task;
+    final q = quest;
+    String text;
+    Who who;
+    int a = 0, b = 0;
+    var showBar = true;
+    var over = false;
+    if (t != null) {
+      who = Who.robot;
+      text = '🤖 ${t.intro}';
+      b = t.add.length + t.remove.length;
+      a = t.add.keys.where(world.blocks.containsKey).length + t.remove.where((c) => !world.blocks.containsKey(c)).length;
+    } else if (q != null) {
+      who = q.who;
+      if (questReady) {
+        text = q.text;
+        (a, b) = q.prog(world);
+        over = q.exact && a > b;
+      } else {
+        text = 'Önce 🎁 hece sandığını aç!';
+        showBar = false;
+      }
+    } else {
+      who = Who.robot;
+      text = 'Görevler bitti! 🤖 tuşuyla matematik görevi al.';
+      showBar = false;
+    }
     return GestureDetector(
-      onTap: _sayQuest,
+      onTap: _goQuest,
       child: Container(
         margin: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-        padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
+        padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
         decoration: BoxDecoration(
           color: Colors.white.withAlpha(235),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFFD54F), width: 3),
+          border: Border.all(color: t != null ? const Color(0xFF4FC3F7) : const Color(0xFFFFD54F), width: 3),
         ),
         child: Row(children: [
-          SizedBox(width: 42, height: 46, child: Pic(whoPic(q.who))),
+          SizedBox(width: 40, height: 44, child: Pic(whoPic(who))),
           const SizedBox(width: 8),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(ready ? q.text : 'Önce 🎁 hece sandığını aç!', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              if (ready)
+              Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+              if (showBar) ...[
+                const SizedBox(height: 4),
                 Row(children: [
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
                         value: b == 0 ? 0 : min(1, a / b),
-                        minHeight: 12,
+                        minHeight: 10,
                         color: over ? Colors.red : Colors.green,
                         backgroundColor: Colors.black12,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('$a / $b', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: over ? Colors.red : Colors.black87)),
+                  Text('$a / $b', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: over ? Colors.red : Colors.black87)),
                 ]),
+              ],
             ]),
           ),
-          const Icon(Icons.volume_up, color: Colors.black45),
+          const Icon(Icons.my_location, color: Colors.black45),
         ]),
       ),
     );
   }
 
-  Widget _allDone() => Container(
-        margin: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: Colors.white.withAlpha(230), borderRadius: BorderRadius.circular(16)),
-        child: const Text('Bütün görevler tamam! Hayalindeki adayı kur. 🌟', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-      );
-
   Widget _controls() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Row(children: [
-          _Tool(Icons.rotate_left, () => setState(() {
-                rot = (rot + 3) % 4;
-                dirty = true;
-                Sfx.play('uc');
-              })),
-          _Tool(Icons.rotate_right, () => setState(() {
-                rot = (rot + 1) % 4;
-                dirty = true;
-                Sfx.play('uc');
-              })),
-          _Tool(Icons.zoom_in, () => setState(() => zoom = min(2.6, zoom + 0.3))),
-          _Tool(Icons.zoom_out, () => setState(() {
-                zoom = max(0.8, zoom - 0.3);
-                if (zoom <= 1) pan = Offset.zero;
-              })),
+          _Tool(Icons.zoom_in, () => setState(() => zoom = min(3.0, zoom + 0.35))),
+          _Tool(Icons.zoom_out, () => setState(() => zoom = max(0.5, zoom - 0.35))),
+          _Tool(moveMode ? Icons.open_with : Icons.threesixty, () {
+            setState(() => moveMode = !moveMode);
+            Voice.say(moveMode ? 'Kaydır' : 'Döndür');
+          }, color: moveMode ? const Color(0xFFFFF59D) : Colors.white),
           _Tool(Icons.undo, _undo),
           const Spacer(),
           Bouncy(
@@ -864,11 +1097,11 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
       );
 
   Widget _tabs() {
-    const names = ['🧱 Yapı', '🎨 Renk', '🌳 Doğa', '✨ Özel'];
+    const names = ['🧱 Yapı', '🎨 Renk', '🌳 Doğa', '✨ Özel', '🏠 Hazır'];
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       child: Row(children: [
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < names.length; i++)
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -876,13 +1109,16 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
                 setState(() => tab = i);
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 1.5),
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 decoration: BoxDecoration(
                   color: tab == i ? Colors.white : Colors.white.withAlpha(120),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
-                child: Text(names[i], textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(names[i], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                ),
               ),
             ),
           ),
@@ -892,15 +1128,17 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
 
   Widget _palette() {
     final items = <Widget>[
-      for (final m in mats)
-        if (m.tab == tab && unlocked(m.id)) _PaletteItem(m.name, sel == m.id && !erase, () => _select(m.id), child: _MatSwatch(m)),
-      if (tab == 2)
-        for (final p in props)
-          if (unlocked(p.id)) _PaletteItem(p.name, sel == p.id && !erase, () => _select(p.id), child: Pic(p.pic)),
+      if (tab == 4)
+        for (final p in prefabs)
+          _PaletteItem(p.name, sel == p.id && !erase, () => _select(p.id),
+              child: Center(child: Text(p.emoji, style: const TextStyle(fontSize: 34))))
+      else
+        for (final m in mats)
+          if (m.tab == tab && unlocked(m.id)) _PaletteItem(m.name, sel == m.id && !erase, () => _select(m.id), child: _MatSwatch(m)),
     ];
-    final locked = mats.where((m) => m.tab == tab && !unlocked(m.id)).length + (tab == 2 ? props.where((p) => !unlocked(p.id)).length : 0);
+    final locked = tab == 4 ? 0 : mats.where((m) => m.tab == tab && !unlocked(m.id)).length;
     return Container(
-      height: 94,
+      height: 92,
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(bottom: Radius.circular(14))),
       child: ListView(
@@ -909,12 +1147,328 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
         children: [
           ...items,
           if (locked > 0)
-            _PaletteItem('$locked kilitli', false, _chest,
-                child: const Center(child: Text('🎁', style: TextStyle(fontSize: 30)))),
+            _PaletteItem('$locked kilitli', false, _chest, child: const Center(child: Text('🎁', style: TextStyle(fontSize: 30)))),
         ],
       ),
     );
   }
+}
+
+/// Son çizilen yüzlerin ekran köşeleri (dokunma için).
+class _HitData {
+  List<_Face> faces = [];
+  Float32List quads = Float32List(0);
+  int count = 0;
+
+  bool contains(int i, Offset p) {
+    final q = quads;
+    final o = i * 8;
+    var sign = 0;
+    for (var k = 0; k < 4; k++) {
+      final ax = q[o + k * 2], ay = q[o + k * 2 + 1];
+      final bx = q[o + ((k + 1) % 4) * 2], by = q[o + ((k + 1) % 4) * 2 + 1];
+      final cr = (bx - ax) * (p.dy - ay) - (by - ay) * (p.dx - ax);
+      final s = cr > 0 ? 1 : (cr < 0 ? -1 : 0);
+      if (s == 0) continue;
+      if (sign == 0) {
+        sign = s;
+      } else if (s != sign) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class _WorldPainter extends CustomPainter {
+  final _BlokAdasiState s;
+  final Animation<double> anim;
+  _WorldPainter(this.s, this.anim) : super(repaint: anim);
+
+  static const _shade = [1.0, 0.80, 0.66, 0.72, 0.88];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    s.area = size;
+    s.cam();
+    _sea(canvas);
+    final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null}';
+    if (key != s._geoKey) {
+      s._geoKey = key;
+      _build(size);
+    }
+    final paint = Paint();
+    final atlas = Tex.atlas;
+    if (atlas != null) {
+      paint.shader = ui.ImageShader(atlas, TileMode.clamp, TileMode.clamp, Matrix4.identity().storage, filterQuality: FilterQuality.none);
+    } else {
+      paint.color = const Color(0xFF7CB342);
+    }
+    for (final v in s._verts) {
+      canvas.drawVertices(v, BlendMode.modulate, paint);
+    }
+    _overlay(canvas);
+  }
+
+  void _build(Size size) {
+    for (final v in s._verts) {
+      v.dispose();
+    }
+    s._verts.clear();
+    final sy = s._sy, cy = s._cy;
+    // görünen yüzleri seç ve derinliğe göre sırala
+    final faces = s.exposed;
+    final vis = <int>[];
+    final dep = <double>[];
+    for (var i = 0; i < faces.length; i++) {
+      final f = faces[i];
+      if (f.dir != 0) {
+        final (nx, ny, _) = _dirs[f.dir];
+        if (nx * sy + ny * cy <= 0) continue;
+      }
+      final (x, y, z) = cxyz(f.cell);
+      final (nx, ny, nz) = _dirs[f.dir];
+      final c = s.proj(x + 0.5, y + 0.5, z + 0.5);
+      if (c.dx < -60 || c.dy < -60 || c.dx > size.width + 60 || c.dy > size.height + 60) continue;
+      vis.add(i);
+      dep.add(s.depth(x + 0.5 + nx * 0.5, y + 0.5 + ny * 0.5, z + 0.5 + nz * 0.5));
+    }
+    final order = List<int>.generate(vis.length, (i) => i)..sort((a, b) => dep[a].compareTo(dep[b]));
+    final n = order.length;
+    final quads = Float32List(n * 8);
+    final hitFaces = <_Face>[];
+    const chunk = 12000;
+    for (var start = 0; start < n; start += chunk) {
+      final end = min(n, start + chunk);
+      final m = end - start;
+      final pos = Float32List(m * 8);
+      final uv = Float32List(m * 8);
+      final col = Int32List(m * 4);
+      final idx = Uint16List(m * 6);
+      for (var j = 0; j < m; j++) {
+        final f = faces[vis[order[start + j]]];
+        final (x, y, z) = cxyz(f.cell);
+        final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
+        for (var k = 0; k < 4; k++) {
+          final p = s.proj(c[k * 3], c[k * 3 + 1], c[k * 3 + 2]);
+          pos[j * 8 + k * 2] = p.dx;
+          pos[j * 8 + k * 2 + 1] = p.dy;
+          quads[(start + j) * 8 + k * 2] = p.dx;
+          quads[(start + j) * 8 + k * 2 + 1] = p.dy;
+        }
+        hitFaces.add(f);
+        final r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
+        final u0 = (r.left + 0.02) , v0 = (r.top + 0.02), u1 = (r.right - 0.02), v1 = (r.bottom - 0.02);
+        uv.setAll(j * 8, [u0, v0, u1, v0, u1, v1, u0, v1]);
+        final g = (255 * _shade[f.dir]).round();
+        final cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+        col.setAll(j * 4, [cc, cc, cc, cc]);
+        final b = j * 4;
+        idx.setAll(j * 6, [b, b + 1, b + 2, b, b + 2, b + 3]);
+      }
+      s._verts.add(ui.Vertices.raw(ui.VertexMode.triangles, pos, textureCoordinates: uv, colors: col, indices: idx));
+    }
+    s._hit
+      ..faces = hitFaces
+      ..quads = quads
+      ..count = n;
+  }
+
+  void _overlay(Canvas canvas) {
+    final t = anim.value;
+    // görev için parlayan yerler
+    final q = s.quest;
+    if (s.task != null) {
+      for (final e in s.task!.add.entries) {
+        if (s.world.blocks.containsKey(e.key)) continue;
+        _ghost(canvas, e.key, mats[e.value].color, (100 + 70 * sin(t * 2 * pi)).toInt());
+      }
+      for (final c in s.task!.remove) {
+        if (!s.world.blocks.containsKey(c)) continue;
+        _ghost(canvas, c, Colors.red, (120 + 80 * sin(t * 2 * pi)).toInt(), thick: true);
+      }
+    } else if (q != null && s.questReady) {
+      for (final e in q.ghost.entries) {
+        final have = s.world.blocks[e.key];
+        if (have != null && (e.value < 0 || have == e.value)) continue;
+        final col = e.value < 0 ? Colors.white : mats[e.value].color;
+        _ghost(canvas, e.key, col, (90 + 70 * sin(t * 2 * pi)).toInt());
+      }
+    }
+    if (s.previewCell != null) {
+      _ghost(canvas, s.previewCell!, s.previewErase ? Colors.red : Colors.white, 220, thick: true);
+    }
+    if (s.night) {
+      final fi = matIndex('fener');
+      for (final e in s.world.blocks.entries) {
+        if (e.value != fi) continue;
+        final (x, y, z) = cxyz(e.key);
+        final p = s.proj(x + 0.5, y + 0.5, z + 0.5);
+        final r = s.scale * 2.4;
+        canvas.drawCircle(p, r, Paint()..shader = ui.Gradient.radial(p, r, [const Color(0x88FFE082), const Color(0x00FFE082)]));
+      }
+    }
+  }
+
+  /// Bir yüzün dört köşesi (sol üst, sağ üst, sağ alt, sol alt) dünya koordinatında.
+  static List<double> _corners(double x, double y, double z, int dir) {
+    switch (dir) {
+      case 0:
+        return [x, y, z + 1, x + 1, y, z + 1, x + 1, y + 1, z + 1, x, y + 1, z + 1];
+      case 1:
+        return [x + 1, y + 1, z + 1, x + 1, y, z + 1, x + 1, y, z, x + 1, y + 1, z];
+      case 2:
+        return [x, y, z + 1, x, y + 1, z + 1, x, y + 1, z, x, y, z];
+      case 3:
+        return [x, y + 1, z + 1, x + 1, y + 1, z + 1, x + 1, y + 1, z, x, y + 1, z];
+      default:
+        return [x + 1, y, z + 1, x, y, z + 1, x, y, z, x + 1, y, z];
+    }
+  }
+
+  void _sea(Canvas canvas) {
+    const m = 4.0;
+    final a = s.proj(-m, -m, 0), b = s.proj(W + m, -m, 0), c = s.proj(W + m, D + m, 0), d = s.proj(-m, D + m, 0);
+    final path = Path()
+      ..moveTo(a.dx, a.dy)
+      ..lineTo(b.dx, b.dy)
+      ..lineTo(c.dx, c.dy)
+      ..lineTo(d.dx, d.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = s.night ? const Color(0xFF0D47A1) : const Color(0xFF29B6F6));
+    const e = 0.5;
+    final a2 = s.proj(-e, -e, 0), b2 = s.proj(W + e, -e, 0), c2 = s.proj(W + e, D + e, 0), d2 = s.proj(-e, D + e, 0);
+    canvas.drawPath(
+        Path()
+          ..moveTo(a2.dx, a2.dy)
+          ..lineTo(b2.dx, b2.dy)
+          ..lineTo(c2.dx, c2.dy)
+          ..lineTo(d2.dx, d2.dy)
+          ..close(),
+        Paint()..color = const Color(0xFFF2DFA6));
+  }
+
+  void _ghost(Canvas canvas, int cell, Color c, int a, {bool thick = false}) {
+    final (x, y, z) = cxyz(cell);
+    final fx = x.toDouble(), fy = y.toDouble(), fz = z.toDouble();
+    final pts = [
+      for (final p in const [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)])
+        s.proj(fx + p.$1, fy + p.$2, fz + p.$3)
+    ];
+    // dışbükey zarf yerine: 6 yüzü yarı saydam çiz
+    final fill = Paint()..color = c.withAlpha((a * 0.28).toInt());
+    const facesIdx = [
+      [4, 5, 6, 7],
+      [1, 2, 6, 5],
+      [0, 3, 7, 4],
+      [3, 2, 6, 7],
+      [0, 1, 5, 4],
+    ];
+    for (final f in facesIdx) {
+      canvas.drawPath(
+          Path()
+            ..moveTo(pts[f[0]].dx, pts[f[0]].dy)
+            ..lineTo(pts[f[1]].dx, pts[f[1]].dy)
+            ..lineTo(pts[f[2]].dx, pts[f[2]].dy)
+            ..lineTo(pts[f[3]].dx, pts[f[3]].dy)
+            ..close(),
+          fill);
+    }
+    final line = Paint()
+      ..color = c.withAlpha(a)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = thick ? 3 : 2;
+    const edges = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)];
+    for (final e in edges) {
+      canvas.drawLine(pts[e.$1], pts[e.$2], line);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// ======================= PENCERELER VE PARÇALAR =======================
+
+class _MathDialog extends StatefulWidget {
+  final String question;
+  final String say;
+  final int answer;
+  final String emoji;
+  const _MathDialog(this.question, this.say, this.answer, {this.emoji = '🤖'});
+
+  @override
+  State<_MathDialog> createState() => _MathDialogState();
+}
+
+class _MathDialogState extends State<_MathDialog> {
+  late final List<int> options;
+  int shake = 0;
+  int? wrong;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = Random();
+    final s = <int>{widget.answer};
+    while (s.length < 3) {
+      final v = widget.answer + r.nextInt(5) - 2;
+      if (v >= 0 && v <= 12) s.add(v);
+    }
+    options = s.toList()..shuffle(r);
+    Voice.say(widget.say);
+  }
+
+  void _tap(int v) {
+    if (v == widget.answer) {
+      Sfx.play('correct');
+      Voice.say('Evet, $v!');
+      Navigator.pop(context, true);
+    } else {
+      Sfx.play('wrong');
+      Voice.say('Hmm, bir daha say bakalım. Parmaklarını kullanabilirsin!');
+      setState(() {
+        shake++;
+        wrong = v;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+        backgroundColor: const Color(0xFFE1F5FE),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const SizedBox(height: 80, child: Pic('k_robot')),
+              const SizedBox(width: 8),
+              Text(widget.emoji, style: const TextStyle(fontSize: 46)),
+            ]),
+            const SizedBox(height: 8),
+            Text(widget.question, style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w900, color: Color(0xFF1565C0))),
+            const SizedBox(height: 14),
+            Shake(
+              trigger: shake,
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                for (final o in options)
+                  ChoiceTile(
+                    size: 70,
+                    color: wrong == o ? const Color(0xFFFFCDD2) : Colors.white,
+                    onTap: () => _tap(o),
+                    child: Text('$o', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900)),
+                  ),
+              ]),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç', style: TextStyle(fontSize: 16)),
+            ),
+          ]),
+        ),
+      );
 }
 
 class _NewItems extends StatelessWidget {
@@ -935,11 +1489,7 @@ class _NewItems extends StatelessWidget {
           Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center, children: [
             for (final id in ids)
               Column(mainAxisSize: MainAxisSize.min, children: [
-                SizedBox(
-                  width: 70,
-                  height: 70,
-                  child: matIndex(id) >= 0 ? _MatSwatch(mats[matIndex(id)]) : Pic(propById(id)!.pic),
-                ),
+                SizedBox(width: 70, height: 70, child: _MatSwatch(mats[matIndex(id)])),
                 SylText(itemName(id), size: 20),
               ]),
           ]),
@@ -954,8 +1504,8 @@ class _NewItems extends StatelessWidget {
 class _Tool extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final bool small;
-  const _Tool(this.icon, this.onTap, {this.small = false});
+  final Color color;
+  const _Tool(this.icon, this.onTap, {this.color = Colors.white});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -963,11 +1513,11 @@ class _Tool extends StatelessWidget {
         child: Bouncy(
           onTap: onTap,
           child: Container(
-            padding: EdgeInsets.all(small ? 7 : 7),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
             ),
             child: Icon(icon, size: 22),
           ),
@@ -1027,13 +1577,11 @@ class _SwatchPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => !Tex.ready;
 }
 
-/// Dokulu küp çizer (doku yoksa düz renk).
+/// Küçük resimler için dokulu küp (izometrik).
 void drawTexCube(Canvas canvas, BlockMat m, Offset Function(double, double, double) p, int u, int v, int z, bool top, bool right,
-    bool left,
-    {int alpha = 255}) {
+    bool left) {
   final uu = u.toDouble(), vv = v.toDouble(), zz = z.toDouble();
   void face(Offset a, Offset b, Offset d, ui.Image? img, double shade) {
-    // a: sol üst, b: sağ üst, d: sol alt (paralelkenar)
     final c = b + d - a;
     final path = Path()
       ..moveTo(a.dx, a.dy)
@@ -1042,7 +1590,7 @@ void drawTexCube(Canvas canvas, BlockMat m, Offset Function(double, double, doub
       ..lineTo(d.dx, d.dy)
       ..close();
     final base = Color.lerp(Colors.black, m.color, shade)!;
-    if (!m.see) canvas.drawPath(path, Paint()..color = base.withAlpha(alpha));
+    if (!m.see) canvas.drawPath(path, Paint()..color = base);
     if (img != null) {
       final ux = (b - a) / 16, vy = (d - a) / 16;
       canvas.save();
@@ -1054,103 +1602,18 @@ void drawTexCube(Canvas canvas, BlockMat m, Offset Function(double, double, doub
         const Rect.fromLTWH(-0.06, -0.06, 16.12, 16.12),
         Paint()
           ..filterQuality = FilterQuality.none
-          ..colorFilter = ColorFilter.mode(Color.fromARGB(alpha, g, g, g), BlendMode.modulate),
+          ..colorFilter = ColorFilter.mode(Color.fromARGB(255, g, g, g), BlendMode.modulate),
       );
       canvas.restore();
     } else if (m.see) {
-      canvas.drawPath(path, Paint()..color = base.withAlpha(min(alpha, 150)));
+      canvas.drawPath(path, Paint()..color = base.withAlpha(150));
     }
-    canvas.drawPath(
-        path,
-        Paint()
-          ..color = Colors.black.withAlpha((alpha * 0.1).toInt())
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8);
   }
 
   final side = Tex.get(m.id, true), topI = Tex.get(m.id, false);
   if (right) face(p(uu + 1, vv + 1, zz + 1), p(uu + 1, vv, zz + 1), p(uu + 1, vv + 1, zz), side, 0.68);
   if (left) face(p(uu, vv + 1, zz + 1), p(uu + 1, vv + 1, zz + 1), p(uu, vv + 1, zz), side, 0.84);
   if (top) face(p(uu, vv, zz + 1), p(uu + 1, vv, zz + 1), p(uu, vv + 1, zz + 1), topI, 1.0);
-}
-
-class _WorldPainter extends CustomPainter {
-  final _BlokAdasiState s;
-  final Animation<double> anim;
-  _WorldPainter(this.s, this.anim) : super(repaint: anim);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    canvas.save();
-    canvas.translate(c.dx + s.pan.dx, c.dy + s.pan.dy);
-    canvas.scale(s.zoom);
-    canvas.translate(-c.dx, -c.dy);
-    if (s.picture != null) canvas.drawPicture(s.picture!);
-    final t = anim.value;
-    // görev için parlayan yerler
-    final q = s.quest;
-    if (q != null && s.questReady) {
-      for (final e in q.ghost.entries) {
-        final have = s.world.blocks[e.key];
-        if (have != null && (e.value < 0 || have == e.value)) continue;
-        final (x, y, z) = cxyz(e.key);
-        final (u, v) = s._r(x, y);
-        final m = e.value < 0 ? mats[matIndex(s.sel) < 0 ? 3 : matIndex(s.sel)] : mats[e.value];
-        _ghost(canvas, u, v, z, m.color, (90 + 70 * sin(t * 2 * pi)).toInt());
-      }
-    }
-    // dokunulan yerin önizlemesi
-    if (s.previewCell != null) {
-      final (x, y, z) = cxyz(s.previewCell!);
-      final (u, v) = s._r(x, y);
-      _ghost(canvas, u, v, z, s.previewErase ? Colors.red : Colors.white, 200, thick: true);
-    }
-    // gece fenerleri
-    if (s.night) {
-      final fi = matIndex('fener');
-      for (final e in s.world.blocks.entries) {
-        if (e.value != fi) continue;
-        final (x, y, z) = cxyz(e.key);
-        final (u, v) = s._r(x, y);
-        final p = s._p(u + 0.5, v + 0.5, z + 0.5);
-        canvas.drawCircle(
-            p,
-            s.tw * 2.2,
-            Paint()
-              ..shader = ui.Gradient.radial(p, s.tw * 2.2, [const Color(0x77FFE082), const Color(0x00FFE082)]));
-      }
-    }
-    canvas.restore();
-  }
-
-  void _ghost(Canvas canvas, int u, int v, int z, Color c, int a, {bool thick = false}) {
-    final fu = u.toDouble(), fv = v.toDouble(), fz = z.toDouble();
-    final pts = [
-      s._p(fu, fv, fz + 1), s._p(fu + 1, fv, fz + 1), s._p(fu + 1, fv + 1, fz + 1), s._p(fu, fv + 1, fz + 1),
-      s._p(fu + 1, fv, fz), s._p(fu + 1, fv + 1, fz), s._p(fu, fv + 1, fz),
-    ];
-    final outline = Path()
-      ..moveTo(pts[0].dx, pts[0].dy)
-      ..lineTo(pts[1].dx, pts[1].dy)
-      ..lineTo(pts[4].dx, pts[4].dy)
-      ..lineTo(pts[5].dx, pts[5].dy)
-      ..lineTo(pts[6].dx, pts[6].dy)
-      ..lineTo(pts[3].dx, pts[3].dy)
-      ..close();
-    canvas.drawPath(outline, Paint()..color = c.withAlpha((a * 0.45).toInt()));
-    final line = Paint()
-      ..color = (thick ? c : Colors.white).withAlpha(a)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = thick ? 3 : 2;
-    canvas.drawPath(outline, line);
-    canvas.drawLine(pts[2], pts[5], line);
-    canvas.drawLine(pts[2], pts[1], line);
-    canvas.drawLine(pts[2], pts[3], line);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _SkyPainter extends CustomPainter {
@@ -1289,7 +1752,7 @@ class _ChestDialogState extends State<_ChestDialog> {
       );
 }
 
-/// Ana ekrandaki Blok Adası kartı için küçük blok yığını.
+/// Ana ekrandaki Blok Şehri kartı için küçük blok yığını.
 class BlockLogo extends StatefulWidget {
   const BlockLogo({super.key});
 
