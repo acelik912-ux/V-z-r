@@ -70,7 +70,7 @@ void main() {
     game.levelStars = {'hece_kamyonu': 3, 'araba_yikama': 2, 'kopru_kur': 1};
     game.stickers = {'arac_10', 'k_robot', 'i_yildiz'};
     game.blockItems = {'beyaz', 'altin', 'fener'};
-    game.avatar = '1,1,2,4,1,0';
+    game.avatar = '0,0,1,3,0,1,1,2';
     game.blockTools = {'kazma', 'kalkan'};
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.625;

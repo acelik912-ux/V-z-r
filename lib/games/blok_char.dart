@@ -23,20 +23,44 @@ const clothColors = [
 ];
 const hatColors = [Color(0xFFFFC107), Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF6D4C41), Color(0xFFFFFFFF)];
 const hairStyles = ['Kısa saç', 'Uzun saç', 'Kask', 'Şapka', 'Takke'];
+const bearStyles = ['Başlıksız', 'Kask', 'Şapka', 'Takke'];
+
+/// Ayı tüy renkleri
+const furColors = [
+  Color(0xFF8D5A3B), // kahverengi
+  Color(0xFF2B2B2B), // siyah
+  Color(0xFF8E44AD), // mor
+  Color(0xFFF2F2F2), // beyaz (kutup)
+  Color(0xFFE0A030), // altın
+  Color(0xFF8C8C8C), // gri
+  Color(0xFFF06292), // pembe
+  Color(0xFF3F7FD0), // mavi
+];
+const furNames = ['kahverengi', 'siyah', 'mor', 'beyaz', 'altın', 'gri', 'pembe', 'mavi'];
 
 class Avatar {
   int skin, hair, style, shirt, pants, hat;
-  Avatar({this.skin = 0, this.hair = 0, this.style = 0, this.shirt = 0, this.pants = 6, this.hat = 0});
+  bool bear;
+  int fur;
+  Avatar({this.skin = 0, this.hair = 0, this.style = 0, this.shirt = 0, this.pants = 6, this.hat = 0, this.bear = false, this.fur = 0});
 
-  String encode() => '$skin,$hair,$style,$shirt,$pants,$hat';
+  String encode() => '$skin,$hair,$style,$shirt,$pants,$hat,${bear ? 1 : 0},$fur';
 
   static Avatar? decode(String s) {
     final p = s.split(',').map(int.tryParse).toList();
-    if (p.length != 6 || p.any((e) => e == null)) return null;
-    return Avatar(skin: p[0]!, hair: p[1]!, style: p[2]!, shirt: p[3]!, pants: p[4]!, hat: p[5]!);
+    if ((p.length != 6 && p.length != 8) || p.any((e) => e == null)) return null;
+    return Avatar(
+        skin: p[0]!,
+        hair: p[1]!,
+        style: p[2]!,
+        shirt: p[3]!,
+        pants: p[4]!,
+        hat: p[5]!,
+        bear: p.length == 8 && p[6] == 1,
+        fur: p.length == 8 ? p[7]! : 0);
   }
 
-  Avatar copy() => Avatar(skin: skin, hair: hair, style: style, shirt: shirt, pants: pants, hat: hat);
+  Avatar copy() => Avatar(skin: skin, hair: hair, style: style, shirt: shirt, pants: pants, hat: hat, bear: bear, fur: fur);
 }
 
 /// Hazır karakterler
@@ -47,6 +71,11 @@ final presets = <(String, Avatar)>[
   ('Kâşif', Avatar(skin: 1, hair: 2, style: 3, shirt: 3, pants: 6, hat: 3)),
   ('Hafız', Avatar(skin: 0, hair: 1, style: 4, shirt: 7, pants: 7, hat: 4)),
   ('Usta', Avatar(skin: 3, hair: 4, style: 1, shirt: 1, pants: 6)),
+  ('Kahverengi Ayı', Avatar(bear: true, fur: 0, style: 0, shirt: 0)),
+  ('Siyah Ayı', Avatar(bear: true, fur: 1, style: 1, shirt: 3, hat: 1)),
+  ('Mor Ayı', Avatar(bear: true, fur: 2, style: 2, shirt: 3, hat: 0)),
+  ('Kutup Ayısı', Avatar(bear: true, fur: 3, style: 0, shirt: 1)),
+  ('Altın Ayı', Avatar(bear: true, fur: 4, style: 3, shirt: 2, hat: 4)),
 ];
 
 Avatar get myAvatar => Avatar.decode(game.avatar) ?? presets[0].$2.copy();
@@ -78,8 +107,57 @@ class ABox {
   const ABox(this.cx, this.cy, this.cz, this.hx, this.hy, this.hz, this.color, {this.pivotZ = 0, this.angle = 0, this.face = false});
 }
 
+/// Ayı karakter
+List<ABox> bearBoxes(Avatar a, {double walk = 0, double swing = 0, String? tool, bool shield = false}) {
+  final fur = furColors[a.fur % furColors.length];
+  final light = a.fur == 1 ? const Color(0xFF8A8A8A) : Color.lerp(fur, Colors.white, a.fur == 3 ? 0.0 : 0.45)!;
+  final dark = Color.lerp(fur, Colors.black, 0.6)!;
+  final scarf = clothColors[a.shirt % clothColors.length];
+  final hat = hatColors[a.hat % hatColors.length];
+  final leg = sin(walk) * 0.55;
+  final armR = swing > 0 ? -1.9 * sin(swing * pi) : -leg;
+  final armL = leg;
+  final out = <ABox>[
+    ABox(-0.15, 0, 0.22, 0.13, 0.14, 0.22, fur, pivotZ: 0.44, angle: leg),
+    ABox(0.15, 0, 0.22, 0.13, 0.14, 0.22, fur, pivotZ: 0.44, angle: -leg),
+    ABox(-0.15, 0.03, 0.03, 0.125, 0.15, 0.03, light, pivotZ: 0.44, angle: leg),
+    ABox(0.15, 0.03, 0.03, 0.125, 0.15, 0.03, light, pivotZ: 0.44, angle: -leg),
+    ABox(0, 0, 0.76, 0.3, 0.22, 0.33, fur),
+    ABox(0, 0.225, 0.72, 0.18, 0.012, 0.22, light),
+    ABox(0, 0, 1.1, 0.27, 0.21, 0.05, scarf),
+    ABox(-0.38, 0, 0.84, 0.1, 0.11, 0.25, fur, pivotZ: 1.05, angle: armL),
+    ABox(0.38, 0, 0.84, 0.1, 0.11, 0.25, fur, pivotZ: 1.05, angle: armR),
+    ABox(-0.38, 0, 0.56, 0.095, 0.1, 0.05, light, pivotZ: 1.05, angle: armL),
+    ABox(0.38, 0, 0.56, 0.095, 0.1, 0.05, light, pivotZ: 1.05, angle: armR),
+    ABox(0, 0.02, 1.38, 0.26, 0.24, 0.24, fur, face: true),
+    ABox(0, 0.275, 1.29, 0.12, 0.05, 0.08, light),
+    ABox(0, 0.33, 1.33, 0.05, 0.015, 0.035, dark),
+    ABox(-0.2, 0, 1.66, 0.075, 0.05, 0.075, fur),
+    ABox(0.2, 0, 1.66, 0.075, 0.05, 0.075, fur),
+    ABox(-0.2, 0.052, 1.66, 0.04, 0.008, 0.04, light),
+    ABox(0.2, 0.052, 1.66, 0.04, 0.008, 0.04, light),
+  ];
+  switch (a.style) {
+    case 1: // kask
+      out.add(ABox(0, 0.01, 1.63, 0.28, 0.26, 0.07, hat));
+      out.add(ABox(0, 0.22, 1.58, 0.28, 0.08, 0.02, hat));
+    case 2: // şapka
+      out.add(ABox(0, 0.02, 1.63, 0.36, 0.34, 0.02, hat));
+      out.add(ABox(0, 0.02, 1.73, 0.2, 0.2, 0.09, hat));
+    case 3: // takke
+      out.add(ABox(0, 0.02, 1.645, 0.22, 0.22, 0.04, hat));
+  }
+  if (tool != null) out.addAll(_toolBoxes(tool, armR, hx: 0.38, hz: 0.56, pz: 1.05));
+  if (shield) {
+    out.add(ABox(-0.5, 0.02, 0.82, 0.03, 0.22, 0.26, const Color(0xFF1565C0), pivotZ: 1.05, angle: armL));
+    out.add(ABox(-0.535, 0.02, 0.82, 0.012, 0.08, 0.1, const Color(0xFFFFC107), pivotZ: 1.05, angle: armL));
+  }
+  return out;
+}
+
 /// Yürüme fazı [walk] (radyan), [swing] 0..1 alet vuruşu, [tool] elde tutulan alet.
 List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? tool, bool shield = false}) {
+  if (a.bear) return bearBoxes(a, walk: walk, swing: swing, tool: tool, shield: shield);
   final skin = skinColors[a.skin % skinColors.length];
   final hair = hairColors[a.hair % hairColors.length];
   final shirt = clothColors[a.shirt % clothColors.length];
@@ -126,7 +204,14 @@ List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? too
   return out;
 }
 
-List<ABox> _toolBoxes(String t, double a) {
+List<ABox> _toolBoxes(String t, double a, {double hx = 0.36, double hz = 0.76, double pz = 1.39}) {
+  return [
+    for (final b in _toolBoxesRaw(t, a))
+      ABox(b.cx - 0.36 + hx, b.cy, b.cz - 0.76 + hz, b.hx, b.hy, b.hz, b.color, pivotZ: pz, angle: a),
+  ];
+}
+
+List<ABox> _toolBoxesRaw(String t, double a) {
   const wood = Color(0xFF8D5524), iron = Color(0xFFCFD8DC), gold = Color(0xFFFFC107);
   // el: (0.36, 0, 0.76); alet ileri doğru uzanır
   switch (t) {
@@ -297,6 +382,39 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: Colors.white.withAlpha(230), borderRadius: BorderRadius.circular(22)),
                 child: ListView(children: [
+                  Row(children: [
+                    for (final b in [false, true])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8, bottom: 6),
+                        child: ChoiceChip(
+                          label: Text(b ? '🐻 Ayı' : '🧒 İnsan', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                          selected: a.bear == b,
+                          onSelected: (_) => _set(() {
+                            a.bear = b;
+                            if (b && a.style > 3) a.style = 0;
+                          }),
+                        ),
+                      ),
+                  ]),
+                  if (a.bear) ...[
+                    _row('Tüy', furColors.length, a.fur, (i) => furColors[i], (i) {
+                      a.fur = i;
+                      Voice.say('${furNames[i]} ayı');
+                    }),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Wrap(spacing: 6, runSpacing: 6, children: [
+                        for (var i = 0; i < bearStyles.length; i++)
+                          ChoiceChip(
+                            label: Text(bearStyles[i], style: const TextStyle(fontWeight: FontWeight.bold)),
+                            selected: a.style == i,
+                            onSelected: (_) => _set(() => a.style = i),
+                          ),
+                      ]),
+                    ),
+                    if (a.style >= 1) _row('Başlık', hatColors.length, a.hat, (i) => hatColors[i], (i) => a.hat = i),
+                    _row('Fular', clothColors.length, a.shirt, (i) => clothColors[i], (i) => a.shirt = i),
+                  ] else ...[
                   _row('Ten', skinColors.length, a.skin, (i) => skinColors[i], (i) => a.skin = i),
                   _row('Saç', hairColors.length, a.hair, (i) => hairColors[i], (i) => a.hair = i),
                   Padding(
@@ -313,6 +431,7 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                   if (a.style >= 2) _row('Başlık', hatColors.length, a.hat, (i) => hatColors[i], (i) => a.hat = i),
                   _row('Gömlek', clothColors.length, a.shirt, (i) => clothColors[i], (i) => a.shirt = i),
                   _row('Pantolon', clothColors.length, a.pants, (i) => clothColors[i], (i) => a.pants = i),
+                  ],
                 ]),
               ),
             ),
