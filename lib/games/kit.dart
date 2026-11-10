@@ -248,7 +248,10 @@ class ChoiceTile extends StatelessWidget {
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 5, offset: Offset(0, 4))],
             ),
-            child: Center(child: child),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: max(0, size - 30)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [child]),
+            ),
           ),
         ),
       );

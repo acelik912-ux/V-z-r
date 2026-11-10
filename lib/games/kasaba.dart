@@ -557,7 +557,7 @@ class _IyilikTeslimatiState extends State<IyilikTeslimati> {
           child: Panel(
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Text(gift.$2, style: const TextStyle(fontSize: 50)),
-              const Text(' → ', style: TextStyle(fontSize: 30)),
+              const Text(' ➡️ ', style: TextStyle(fontSize: 30)),
               Text(target.emoji, style: const TextStyle(fontSize: 50)),
               const SizedBox(width: 6),
               const Icon(Icons.volume_up, color: Colors.black54),

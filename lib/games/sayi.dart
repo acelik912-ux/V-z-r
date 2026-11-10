@@ -146,7 +146,7 @@ class _KopruKurState extends State<KopruKur> with SingleTickerProviderStateMixin
                   child: Stack(children: [
                     Positioned(
                       left: -w * 0.05 + car.value * w * 0.85,
-                      top: w * 0.18 - (crossing ? sin(car.value * pi * 8).abs() * 4 : 0),
+                      top: w * 0.7 * 0.42 - 80 - (crossing ? sin(car.value * pi * 8).abs() * 4 : 0),
                       child: Transform.flip(flipX: true, child: Pic('arac_${game.selected('body')}', width: 110)),
                     ),
                   ]),

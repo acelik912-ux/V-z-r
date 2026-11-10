@@ -31,7 +31,7 @@ class SylText extends StatelessWidget {
   const SylText(this.text, {super.key, this.size = 32});
 
   @override
-  Widget build(BuildContext context) => RichText(text: sylSpan(text, size));
+  Widget build(BuildContext context) => Text.rich(sylSpan(text, size));
 }
 
 class Pill extends StatelessWidget {

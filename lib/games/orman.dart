@@ -139,7 +139,10 @@ class _HayvanKurtarmaState extends State<HayvanKurtarma> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 for (var i = 0; i < signs.length; i++)
-                  Bouncy(
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Bouncy(
                     onTap: () => _tap(i),
                     child: Column(children: [
                       AnimatedOpacity(
@@ -149,6 +152,8 @@ class _HayvanKurtarmaState extends State<HayvanKurtarma> {
                       ),
                       _Sign(signs[i].name, highlight: chosen == i),
                     ]),
+                  ),
+                    ),
                   ),
               ],
             ),

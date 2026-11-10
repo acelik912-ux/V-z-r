@@ -44,7 +44,7 @@ class _ArabaYikamaState extends State<ArabaYikama> {
   final List<Offset> foam = [];
   final List<Offset> drops = [];
   late final List<List<double>> mud = [
-    for (var i = 0; i < 9; i++) [0.12 + rnd.nextDouble() * 0.76, 0.3 + rnd.nextDouble() * 0.5, 0.05 + rnd.nextDouble() * 0.05, 1.0]
+    for (var i = 0; i < 9; i++) [0.18 + rnd.nextDouble() * 0.64, 0.36 + rnd.nextDouble() * 0.3, 0.022 + rnd.nextDouble() * 0.022, 1.0]
   ];
   late List<int> options;
   int _lastSfx = 0;
@@ -228,7 +228,7 @@ class _DirtPainter extends CustomPainter {
     final p = Paint();
     for (final m in mud) {
       if (m[3] <= 0.02) continue;
-      p.color = const Color(0xFF6D4C2F).withAlpha((m[3] * 200).toInt());
+      p.color = const Color(0xFF6D4C2F).withAlpha((m[3] * 185).toInt());
       final c = Offset(m[0] * s.width, m[1] * s.height);
       final r = m[2] * s.width;
       canvas.drawCircle(c, r, p);
