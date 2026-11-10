@@ -254,7 +254,7 @@ class BlockWorld {
 
 final List<Quest> quests = [
   Quest('kule', Who.tamirci, 'Parlayan yere 5 bloklu kule yap', 'Parlayan yere, blokları üst üste koyarak beş bloklu bir kule yap!',
-      ghost: {for (var z = 1; z <= 5; z++) ck(2, 3, z): -1}),
+      ghost: {for (var z = 1; z <= 5; z++) ck(2, 4, z): -1}),
   Quest('cati', Who.tozbulut, 'Komşu teyzenin çatısına kiremit koy', 'Komşu teyzenin evinin çatısı akıyor! Parlayan yerlere kiremit koyalım.',
       hearts: 1, needs: 'kiremit', ghost: {for (final c in BlockWorld.roofMissing) c: matIndex('kiremit')}),
   Quest('tas7', Who.robot, 'Adaya tam 7 taş blok koy', 'Adaya tam yedi tane taş blok koy. Ne eksik ne fazla!',
