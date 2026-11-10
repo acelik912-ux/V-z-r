@@ -57,6 +57,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   int storyRead = 0;
   int treesPlanted = 0;
   String avatar = '';
+  String blockLife = '';
   Set<String> blockTools = <String>{};
   Map<String, int> mined = {};
 
@@ -315,6 +316,16 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     save();
   }
 
+  void saveLife(String l) {
+    blockLife = l;
+    save();
+  }
+
+  void addHeart() {
+    hearts++;
+    _changed();
+  }
+
   void plantTree() {
     treesPlanted++;
     save();
@@ -432,6 +443,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'storyRead': storyRead,
         'treesPlanted': treesPlanted,
         'avatar': avatar,
+        'blockLife': blockLife,
         'blockTools': blockTools.toList(),
         'mined': mined,
       };
@@ -497,6 +509,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     storyRead = gi('storyRead', 0);
     treesPlanted = gi('treesPlanted', 0);
     avatar = j['avatar'] as String? ?? '';
+    blockLife = j['blockLife'] as String? ?? '';
     blockTools = ss('blockTools');
     final mj = j['mined'];
     if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));

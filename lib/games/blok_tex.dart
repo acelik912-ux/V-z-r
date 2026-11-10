@@ -375,6 +375,17 @@ class Tex {
             g.set(x, y, g.vary(edge ? 0xFF0D3C7A : (yy == 0 ? 0xFF4F8FE0 : 0xFF1E5FB5), 8));
           }
         }
+      case 'tarla':
+        if (side) {
+          g.noise(0xFF8B5A2B, 14);
+          g.specks(0xFF6B4220, 14);
+        } else {
+          for (var y = 0; y < 16; y++) {
+            for (var x = 0; x < 16; x++) {
+              g.set(x, y, g.vary(y % 4 < 2 ? 0xFF5D3A1A : 0xFF7A4B24, 8));
+            }
+          }
+        }
       case '_beyaz':
         g.fill(0xFFFFFFFF);
       case '_yuz':

@@ -12,6 +12,7 @@ import '../syllables.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
 import 'blok_char.dart';
+import 'blok_life.dart';
 import 'blok_tex.dart';
 import 'kit.dart';
 
@@ -55,7 +56,7 @@ const mats = <BlockMat>[
   BlockMat('buz', 'buz', Color(0xFFA8DDF5), 2, see: true),
   BlockMat('saman', 'saman', Color(0xFFE3C14B), 2),
   BlockMat('kitaplik', 'kitaplık', Color(0xFF9C6B3A), 3),
-  BlockMat('kapi', 'kapı', Color(0xFF7A4E2A), 3, start: true),
+  BlockMat('kapi', 'kapı', Color(0xFF7A4E2A), 0, start: true),
   BlockMat('fener', 'fener', Color(0xFFFFC107), 3, glow: true),
   BlockMat('elmas', 'elmas', Color(0xFF4DD0E1), 3),
   BlockMat('demir', 'demir', Color(0xFFD6D6D6), 0),
@@ -74,10 +75,11 @@ const mats = <BlockMat>[
   BlockMat('mantar', 'mantar', Color(0xFFD32F2F), 2),
   BlockMat('bal', 'bal', Color(0xFFFFB300), 3),
   BlockMat('toprakyol', 'patika', Color(0xFFC9A26B), 2),
-  BlockMat('pencere', 'pencere', Color(0xFF9EE6FF), 0, see: true),
+  BlockMat('pencere', 'pencere', Color(0xFF9EE6FF), 0, see: true, start: true),
   BlockMat('tasduvar', 'taş duvar', Color(0xFF8A8A8A), 0),
   BlockMat('mavicati', 'mavi çatı', Color(0xFF1E5FB5), 0),
   BlockMat('hazine', 'hazine sandığı', Color(0xFF8D5524), 9),
+  BlockMat('tarla', 'tarla', Color(0xFF6B4220), 5, start: true),
 ];
 
 /// Doku atlasındaki sıra: bloklar, sonra beyaz ve yüz karoları.
@@ -97,6 +99,7 @@ const unlockGroups = [
 
 int matIndex(String id) => mats.indexWhere((m) => m.id == id);
 String itemName(String id) {
+  if (id.startsWith('seed_')) return '${cropById(id.substring(5)).name} tohumu';
   final m = matIndex(id);
   if (m >= 0) return mats[m].name;
   return prefabById(id)?.name ?? id;
@@ -682,10 +685,11 @@ class BlokAdasi extends StatefulWidget {
 
 /// Görünen bir yüz: hücre + yön (0 üst, 1 +x, 2 -x, 3 +y, 4 -y)
 class _Face {
-  final int cell;
+  final int cell; // blok hücresi; hayvan için sıra numarası; ekin için hücre
   final int dir;
   final int mat;
-  _Face(this.cell, this.dir, this.mat);
+  final int ent; // 0 blok, 1 karakter, 2 hayvan, 3 ekin
+  _Face(this.cell, this.dir, this.mat, [this.ent = 0]);
 }
 
 const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1)];
@@ -763,6 +767,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
+    _loadLife();
     game.markPlayed('blok');
     Tex.load(texIds).then((_) {
       if (mounted) setState(() {});
@@ -795,7 +800,220 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (z < 0) return true;
     final m = world.blocks[ck(x, y, z)];
     if (m == null) return false;
-    return mats[m].id != 'su';
+    final id = mats[m].id;
+    return id != 'su' && id != 'kapi';
+  }
+
+  // ---------- hayvanlar ve tarla ----------
+  final List<Animal> animals = [];
+  final Map<int, (String, int)> cropsAt = {}; // hücre -> (ekin, ekilme zamanı)
+  int lifeTick = 0;
+  double _lifeSave = 0;
+  (int, int)? aimEnt; // birinci şahısta hedeflenen hayvan/ekin: (tür 2/3, numara)
+
+  String _encodeLife() {
+    final a = animals.map((e) => '${e.kind.id},${e.x.toStringAsFixed(2)},${e.y.toStringAsFixed(2)},${e.z.toStringAsFixed(1)},${e.friend ? 1 : 0}').join(';');
+    final c = cropsAt.entries.map((e) => '${e.key},${e.value.$1},${e.value.$2}').join(';');
+    return '$a|$c';
+  }
+
+  void _loadLife() {
+    animals.clear();
+    cropsAt.clear();
+    final parts = game.blockLife.split('|');
+    if (game.blockLife.isEmpty || parts.length != 2) {
+      _spawnAnimals(9, minX, maxX, minY, maxY);
+      return;
+    }
+    for (final a in parts[0].split(';')) {
+      final f = a.split(',');
+      if (f.length != 5) continue;
+      animals.add(Animal(kindById(f[0]), double.parse(f[1]), double.parse(f[2]), double.parse(f[3]), friend: f[4] == '1'));
+    }
+    for (final c in parts[1].split(';')) {
+      final f = c.split(',');
+      if (f.length != 3) continue;
+      cropsAt[int.parse(f[0])] = (f[1], int.parse(f[2]));
+    }
+  }
+
+  void _saveLife() => game.saveLife(_encodeLife());
+
+  void _spawnAnimals(int n, int x0, int x1, int y0, int y1) {
+    final r = Random();
+    for (var i = 0; i < n * 6 && n > 0; i++) {
+      final x = x0 + r.nextInt(x1 - x0 + 1), y = y0 + r.nextInt(y1 - y0 + 1);
+      final z = world.topZ(x, y);
+      final g = world.blocks[ck(x, y, z)];
+      if (g == null || mats[g].id != 'cim' && mats[g].id != 'cicek' && mats[g].id != 'kar') continue;
+      animals.add(Animal(animalKinds[r.nextInt(animalKinds.length)], x + 0.5, y + 0.5, z + 1.0));
+      n--;
+    }
+  }
+
+  double _animalHeight(String id) => const {'inek': 1.25, 'koyun': 1.05, 'tavuk': 0.85, 'kedi': 0.7, 'kopek': 0.85, 'at': 1.75}[id] ?? 1.0;
+
+  void _tickAnimals(double dt) {
+    final r = Random();
+    var moved = false;
+    for (final a in animals) {
+      a.timer -= dt;
+      final dxp = ax - a.x, dyp = ay - a.y;
+      if (a.friend && dxp * dxp + dyp * dyp > 16) {
+        a.target = (ax - dxp.sign * 1.5, ay - dyp.sign * 1.5);
+      } else if (a.timer <= 0) {
+        a.timer = 3 + r.nextDouble() * 5;
+        a.target = r.nextInt(3) == 0 ? null : (a.x + r.nextInt(11) - 5, a.y + r.nextInt(11) - 5);
+      }
+      final t = a.target;
+      if (t != null) {
+        final dx = t.$1 - a.x, dy = t.$2 - a.y;
+        final d = sqrt(dx * dx + dy * dy);
+        if (d < 0.2) {
+          a.target = null;
+        } else {
+          final st = min(d, a.kind.speed * dt);
+          final nx = a.x + dx / d * st, ny = a.y + dy / d * st;
+          final cx = nx.floor(), cy = ny.floor(), lv = a.z.round();
+          if (!inside(cx, cy, 0)) {
+            a.target = null;
+          } else if (!solid(cx, cy, lv) && !solid(cx, cy, lv + 1)) {
+            a.x = nx;
+            a.y = ny;
+          } else if (!solid(cx, cy, lv + 1) && !solid(cx, cy, lv + 2)) {
+            a.x = nx;
+            a.y = ny;
+            a.z = lv + 1.0;
+          } else {
+            a.target = null;
+          }
+          a.facing = atan2(dx, dy);
+          a.walk += dt * 9;
+          moved = true;
+        }
+      } else if (a.walk != 0) {
+        a.walk = 0;
+        moved = true;
+      }
+      // düşme
+      final cx = a.x.floor(), cy = a.y.floor();
+      var lv = a.z.round();
+      while (lv > 0 && !solid(cx, cy, lv - 1)) {
+        lv--;
+      }
+      if (lv != a.z.round()) {
+        a.z = lv.toDouble();
+        moved = true;
+      }
+    }
+    if (moved) lifeTick++;
+    _lifeSave += dt;
+    if (_lifeSave > 8) {
+      _lifeSave = 0;
+      _saveLife();
+    }
+  }
+
+  int get cropStamp => cropsAt.values.fold(0, (a, c) => a + cropStage(c.$2));
+
+  /// Çizilecek bütün hareketli parçalar: (kutu, x, y, z, yön, tür, numara)
+  List<(ABox, double, double, double, double, int, int)> entityParts({bool withAvatar = true}) {
+    final out = <(ABox, double, double, double, double, int, int)>[];
+    if (withAvatar) {
+      for (final b in avatarParts()) {
+        out.add((b, ax, ay, az, facing, 1, 0));
+      }
+    }
+    for (var i = 0; i < animals.length; i++) {
+      final a = animals[i];
+      if ((a.x - fx).abs() > 40 || (a.y - fy).abs() > 40) continue;
+      for (final b in animalBoxes(a.kind.id, a.walk)) {
+        out.add((b, a.x, a.y, a.z, a.facing, 2, i));
+      }
+    }
+    for (final e in cropsAt.entries) {
+      final (x, y, z) = cxyz(e.key);
+      if ((x - fx).abs() > 40 || (y - fy).abs() > 40) continue;
+      for (final b in cropBoxes(e.value.$1, cropStage(e.value.$2))) {
+        out.add((b, x + 0.5, y + 0.5, z.toDouble(), 0, 3, e.key));
+      }
+    }
+    return out;
+  }
+
+  Future<void> _befriend(int i) async {
+    if (i < 0 || i >= animals.length) return;
+    final a = animals[i];
+    if (a.friend) {
+      Sfx.play('heart');
+      Voice.say('${trCapitalize(a.kind.name)}! Seni çok seviyor. Sana ${a.kind.gift.split(' ').first} verdi.');
+      _burst(ck(a.x.floor(), a.y.floor(), a.z.floor()), const Color(0xFFFF80AB), 8);
+      return;
+    }
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(
+              parts: a.kind.syl,
+              emoji: a.kind.emoji,
+              title: 'Bu hayvanın adını yaz, dost olsun!',
+              speech: 'Bu bir ${a.kind.name}. Adını ${a.kind.syl.every((p) => p.length == 1) ? 'harflerle' : 'hecelerle'} yaz, seninle dost olsun!',
+            ));
+    if (ok != true || !mounted) return;
+    a.friend = true;
+    game.addHeart();
+    _saveLife();
+    Sfx.play('heart');
+    _burst(ck(a.x.floor(), a.y.floor(), a.z.floor()), const Color(0xFFFF80AB), 16);
+    Say.show(context, Who.tozbulut,
+        '${trCapitalize(a.kind.name)} artık dostun! Seni takip edecek. Hayvanlara iyi bakmak güzel bir iyiliktir.',
+        mood: 'gul');
+    lifeTick++;
+  }
+
+  Future<void> _harvest(int cell) async {
+    final c = cropsAt[cell];
+    if (c == null) return;
+    final crop = cropById(c.$1);
+    final st = cropStage(c.$2);
+    if (st < 3) {
+      final left = ((3 * cropStageMs - (DateTime.now().millisecondsSinceEpoch - c.$2)) / 1000).ceil();
+      Say.show(context, Who.tamirci, '${trCapitalize(crop.name)} daha büyüyor. Biraz sabır! $left saniye kaldı.', mood: 'dusun');
+      return;
+    }
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(
+              parts: crop.syl,
+              emoji: crop.emoji,
+              title: 'Hasat zamanı! Adını yaz, topla.',
+              speech: '${trCapitalize(crop.name)} olgunlaştı! Adını hecelerle yaz, toplayalım.',
+            ));
+    if (ok != true || !mounted) return;
+    cropsAt.remove(cell);
+    game.addMined('urun_${crop.id}');
+    game.addStars(1);
+    _saveLife();
+    Sfx.play('coin');
+    _burst(cell, crop.color, 14);
+    Say.show(context, Who.tamirci, 'Bereketli olsun! Bir ${crop.name} topladın, bir yıldız kazandın. Elhamdülillah!', mood: 'sevin');
+    lifeTick++;
+  }
+
+  bool _plant(int targetCell) {
+    final seed = sel.substring(5);
+    final (x, y, z) = cxyz(targetCell);
+    final below = world.blocks[ck(x, y, z - 1)];
+    if (below == null || mats[below].id != 'tarla') {
+      Say.show(context, Who.tamirci, 'Tohumu tarlaya ekmeliyiz. Önce Bahçe sekmesinden tarla bloğu koy.', mood: 'dusun');
+      return false;
+    }
+    if (cropsAt.containsKey(targetCell) || world.blocks.containsKey(targetCell)) return false;
+    cropsAt[targetCell] = (seed, DateTime.now().millisecondsSinceEpoch);
+    _saveLife();
+    Sfx.play('pop');
+    Voice.say('${trCapitalize(cropById(seed).name)} ektin! Üç dakikada büyüyecek.');
+    lifeTick++;
+    return true;
   }
 
   void _placeAvatar(int x, int y) {
@@ -1005,14 +1223,21 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     // birinci şahısta nişangâh hedefi
     if (firstPerson) {
       final h = rayHit();
-      final tc = h?.$1;
-      if (tc != aim) {
+      var tc = h?.$1;
+      final e = _rayEntity(h == null ? 5.5 : lastRayT);
+      if (e != null) tc = null;
+      if (tc != aim || e != aimEnt) {
         aim = tc;
-        aimNormal = h?.$2;
+        aimNormal = tc == null ? null : h?.$2;
+        aimEnt = e;
         changed = true;
       }
       if (breakHeld && breakCell == null && aim != null) _startBreak(aim!);
     }
+    // hayvanlar
+    final lt = lifeTick;
+    _tickAnimals(dt);
+    if (lt != lifeTick) changed = true;
     // parçacıklar
     if (parts.isNotEmpty) {
       for (final p in parts) {
@@ -1032,6 +1257,50 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       changed = true;
     }
     if (changed && mounted) setState(() {});
+  }
+
+  double lastRayT = 5.5;
+
+  /// Gözden ileri ışın hayvan ya da ekine çarpıyor mu?
+  (int, int)? _rayEntity(double maxT) {
+    final ex = ax, ey = ay, ez = az + 1.55;
+    final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
+    double? hitBox(double x0, double y0, double z0, double x1, double y1, double z1) {
+      var tmin = 0.0, tmax = maxT;
+      for (final (o, d, lo, hi) in [(ex, dx, x0, x1), (ey, dy, y0, y1), (ez, dz, z0, z1)]) {
+        if (d.abs() < 1e-9) {
+          if (o < lo || o > hi) return null;
+        } else {
+          var t1 = (lo - o) / d, t2 = (hi - o) / d;
+          if (t1 > t2) (t1, t2) = (t2, t1);
+          tmin = max(tmin, t1);
+          tmax = min(tmax, t2);
+          if (tmin > tmax) return null;
+        }
+      }
+      return tmin;
+    }
+
+    (int, int)? best;
+    var bt = maxT;
+    for (var i = 0; i < animals.length; i++) {
+      final a = animals[i];
+      final h = _animalHeight(a.kind.id);
+      final t = hitBox(a.x - 0.45, a.y - 0.45, a.z, a.x + 0.45, a.y + 0.45, a.z + h);
+      if (t != null && t < bt) {
+        bt = t;
+        best = (2, i);
+      }
+    }
+    for (final c in cropsAt.keys) {
+      final (x, y, z) = cxyz(c);
+      final t = hitBox(x + 0.1, y + 0.1, z.toDouble(), x + 0.9, y + 0.9, z + 0.8);
+      if (t != null && t < bt) {
+        bt = t;
+        best = (3, c);
+      }
+    }
+    return best;
   }
 
   /// Gözden ileri ışın: ilk dolu blok ve çarptığı yüz yönü (5 blok).
@@ -1067,9 +1336,24 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
       if (z < 0 || z >= H) break;
       final m = world.blocks[ck(x, y, z)];
-      if (m != null && mats[m].id != 'su') return (ck(x, y, z), face);
+      if (m != null && mats[m].id != 'su') {
+        final dt = face == 1 || face == 2 ? tx - ddx : (face == 3 || face == 4 ? ty - ddy : tz - ddz);
+        lastRayT = dt;
+        return (ck(x, y, z), face);
+      }
     }
     return null;
+  }
+
+  void _fpAction() {
+    final e = aimEnt;
+    if (e != null) {
+      if (e.$1 == 2) _befriend(e.$2);
+      if (e.$1 == 3) _harvest(e.$2);
+      return;
+    }
+    final t = aim;
+    if (t != null && breakCell == null) _startBreak(t);
   }
 
   void _startBreak(int cell) {
@@ -1085,6 +1369,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _fpPlace() {
     final a = aim, n = aimNormal;
     if (a == null || n == null) return;
+    if (sel.startsWith('seed_')) {
+      final (x, y, z) = cxyz(a);
+      if (n == 0) _plant(ck(x, y, z + 1));
+      return;
+    }
     final pf = prefabById(sel);
     if (pf != null) {
       Say.show(context, Who.tamirci, 'Hazır yapıları dışarıdan görünümde, Kur ile koyabilirsin.');
@@ -1190,6 +1479,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _saveLife();
     _ticker.dispose();
     pulse.dispose();
     for (final v in _verts) {
@@ -1409,7 +1699,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   /// Dokunulan yüz (karakter hariç)
   _Face? _faceAt(Offset p) {
     for (var i = _hit.count - 1; i >= 0; i--) {
-      if (_hit.faces[i].cell < 0) continue;
+      if (_hit.faces[i].ent == 1) continue;
       if (_hit.contains(i, p)) return _hit.faces[i];
     }
     return null;
@@ -1418,7 +1708,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   (int, bool, int)? _target(Offset p) {
     final n = _hit.count;
     for (var i = n - 1; i >= 0; i--) {
-      if (_hit.faces[i].cell < 0) continue;
+      if (_hit.faces[i].ent != 0) continue;
       if (!_hit.contains(i, p)) continue;
       final f = _hit.faces[i];
       final (x, y, z) = cxyz(f.cell);
@@ -1437,6 +1727,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _down(Offset p) {
+    final fe = _faceAt(p);
+    if (fe != null && fe.ent >= 2) return;
     if (mode != 0) {
       final f = _faceAt(p);
       setState(() {
@@ -1462,6 +1754,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final f = _faceAt(p);
     setState(() => previewCell = null);
     if (f == null) return;
+    if (f.ent == 2) {
+      _befriend(f.cell);
+      return;
+    }
+    if (f.ent == 3) {
+      _harvest(f.cell);
+      return;
+    }
     final hz = matIndex('hazine');
     final (x, y, z) = cxyz(f.cell);
     if (world.blocks[f.cell] == hz) {
@@ -1500,10 +1800,25 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       _avatarTap(p);
       return;
     }
+    final fe = _faceAt(p);
+    if (fe != null && fe.ent >= 2) {
+      setState(() => previewCell = null);
+      if (fe.ent == 2) _befriend(fe.cell);
+      if (fe.ent == 3) _harvest(fe.cell);
+      return;
+    }
     final t = _target(p);
     setState(() => previewCell = null);
     if (t == null) return;
     final (k, del, dir) = t;
+    if (!del && sel.startsWith('seed_')) {
+      if (dir == 0) _plant(k);
+      return;
+    }
+    if (del && cropsAt.containsKey(ck(cxyz(k).$1, cxyz(k).$2, cxyz(k).$3 + 1))) {
+      cropsAt.remove(ck(cxyz(k).$1, cxyz(k).$2, cxyz(k).$3 + 1));
+      _saveLife();
+    }
     if (del) {
       _push();
       world.blocks.remove(k);
@@ -1585,6 +1900,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _push();
     world.seed();
     task = null;
+    animals.clear();
+    cropsAt.clear();
+    _spawnAnimals(9, minX, maxX, minY, maxY);
+    _saveLife();
     _changed();
   }
 
@@ -1604,6 +1923,18 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       Say.show(context, Who.tamirci, 'Bu yönde dünyanın sonu geldi. Şehri çevirip başka yöne büyüt.');
       return;
     }
+    // yeni araziye hayvanlar
+    switch (dir) {
+      case 0:
+        _spawnAnimals(3, minX, maxX, maxY - 19, maxY);
+      case 1:
+        _spawnAnimals(3, maxX - 19, maxX, minY, maxY);
+      case 2:
+        _spawnAnimals(3, minX, maxX, minY, minY + 19);
+      default:
+        _spawnAnimals(3, minX, minX + 19, minY, maxY);
+    }
+    _saveLife();
     // kamerayı yeni araziye götür
     switch (dir) {
       case 0:
@@ -1778,10 +2109,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                         Row(children: [
                           _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump),
                           const SizedBox(width: 8),
-                          _ActionBtn('⛏️', 'Kır', const Color(0xFFEF5350), big: true, down: () {
-                            breakHeld = true;
-                            final t = aim;
-                            if (t != null && breakCell == null) _startBreak(t);
+                          _ActionBtn(aimEnt == null ? '⛏️' : (aimEnt!.$1 == 2 ? '💛' : '🧺'),
+                              aimEnt == null ? 'Kır' : (aimEnt!.$1 == 2 ? 'Sev' : 'Topla'), const Color(0xFFEF5350), big: true, down: () {
+                            breakHeld = aimEnt == null;
+                            _fpAction();
                           }, up: () => breakHeld = false),
                         ]),
                       ]),
@@ -1896,6 +2227,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _fpTap() {
+    if (aimEnt != null) {
+      _fpAction();
+      return;
+    }
     final t = aim;
     if (t == null) return;
     if (world.blocks[t] == matIndex('hazine')) {
@@ -1963,6 +2298,21 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         const SizedBox(height: 4),
         Expanded(
           child: ListView(scrollDirection: Axis.horizontal, children: [
+            for (final c in crops)
+              Bouncy(
+                onTap: () => _select('seed_${c.id}'),
+                child: Container(
+                  width: 52,
+                  margin: const EdgeInsets.only(right: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: sel == 'seed_${c.id}' ? const Color(0xFFFFF59D) : const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sel == 'seed_${c.id}' ? Colors.orange : Colors.black12, width: sel == 'seed_${c.id}' ? 3 : 1),
+                  ),
+                  child: Text(c.emoji, style: const TextStyle(fontSize: 26)),
+                ),
+              ),
             for (final m in blocks)
               Bouncy(
                 onTap: () => _select(m.id),
@@ -2158,7 +2508,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       );
 
   Widget _tabs() {
-    const names = ['🧱 Yapı', '🎨 Renk', '🌳 Doğa', '✨ Özel', '🏠 Hazır'];
+    const names = ['🧱 Yapı', '🎨 Renk', '🌳 Doğa', '✨ Özel', '🏠 Hazır', '🌱 Bahçe'];
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       child: Row(children: [
@@ -2193,11 +2543,16 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         for (final p in prefabs)
           _PaletteItem(p.name, sel == p.id && !erase, () => _select(p.id),
               child: Center(child: Text(p.emoji, style: const TextStyle(fontSize: 34))))
-      else
+      else if (tab == 5) ...[
+        _PaletteItem('tarla', sel == 'tarla' && !erase, () => _select('tarla'), child: _MatSwatch(mats[matIndex('tarla')])),
+        for (final c in crops)
+          _PaletteItem(c.name, sel == 'seed_${c.id}' && !erase, () => _select('seed_${c.id}'),
+              child: Center(child: Text(c.emoji, style: const TextStyle(fontSize: 32)))),
+      ] else
         for (final m in mats)
           if (m.tab == tab && unlocked(m.id)) _PaletteItem(m.name, sel == m.id && !erase, () => _select(m.id), child: _MatSwatch(m)),
     ];
-    final locked = tab == 4 ? 0 : mats.where((m) => m.tab == tab && !unlocked(m.id)).length;
+    final locked = tab >= 4 ? 0 : mats.where((m) => m.tab == tab && !unlocked(m.id)).length;
     return Container(
       height: 92,
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
@@ -2258,7 +2613,7 @@ class _WorldPainter extends CustomPainter {
     s.cam();
     _sea(canvas);
     final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null},'
-        '${s.ax},${s.ay},${s.az},${s.facing},${s.walk},${s.swing},${s.hand},${s.avatar.encode()},${s.gameTools}';
+        '${s.ax},${s.ay},${s.az},${s.facing},${s.walk},${s.swing},${s.hand},${s.avatar.encode()},${s.gameTools},${s.lifeTick},${s.cropStamp}';
     if (key != s._geoKey) {
       s._geoKey = key;
       _build(size);
@@ -2306,8 +2661,11 @@ class _WorldPainter extends CustomPainter {
     final av = <(List<Offset>, int, int)>[]; // köşeler, renk, karo
     final viewX = sy * cp, viewY = cy * cp, viewZ = sp;
     final whiteTile = mats.length * 2, faceTile = (mats.length + 1) * 2;
-    for (final b in s.avatarParts()) {
-      final c = boxCorners(b, s.ax, s.ay, s.az, s.facing);
+    final ents = s.entityParts();
+    final avEnt = <(int, int)>[];
+    for (final e in ents) {
+      final b = e.$1;
+      final c = boxCorners(b, e.$2, e.$3, e.$4, e.$5);
       for (final f in boxFaces) {
         final p = [for (final i in f.$1) c[i]];
         final ux = p[1].$1 - p[0].$1, uy = p[1].$2 - p[0].$2, uz = p[1].$3 - p[0].$3;
@@ -2320,6 +2678,7 @@ class _WorldPainter extends CustomPainter {
         final col = Color.lerp(Colors.black, b.color, light)!;
         final cc = (0xFF << 24) | ((col.r * 255).round() << 16) | ((col.g * 255).round() << 8) | (col.b * 255).round();
         av.add(([for (final q in p) s.proj(q.$1, q.$2, q.$3)], cc, b.face && f.$2 == 3 ? faceTile : whiteTile));
+        avEnt.add((e.$6, e.$7));
         final mx = (p[0].$1 + p[2].$1) / 2, my = (p[0].$2 + p[2].$2) / 2, mz = (p[0].$3 + p[2].$3) / 2;
         vis.add(-av.length);
         dep.add(s.depth(mx, my, mz) + 0.02);
@@ -2329,7 +2688,7 @@ class _WorldPainter extends CustomPainter {
     final n = order.length;
     final quads = Float32List(n * 8);
     final hitFaces = <_Face>[];
-    final none = _Face(-1, 0, 0);
+    final none = _Face(-1, 0, 0, 1);
     const chunk = 12000;
     for (var start = 0; start < n; start += chunk) {
       final end = min(n, start + chunk);
@@ -2350,7 +2709,8 @@ class _WorldPainter extends CustomPainter {
             quads[(start + j) * 8 + k * 2] = a.$1[k].dx;
             quads[(start + j) * 8 + k * 2 + 1] = a.$1[k].dy;
           }
-          hitFaces.add(none);
+          final ae = avEnt[-vi - 1];
+          hitFaces.add(ae.$1 == 1 ? none : _Face(ae.$2, 0, 0, ae.$1));
           cc = a.$2;
           r = Tex.tile(a.$3);
         } else {
@@ -2421,7 +2781,7 @@ class _WorldPainter extends CustomPainter {
 
   void _paintFP(Canvas canvas, Size size) {
     _fpCam(size);
-    final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null}';
+    final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null},${s.lifeTick},${s.cropStamp}';
     if (key != s._geoKey) {
       s._geoKey = key;
       _buildFP(size);
@@ -2459,6 +2819,33 @@ class _WorldPainter extends CustomPainter {
       final o = fpProj(p.x, p.y, p.z);
       if (o == null) continue;
       canvas.drawRect(Rect.fromCenter(center: o, width: 8, height: 8), Paint()..color = p.c.withAlpha((255 * min(1, p.life * 2)).toInt()));
+    }
+    // dost hayvanların adları
+    for (final a in s.animals) {
+      if (!a.friend) continue;
+      final o = fpProj(a.x, a.y, a.z + s._animalHeight(a.kind.id) + 0.35);
+      if (o != null) paintNameTag(canvas, o, a.kind.name);
+    }
+    // hedeflenen hayvan/ekin
+    final ae = s.aimEnt;
+    if (ae != null) {
+      String label;
+      if (ae.$1 == 2 && ae.$2 < s.animals.length) {
+        final a = s.animals[ae.$2];
+        label = a.friend ? '💛 Sev' : '❓ Adını yaz';
+      } else {
+        final c = s.cropsAt[ae.$2];
+        label = c == null ? '' : (cropStage(c.$2) >= 3 ? '🧺 Topla' : '🌱 Büyüyor');
+      }
+      if (label.isNotEmpty) {
+        final tp = TextPainter(
+            text: TextSpan(text: label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+            textDirection: TextDirection.ltr)
+          ..layout();
+        final r = Rect.fromCenter(center: _c + const Offset(0, 46), width: tp.width + 16, height: tp.height + 8);
+        canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(10)), Paint()..color = Colors.black54);
+        tp.paint(canvas, Offset(r.left + 8, r.top + 4));
+      }
     }
     // nişangâh
     final cp = Paint()
@@ -2514,6 +2901,30 @@ class _WorldPainter extends CustomPainter {
       items.add(i);
       dist.add(vx * vx + vy * vy + vz * vz);
     }
+    // hayvanlar ve ekinler (karakter hariç)
+    final entQ = <(List<(double, double, double)>, int, int)>[];
+    final whiteTile = mats.length * 2, faceTile = (mats.length + 1) * 2;
+    for (final e in s.entityParts(withAvatar: false)) {
+      final b = e.$1;
+      final dxe = e.$2 - _ex, dye = e.$3 - _ey;
+      if (dxe.abs() > range || dye.abs() > range) continue;
+      final c = boxCorners(b, e.$2, e.$3, e.$4, e.$5);
+      for (final f in boxFaces) {
+        final p = [for (final i in f.$1) c[i]];
+        final ux = p[1].$1 - p[0].$1, uy = p[1].$2 - p[0].$2, uz = p[1].$3 - p[0].$3;
+        final vx = p[3].$1 - p[0].$1, vy = p[3].$2 - p[0].$2, vz = p[3].$3 - p[0].$3;
+        final nx = -(uy * vz - uz * vy), ny = -(uz * vx - ux * vz), nz = -(ux * vy - uy * vx);
+        final mx = (p[0].$1 + p[2].$1) / 2, my = (p[0].$2 + p[2].$2) / 2, mz = (p[0].$3 + p[2].$3) / 2;
+        if (nx * (_ex - mx) + ny * (_ey - my) + nz * (_ez - mz) <= 0) continue;
+        final len = sqrt(nx * nx + ny * ny + nz * nz) + 1e-9;
+        final light = (0.66 + 0.34 * (nz / len).clamp(0.0, 1.0) + 0.14 * ((nx * 0.6 + ny * 0.8) / len).clamp(0.0, 1.0)).clamp(0.55, 1.0);
+        final col = Color.lerp(Colors.black, b.color, light)!;
+        final cc = (0xFF << 24) | ((col.r * 255).round() << 16) | ((col.g * 255).round() << 8) | (col.b * 255).round();
+        entQ.add((p, cc, b.face && f.$2 == 3 ? faceTile : whiteTile));
+        items.add(-entQ.length);
+        dist.add((_ex - mx) * (_ex - mx) + (_ey - my) * (_ey - my) + (_ez - mz) * (_ez - mz) - 0.01);
+      }
+    }
     final order = List<int>.generate(items.length, (i) => i)..sort((a, b) => dist[b].compareTo(dist[a]));
     var pos = <double>[], uv = <double>[];
     var col = <int>[];
@@ -2529,10 +2940,22 @@ class _WorldPainter extends CustomPainter {
     }
 
     for (final o in order) {
-      final f = faces[items[o]];
-      final (x, y, z) = cxyz(f.cell);
-      final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
-      final r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
+      final it = items[o];
+      List<double> c;
+      ui.Rect r;
+      int? entColor;
+      _Face? f;
+      if (it < 0) {
+        final q = entQ[-it - 1];
+        c = [for (final p in q.$1) ...[p.$1, p.$2, p.$3]];
+        r = Tex.tile(q.$3);
+        entColor = q.$2;
+      } else {
+        f = faces[it];
+        final (x, y, z) = cxyz(f.cell);
+        c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
+        r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
+      }
       final us = [r.left + 0.02, r.right - 0.02, r.right - 0.02, r.left + 0.02];
       final vs = [r.top + 0.02, r.top + 0.02, r.bottom - 0.02, r.bottom - 0.02];
       // kamera uzayı
@@ -2557,14 +2980,18 @@ class _WorldPainter extends CustomPainter {
         poly = out;
         if (poly.length < 3) continue;
       }
-      final sh = _shade[f.dir];
       int cc;
-      if (Tex.atlas != null) {
-        final g = (255 * sh).round();
-        cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+      if (entColor != null) {
+        cc = entColor;
       } else {
-        final mc = mats[f.mat].color;
-        cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+        final sh = _shade[f!.dir];
+        if (Tex.atlas != null) {
+          final g = (255 * sh).round();
+          cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+        } else {
+          final mc = mats[f.mat].color;
+          cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+        }
       }
       if (pos.length ~/ 2 + poly.length > 60000) flush();
       final base = pos.length ~/ 2;
@@ -2584,6 +3011,10 @@ class _WorldPainter extends CustomPainter {
 
   void _overlay(Canvas canvas) {
     final t = anim.value;
+    for (final a in s.animals) {
+      if (!a.friend) continue;
+      paintNameTag(canvas, s.proj(a.x, a.y, a.z + s._animalHeight(a.kind.id) + 0.4), a.kind.name);
+    }
     for (final p in s.parts) {
       final o = s.proj(p.x, p.y, p.z);
       final r = s._s * 0.09;
