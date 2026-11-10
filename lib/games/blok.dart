@@ -252,10 +252,27 @@ Prefab? prefabById(String id) {
 
 // ======================= DÜNYA =======================
 
+/// Başlangıç şehri 40x40; "Büyüt" ile her yöne genişler (en fazla 1024x1024).
 const W = 40, D = 40, H = 20;
-int ck(int x, int y, int z) => x + y * W + z * W * D;
-(int, int, int) cxyz(int k) => (k % W, (k ~/ W) % D, k ~/ (W * D));
-bool inside(int x, int y, int z) => x >= 0 && y >= 0 && z >= 0 && x < W && y < D && z < H;
+const _o = 512, _sz = 1024;
+int ck(int x, int y, int z) => (x + _o) + (y + _o) * _sz + z * _sz * _sz;
+(int, int, int) cxyz(int k) => (k % _sz - _o, (k ~/ _sz) % _sz - _o, k ~/ (_sz * _sz));
+
+// Dünyanın şu anki sınırları (dahil)
+int minX = 0, maxX = W - 1, minY = 0, maxY = D - 1;
+bool inside(int x, int y, int z) => x >= minX && y >= minY && z >= 0 && x <= maxX && y <= maxY && z < H;
+int get worldW => maxX - minX + 1;
+int get worldD => maxY - minY + 1;
+
+/// Yeni arazi türleri
+const biomes = [
+  ('cayir', 'Çayır', '🌼'),
+  ('orman', 'Orman', '🌲'),
+  ('gol', 'Göl', '💧'),
+  ('kar', 'Karlı dağ', '🏔️'),
+  ('kumsal', 'Kumsal', '🏖️'),
+  ('tepe', 'Tepeler', '⛰️'),
+];
 
 // Şehirdeki önemli yerler
 const riverY = 21;
@@ -274,10 +291,10 @@ class BlockWorld {
   int treeCount() {
     final k = matIndex('kutuk');
     var n = 0;
-    for (var x = 0; x < W; x++) {
-      for (var y = 0; y < D; y++) {
-        if (blocks[ck(x, y, 1)] == k) n++;
-      }
+    for (final e in blocks.entries) {
+      if (e.value != k) continue;
+      final (x, y, z) = cxyz(e.key);
+      if (blocks[ck(x, y, z - 1)] != k && z >= 1) n++;
     }
     return n;
   }
@@ -293,19 +310,67 @@ class BlockWorld {
     if (inside(x, y, z)) blocks[ck(x, y, z)] = m;
   }
 
+  /// v4: sınırlar | zemin katmanı (her hücre bir harf) | diğer bloklar
   String encode() {
-    final b = blocks.entries.map((e) => '${e.key}:${e.value}').join(',');
-    return 'v3|$b|';
+    final g = StringBuffer();
+    for (var y = minY; y <= maxY; y++) {
+      for (var x = minX; x <= maxX; x++) {
+        final m = blocks[ck(x, y, 0)];
+        g.writeCharCode(m == null ? 46 : 65 + m);
+      }
+    }
+    final b = StringBuffer();
+    for (final e in blocks.entries) {
+      if (e.key < _sz * _sz) continue; // z == 0
+      if (b.isNotEmpty) b.write(',');
+      b
+        ..write(e.key)
+        ..write(':')
+        ..write(e.value);
+    }
+    return 'v4|$minX,$maxX,$minY,$maxY|$g|$b';
   }
 
   bool decode(String s) {
     final parts = s.split('|');
+    if (parts[0] == 'v4' && parts.length == 4) {
+      final bb = parts[1].split(',').map(int.parse).toList();
+      minX = bb[0];
+      maxX = bb[1];
+      minY = bb[2];
+      maxY = bb[3];
+      blocks.clear();
+      final g = parts[2];
+      var i = 0;
+      for (var y = minY; y <= maxY; y++) {
+        for (var x = minX; x <= maxX; x++) {
+          final c = i < g.length ? g.codeUnitAt(i) : 46;
+          i++;
+          if (c != 46) blocks[ck(x, y, 0)] = c - 65;
+        }
+      }
+      if (parts[3].isNotEmpty) {
+        for (final e in parts[3].split(',')) {
+          final kv = e.split(':');
+          if (kv.length == 2) blocks[int.parse(kv[0])] = int.parse(kv[1]);
+        }
+      }
+      version++;
+      return true;
+    }
     if (parts.length != 3) return false;
     if (parts[0] == 'v3') {
+      // 40x40 eski şehir: anahtar = x + y*40 + z*1600
+      minX = 0;
+      maxX = W - 1;
+      minY = 0;
+      maxY = D - 1;
       blocks.clear();
       for (final e in parts[1].split(',')) {
         final kv = e.split(':');
-        if (kv.length == 2) blocks[int.parse(kv[0])] = int.parse(kv[1]);
+        if (kv.length != 2) continue;
+        final k = int.parse(kv[0]);
+        blocks[ck(k % 40, (k ~/ 40) % 40, k ~/ 1600)] = int.parse(kv[1]);
       }
       version++;
       return true;
@@ -369,7 +434,113 @@ class BlockWorld {
     return n;
   }
 
+  /// Kameranın baktığı yöne yeni arazi ekler. dir: 0 +y, 1 +x, 2 -y, 3 -x
+  void expand(int dir, String biome, {int size = 20}) {
+    final r = Random();
+    int x0, x1, y0, y1;
+    switch (dir) {
+      case 0:
+        (x0, x1, y0, y1) = (minX, maxX, maxY + 1, maxY + size);
+      case 1:
+        (x0, x1, y0, y1) = (maxX + 1, maxX + size, minY, maxY);
+      case 2:
+        (x0, x1, y0, y1) = (minX, maxX, minY - size, minY - 1);
+      default:
+        (x0, x1, y0, y1) = (minX - size, minX - 1, minY, maxY);
+    }
+    x0 = max(x0, -_o);
+    y0 = max(y0, -_o);
+    x1 = min(x1, _o - 1);
+    y1 = min(y1, _o - 1);
+    if (x0 > x1 || y0 > y1) return;
+    // sınırdaki su ve yollar yeni araziye uzasın
+    final cont = {matIndex('su'), matIndex('asfalt'), matIndex('yol'), matIndex('parke'), matIndex('toprakyol')};
+    int? edgeMat(int x, int y) {
+      int ex = x, ey = y;
+      if (dir == 0) ey = maxY;
+      if (dir == 2) ey = minY;
+      if (dir == 1) ex = maxX;
+      if (dir == 3) ex = minX;
+      final m = blocks[ck(ex, ey, 0)];
+      return (m != null && cont.contains(m)) ? m : null;
+    }
+
+    final cim = matIndex('cim'), cicek = matIndex('cicek'), su = matIndex('su'), kum = matIndex('kum');
+    final kar = matIndex('kar'), toprak = matIndex('toprak'), tas = matIndex('tas'), yaprak = matIndex('yaprak'), kutuk = matIndex('kutuk');
+    final cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    final rad = min(x1 - x0, y1 - y0) / 2;
+    final seedA = r.nextDouble() * 10;
+    for (var x = x0; x <= x1; x++) {
+      for (var y = y0; y <= y1; y++) {
+        final d = sqrt(pow(x - cx, 2) + pow(y - cy, 2)) / max(1, rad);
+        var m = cim;
+        var h = 0;
+        switch (biome) {
+          case 'gol':
+            m = d < 0.55 ? su : (d < 0.72 ? kum : (r.nextInt(9) == 0 ? cicek : cim));
+          case 'kar':
+            h = max(0, ((1 - d) * 6 + sin(x / 2.5 + seedA) + cos(y / 3.0)).round());
+            m = kar;
+          case 'kumsal':
+            m = d < 0.4 ? su : kum;
+          case 'tepe':
+            h = max(0, ((1 - d) * 4 + sin(x / 3 + seedA) * 1.2 + cos(y / 2.7) * 1.2).round());
+            m = cim;
+          default:
+            m = r.nextInt(biome == 'cayir' ? 5 : 12) == 0 ? cicek : cim;
+        }
+        final e = edgeMat(x, y);
+        if (e != null) {
+          m = e;
+          h = 0;
+        }
+        blocks[ck(x, y, 0)] = m;
+        for (var z = 1; z <= h && z < H - 1; z++) {
+          final top = z == h;
+          blocks[ck(x, y, z)] = biome == 'kar' ? (top ? kar : (z > 3 ? tas : toprak)) : (top ? cim : toprak);
+        }
+      }
+    }
+    final oldMinX = minX, oldMaxX = maxX, oldMinY = minY, oldMaxY = maxY;
+    minX = min(minX, x0);
+    maxX = max(maxX, x1);
+    minY = min(minY, y0);
+    maxY = max(maxY, y1);
+    // ağaçlar
+    final trees = switch (biome) { 'orman' => 22, 'cayir' => 4, 'tepe' => 6, 'kar' => 7, 'gol' => 5, _ => 2 };
+    for (var i = 0; i < trees; i++) {
+      final x = x0 + 1 + r.nextInt(max(1, x1 - x0 - 1)), y = y0 + 1 + r.nextInt(max(1, y1 - y0 - 1));
+      final z = topZ(x, y);
+      final g = blocks[ck(x, y, z)];
+      if (g == su || g == null || cont.contains(g)) continue;
+      if (biome == 'kar' || (biome == 'orman' && i.isEven)) {
+        stamp(_pine(), x, y, z + 1, 0);
+      } else {
+        stamp(_tree(), x, y, z + 1, 0);
+      }
+    }
+    if (biome == 'kumsal') {
+      for (var i = 0; i < 4; i++) {
+        final x = x0 + r.nextInt(x1 - x0 + 1), y = y0 + r.nextInt(y1 - y0 + 1);
+        if (blocks[ck(x, y, 0)] == kum && topZ(x, y) == 0) {
+          for (var z = 1; z <= 3; z++) {
+            blocks[ck(x, y, z)] = kutuk;
+          }
+          for (final dd in const [(1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)]) {
+            put(x + dd.$1, y + dd.$2, 4, yaprak);
+          }
+        }
+      }
+    }
+    if (oldMinX == minX && oldMaxX == maxX && oldMinY == minY && oldMaxY == maxY) return;
+    version++;
+  }
+
   void seed() {
+    minX = 0;
+    maxX = W - 1;
+    minY = 0;
+    maxY = D - 1;
     blocks.clear();
     final cim = matIndex('cim'), su = matIndex('su'), kum = matIndex('kum'), cicek = matIndex('cicek');
     final asf = matIndex('asfalt'), yol = matIndex('yol');
@@ -437,7 +608,6 @@ class Quest {
   }
 }
 
-int _seedTrees = 11;
 
 final List<Quest> quests = [
   Quest('kule', Who.tamirci, 'Parlayan yere 5 bloklu kule yap', 'Parlayan yere, blokları üst üste koyarak beş bloklu bir kule yap!', (16, 16),
@@ -449,7 +619,7 @@ final List<Quest> quests = [
   Quest('blue', Who.papagan, 'Use four blue blocks! (4 mavi blok)', 'Use four blue blocks! Dört mavi blok kullan.', (16, 16),
       unit: 'mavi', progress: (w) => (min(w.count('mavi'), 4), 4)),
   Quest('agac3', Who.tozbulut, '3 ağaç dik (🌳 Hazır)', 'Ağaç dikmek sadakadır. Hazır sekmesinden üç ağaç dikelim!', (12, 26),
-      unit: 'ağaç', progress: (w) => (max(0, min(3, w.treeCount() - _seedTrees)), 3)),
+      unit: 'ağaç', progress: (w) => (min(3, game.treesPlanted), 3)),
   Quest('kopru', Who.tamirci, 'Nehrin üstüne köprü kur (🌉 Hazır)', 'Yolumuz nehirde bitiyor! Parlayan yerlere köprü kuralım.', (roadX, riverY),
       ghost: {for (var y = riverY - 1; y <= riverY + 2; y++) ck(roadX, y, 1): -1}),
   Quest('fener', Who.baykus, 'Yola 2 fener koy', 'Akşam olunca yol karanlık oluyor. Yolun kenarına iki fener koyalım!', (roadX, 14),
@@ -643,7 +813,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     // kameranın baktığı yerin yakınında boş iki sütun bul
     (int, int)? spot;
     for (var tries = 0; tries < 200 && spot == null; tries++) {
-      final x = (fx + r.nextInt(9) - 4).round().clamp(1, W - 3).toInt(), y = (fy + r.nextInt(9) - 4).round().clamp(1, D - 2).toInt();
+      final x = (fx + r.nextInt(9) - 4).round().clamp(minX + 1, maxX - 2).toInt(), y = (fy + r.nextInt(9) - 4).round().clamp(minY + 1, maxY - 1).toInt();
       var ok = true;
       for (final xx in [x, x + 1]) {
         if (world.topZ(xx, y) != 0) ok = false;
@@ -823,6 +993,7 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
       _push();
       final (x, y, z) = cxyz(k);
       final n = world.stamp(pf.cells(), x, y, z, forwardDir); // kapı kameraya bakar, yapı ileri doğru uzar
+      if (pf.id == 'p_agac' || pf.id == 'p_cam') game.plantTree();
       Sfx.play('finish');
       Voice.say('${trCapitalize(pf.name)} hazır! $n blok kullandık.');
       _changed();
@@ -885,6 +1056,39 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     _changed();
   }
 
+  Future<void> _grow() async {
+    final biome = await showDialog<String>(context: context, builder: (_) => const _GrowDialog());
+    if (biome == null || !mounted) return;
+    if (worldW >= 1000 && worldD >= 1000) {
+      Say.show(context, Who.tamirci, 'Şehir dünyanın kenarına ulaştı! Daha büyüyemez.');
+      return;
+    }
+    _push();
+    final dir = forwardDir;
+    final before = (minX, maxX, minY, maxY);
+    world.expand(dir, biome);
+    if (before == (minX, maxX, minY, maxY)) {
+      undo.removeLast();
+      Say.show(context, Who.tamirci, 'Bu yönde dünyanın sonu geldi. Şehri çevirip başka yöne büyüt.');
+      return;
+    }
+    // kamerayı yeni araziye götür
+    switch (dir) {
+      case 0:
+        fy = maxY - 9.0;
+      case 1:
+        fx = maxX - 9.0;
+      case 2:
+        fy = minY + 10.0;
+      default:
+        fx = minX + 10.0;
+    }
+    Sfx.play('unlock');
+    _changed();
+    final name = biomes.firstWhere((b) => b.$1 == biome).$2;
+    Say.show(context, Who.tamirci, 'Yeni $name arazisi geldi! Şehrin boyu: $worldW çarpı $worldD blok.', mood: 'sevin');
+  }
+
   Future<void> _chest() async {
     final next = unlockGroups.where((g) => !g.every(game.blockItems.contains)).toList();
     if (next.isEmpty) {
@@ -928,6 +1132,23 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
         SafeArea(
           child: Column(children: [
             TopBar('Blok Şehri', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Bouncy(
+                onTap: _grow,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF66BB6A),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.add_location_alt, color: Colors.white, size: 20),
+                    const SizedBox(width: 4),
+                    Text('Büyüt\n$worldW×$worldD',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, height: 1.05, fontWeight: FontWeight.w900)),
+                  ]),
+                ),
+              ),
               _Tool(Icons.smart_toy, _newMath, color: const Color(0xFFB3E5FC)),
               _Tool(Icons.refresh, _reset),
             ])),
@@ -961,8 +1182,8 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
                         final s = scale, sp = sin(pitch);
                         final a = delta.dx / s, b = delta.dy / (sp * s);
                         final wx = a * cos(yaw) + b * sin(yaw), wy = -a * sin(yaw) + b * cos(yaw);
-                        fx = (_fx0 - wx).clamp(0, W.toDouble()).toDouble();
-                        fy = (_fy0 - wy).clamp(0, D.toDouble()).toDouble();
+                        fx = (_fx0 - wx).clamp(minX.toDouble(), maxX + 1.0).toDouble();
+                        fy = (_fy0 - wy).clamp(minY.toDouble(), maxY + 1.0).toDouble();
                       } else {
                         yaw = _y0 - delta.dx * 0.008;
                         pitch = (_p0 + delta.dy * 0.004).clamp(0.35, 1.25).toDouble();
@@ -1216,6 +1437,7 @@ class _WorldPainter extends CustomPainter {
     }
     s._verts.clear();
     final sy = s._sy, cy = s._cy;
+    final reach = max(size.width, size.height / max(0.3, s._sp)) / s._s * 0.8 + 6;
     // görünen yüzleri seç ve derinliğe göre sırala
     final faces = s.exposed;
     final vis = <int>[];
@@ -1227,6 +1449,7 @@ class _WorldPainter extends CustomPainter {
         if (nx * sy + ny * cy <= 0) continue;
       }
       final (x, y, z) = cxyz(f.cell);
+      if ((x - s.fx).abs() > reach || (y - s.fy).abs() > reach) continue;
       final (nx, ny, nz) = _dirs[f.dir];
       final c = s.proj(x + 0.5, y + 0.5, z + 0.5);
       if (c.dx < -60 || c.dy < -60 || c.dx > size.width + 60 || c.dy > size.height + 60) continue;
@@ -1335,7 +1558,8 @@ class _WorldPainter extends CustomPainter {
 
   void _sea(Canvas canvas) {
     const m = 4.0;
-    final a = s.proj(-m, -m, 0), b = s.proj(W + m, -m, 0), c = s.proj(W + m, D + m, 0), d = s.proj(-m, D + m, 0);
+    final x0 = minX.toDouble(), x1 = maxX + 1.0, y0 = minY.toDouble(), y1 = maxY + 1.0;
+    final a = s.proj(x0 - m, y0 - m, 0), b = s.proj(x1 + m, y0 - m, 0), c = s.proj(x1 + m, y1 + m, 0), d = s.proj(x0 - m, y1 + m, 0);
     final path = Path()
       ..moveTo(a.dx, a.dy)
       ..lineTo(b.dx, b.dy)
@@ -1344,7 +1568,7 @@ class _WorldPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path, Paint()..color = s.night ? const Color(0xFF0D47A1) : const Color(0xFF29B6F6));
     const e = 0.5;
-    final a2 = s.proj(-e, -e, 0), b2 = s.proj(W + e, -e, 0), c2 = s.proj(W + e, D + e, 0), d2 = s.proj(-e, D + e, 0);
+    final a2 = s.proj(x0 - e, y0 - e, 0), b2 = s.proj(x1 + e, y0 - e, 0), c2 = s.proj(x1 + e, y1 + e, 0), d2 = s.proj(x0 - e, y1 + e, 0);
     canvas.drawPath(
         Path()
           ..moveTo(a2.dx, a2.dy)
@@ -1476,6 +1700,56 @@ class _MathDialogState extends State<_MathDialog> {
           ]),
         ),
       );
+}
+
+class _GrowDialog extends StatelessWidget {
+  const _GrowDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    Voice.say('Şehri büyütelim! Ekranın yukarısına, yani baktığın yöne yeni arazi eklenecek. Ne tür bir yer olsun?');
+    return Dialog(
+      backgroundColor: const Color(0xFFE8F5E9),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('🗺️ Şehri büyüt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          const Text('Baktığın yöne yeni arazi eklenir', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            children: [
+              for (final b in biomes)
+                Bouncy(
+                  onTap: () {
+                    Sfx.play('click');
+                    Navigator.pop(context, b.$1);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 3))],
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text(b.$3, style: const TextStyle(fontSize: 36)),
+                      FittedBox(child: SylText(trLower(b.$2), size: 18)),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç', style: TextStyle(fontSize: 16))),
+        ]),
+      ),
+    );
+  }
 }
 
 class _NewItems extends StatelessWidget {

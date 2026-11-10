@@ -55,6 +55,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> todayPlayed = <String>{};
   Set<String> taskClaimed = <String>{};
   int storyRead = 0;
+  int treesPlanted = 0;
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -297,6 +298,11 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     if (blockItems.add(it)) _changed();
   }
 
+  void plantTree() {
+    treesPlanted++;
+    save();
+  }
+
   void setMusic(bool v) {
     musicOn = v;
     _changed();
@@ -407,6 +413,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'todayPlayed': todayPlayed.toList(),
         'taskClaimed': taskClaimed.toList(),
         'storyRead': storyRead,
+        'treesPlanted': treesPlanted,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -468,6 +475,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     taskClaimed = ss('taskClaimed');
     blockWorld = j['blockWorld'] as String? ?? '';
     storyRead = gi('storyRead', 0);
+    treesPlanted = gi('treesPlanted', 0);
     final st = j['stats'];
     if (st is Map) {
       stats = st.map((k, v) => MapEntry(k.toString(), (v as List).map((e) => (e as num).toInt()).toList()));

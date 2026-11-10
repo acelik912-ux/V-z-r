@@ -90,6 +90,14 @@ void main() {
       'trafik': () => const Trafik(),
       'iyilik': () => const IyilikTeslimati(),
       'blok': () => const BlokAdasi(),
+      'blok_buyuk': () {
+        final w = BlockWorld()..seed();
+        w.expand(1, 'orman');
+        w.expand(0, 'kar');
+        w.expand(3, 'gol');
+        game.blockWorld = w.encode();
+        return const BlokAdasi();
+      },
       'hikayeler': () => const StoryShelf(),
       'hikaye': () => StoryReader(stories[0], 0),
       'album': () => const AlbumScreen(),
