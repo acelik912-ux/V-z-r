@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../art.dart';
 import '../sfx.dart';
@@ -10,6 +11,7 @@ import '../state.dart';
 import '../syllables.dart';
 import '../voice.dart';
 import '../widgets/common.dart';
+import 'blok_char.dart';
 import 'blok_tex.dart';
 import 'kit.dart';
 
@@ -75,7 +77,11 @@ const mats = <BlockMat>[
   BlockMat('pencere', 'pencere', Color(0xFF9EE6FF), 0, see: true),
   BlockMat('tasduvar', 'taş duvar', Color(0xFF8A8A8A), 0),
   BlockMat('mavicati', 'mavi çatı', Color(0xFF1E5FB5), 0),
+  BlockMat('hazine', 'hazine sandığı', Color(0xFF8D5524), 9),
 ];
+
+/// Doku atlasındaki sıra: bloklar, sonra beyaz ve yüz karoları.
+List<String> get texIds => [...mats.map((m) => m.id), '_beyaz', '_yuz'];
 
 /// Hece sandığı her açılışta bir grup verir.
 const unlockGroups = [
@@ -532,6 +538,9 @@ class BlockWorld {
         }
       }
     }
+    for (var i = 0; i < 2; i++) {
+      putChest(x0 + 2 + r.nextInt(max(1, x1 - x0 - 3)), y0 + 2 + r.nextInt(max(1, y1 - y0 - 3)));
+    }
     if (oldMinX == minX && oldMaxX == maxX && oldMinY == minY && oldMaxY == maxY) return;
     version++;
   }
@@ -572,7 +581,18 @@ class BlockWorld {
     }
     stamp(_pine(), 7, 34, 1, 0);
     stamp(_pine(), 33, 2, 1, 0);
+    // hazine sandıkları
+    for (final p in const [(14, 18), (22, 6), (8, 25), (31, 30), (36, 9), (3, 37), (26, 36)]) {
+      putChest(p.$1, p.$2);
+    }
     version++;
+  }
+
+  void putChest(int x, int y) {
+    final z = topZ(x, y);
+    final g = blocks[ck(x, y, z)];
+    if (g == matIndex('su')) return;
+    put(x, y, z + 1, matIndex('hazine'));
   }
 
   static final roofHoles = {ck(23, 15, 4), ck(27, 15, 4), ck(25, 13, 4), ck(26, 17, 4)};
@@ -669,7 +689,7 @@ class _Face {
 
 const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)];
 
-class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMixin {
+class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
   String sel = 'tahta';
@@ -696,6 +716,26 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
   // son çizimin dokunma bilgisi
   final _hit = _HitData();
 
+  // ---------- karakter ----------
+  int mode = 0; // 0 kur, 1 yürü, 2 kır
+  Avatar avatar = myAvatar;
+  double ax = 17.5, ay = 17.5, az = 1, facing = 0, walk = 0, swing = 0;
+  int level = 1;
+  (int, int)? walkTo;
+  int? breakCell;
+  int? chestCell;
+  int hits = 0;
+  String? hand; // elde tutulan alet
+  late final Ticker _ticker;
+  Duration _last = Duration.zero;
+  final List<_Particle> parts = [];
+  int _blockedSaid = 0;
+
+  String get gameTools => game.blockTools.join();
+
+  List<ABox> avatarParts() => avatarBoxes(avatar,
+      walk: walk, swing: swing, tool: hand, shield: game.blockTools.contains('kalkan'));
+
   Quest? get quest {
     for (final q in quests) {
       if (!game.blockQuests.contains(q.id)) return q;
@@ -717,19 +757,269 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     super.initState();
     if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
     game.markPlayed('blok');
-    Tex.load(mats.map((m) => m.id).toList()).then((_) {
+    Tex.load(texIds).then((_) {
       if (mounted) setState(() {});
     });
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Say.show(context, Who.tamirci, 'Blok Şehrine hoş geldin! Parmağınla sürükle, şehir dönsün. Bir blok seç ve dokunarak koy.', mood: 'iyi');
+    _placeAvatar(17, 17);
+    hand = game.blockTools.where((t) => t != 'kalkan').lastOrNull;
+    _ticker = createTicker(_tick)..start();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (game.avatar.isEmpty) {
+        await Navigator.push(context, fadeRoute(const AvatarScreen()));
+        if (!mounted) return;
+        setState(() => avatar = myAvatar);
+      }
+      if (!mounted) return;
+      Say.show(context, Who.tamirci, 'Blok Şehrine hoş geldin! Parmağınla sürükle, şehir dönsün. Aşağıdan Kur, Yürü ya da Kır seç.', mood: 'iyi');
       Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
     });
   }
 
+  // ---------- karakterin hareketi ----------
+  bool solid(int x, int y, int z) {
+    if (z < 0) return true;
+    final m = world.blocks[ck(x, y, z)];
+    if (m == null) return false;
+    return mats[m].id != 'su';
+  }
+
+  void _placeAvatar(int x, int y) {
+    var z = 0;
+    while (z < H && (solid(x, y, z) || solid(x, y, z + 1))) {
+      z++;
+    }
+    ax = x + 0.5;
+    ay = y + 0.5;
+    level = z;
+    az = z.toDouble();
+  }
+
+  /// Karakter (x,y) hücresine geçebilir mi? Geçebilirse ayak seviyesini döndürür.
+  int? _stand(int x, int y, int cur) {
+    if (!inside(x, y, 0)) return null;
+    if (solid(x, y, cur)) {
+      if (!solid(x, y, cur + 1) && !solid(x, y, cur + 2)) return cur + 1;
+      return null;
+    }
+    if (solid(x, y, cur + 1)) return null;
+    var z = cur;
+    while (z > 0 && !solid(x, y, z - 1)) {
+      z--;
+    }
+    return z;
+  }
+
+  bool _inReach(int cell) {
+    final (x, y, z) = cxyz(cell);
+    return (x + 0.5 - ax).abs() <= 1.7 && (y + 0.5 - ay).abs() <= 1.7 && z >= level - 1 && z <= level + 2;
+  }
+
+  int _hitsFor(int mat) {
+    final id = mats[mat].id;
+    const stone = {'tas', 'tasduvar', 'parke', 'tugla', 'demir', 'elmas', 'altin', 'kumtasi', 'beyaz', 'asfalt', 'yol', 'kiremit', 'mavicati'};
+    const wood = {'tahta', 'koyu', 'kutuk', 'kitaplik', 'kapi', 'cit', 'yaprak', 'cali', 'saman', 'kabak', 'karpuz', 'mantar'};
+    const soft = {'cim', 'toprak', 'kum', 'kar', 'cicek', 'toprakyol', 'buz', 'su', 'cam', 'pencere'};
+    switch (hand) {
+      case 'kazma':
+        return stone.contains(id) ? 1 : 2;
+      case 'balta':
+        return wood.contains(id) ? 1 : 2;
+      case 'kurek':
+        return soft.contains(id) ? 1 : 2;
+      case 'kilic':
+      case 'mizrak':
+        return 2;
+      default:
+        return 4;
+    }
+  }
+
+  void _tick(Duration now) {
+    var dt = (now - _last).inMicroseconds / 1e6;
+    _last = now;
+    if (dt <= 0) return;
+    if (dt > 0.05) dt = 0.05;
+    var changed = false;
+    // ayak içinde blok kaldıysa yukarı çık
+    if (solid((ax).floor(), (ay).floor(), level) || solid(ax.floor(), ay.floor(), level + 1)) {
+      level++;
+      changed = true;
+    }
+    final target = walkTo;
+    if (target != null) {
+      final tx = target.$1 + 0.5, ty = target.$2 + 0.5;
+      final dx = tx - ax, dy = ty - ay;
+      final dist = sqrt(dx * dx + dy * dy);
+      final near = (chestCell != null || breakCell != null) && dist < 1.3;
+      if (dist < 0.08 || near) {
+        walkTo = null;
+        _arrived();
+      } else {
+        facing = atan2(dx, dy);
+        final step = min(dist, 3.6 * dt);
+        final nx = ax + dx / dist * step, ny = ay + dy / dist * step;
+        final cx = nx.floor(), cy = ny.floor();
+        if (cx != ax.floor() || cy != ay.floor()) {
+          final lv = _stand(cx, cy, level);
+          if (lv == null) {
+            walkTo = null;
+            _arrived(blocked: true);
+          } else {
+            level = lv;
+            ax = nx;
+            ay = ny;
+          }
+        } else {
+          ax = nx;
+          ay = ny;
+        }
+        walk += dt * 11;
+      }
+      changed = true;
+    } else if (walk != 0) {
+      walk = 0;
+      changed = true;
+    }
+    if ((az - level).abs() > 0.01) {
+      az += (level - az) * min(1, dt * 14);
+      changed = true;
+    }
+    // kırma
+    final bc = breakCell;
+    if (bc != null && walkTo == null) {
+      if (!world.blocks.containsKey(bc)) {
+        breakCell = null;
+      } else {
+        final (bx, by, _) = cxyz(bc);
+        facing = atan2(bx + 0.5 - ax, by + 0.5 - ay);
+        swing += dt / 0.32;
+        if (swing >= 1) {
+          swing = 0;
+          hits++;
+          final m = world.blocks[bc]!;
+          Sfx.play(_hitsFor(m) <= 1 || hits >= _hitsFor(m) ? 'kir' : 'tok', volume: 0.7);
+          _burst(bc, mats[m].color, 5);
+          if (hits >= _hitsFor(m)) {
+            _push();
+            world.blocks.remove(bc);
+            world.version++;
+            game.addMined(mats[m].id);
+            _burst(bc, mats[m].color, 14);
+            breakCell = null;
+            hits = 0;
+            _changed();
+          }
+        }
+      }
+      changed = true;
+    } else if (swing != 0) {
+      swing = 0;
+      changed = true;
+    }
+    // parçacıklar
+    if (parts.isNotEmpty) {
+      for (final p in parts) {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.z += p.vz * dt;
+        p.vz -= 9 * dt;
+      }
+      parts.removeWhere((p) => p.life <= 0);
+      changed = true;
+    }
+    // kamera karakteri izlesin
+    if (mode != 0 && (walkTo != null || (ax - fx).abs() > 6 || (ay - fy).abs() > 6)) {
+      fx += (ax - fx) * min(1, dt * 3);
+      fy += (ay - fy) * min(1, dt * 3);
+      changed = true;
+    }
+    if (changed && mounted) setState(() {});
+  }
+
+  void _burst(int cell, Color c, int n) {
+    final (x, y, z) = cxyz(cell);
+    final r = Random();
+    for (var i = 0; i < n; i++) {
+      parts.add(_Particle(x + 0.5, y + 0.5, z + 0.6, (r.nextDouble() - 0.5) * 3, (r.nextDouble() - 0.5) * 3, 2 + r.nextDouble() * 3,
+          Color.lerp(c, Colors.black, r.nextDouble() * 0.3)!, 0.6 + r.nextDouble() * 0.3));
+    }
+  }
+
+  void _arrived({bool blocked = false}) {
+    final cc = chestCell;
+    if (cc != null) {
+      if (_inReach(cc)) {
+        chestCell = null;
+        _openChest(cc);
+      } else if (blocked) {
+        chestCell = null;
+        _sayBlocked();
+      }
+      return;
+    }
+    final bc = breakCell;
+    if (bc != null) {
+      if (_inReach(bc)) {
+        hits = 0;
+        swing = 0.001;
+      } else {
+        breakCell = null;
+        _sayBlocked();
+      }
+      return;
+    }
+    if (blocked) _sayBlocked();
+  }
+
+  void _sayBlocked() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _blockedSaid < 4000) return;
+    _blockedSaid = now;
+    Say.show(context, Who.tozbulut, 'Oraya geçemiyorum, yol kapalı! Duvarı kır ya da merdiven yap.', mood: 'uzgun');
+  }
+
+  Future<void> _openChest(int cell) async {
+    final askMath = Random().nextBool();
+    bool? ok;
+    if (askMath) {
+      final r = Random();
+      final add = r.nextBool();
+      final a = 2 + r.nextInt(6);
+      final b = add ? 1 + r.nextInt(min(4, 10 - a)) : 1 + r.nextInt(a - 1);
+      ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => _MathDialog(add ? '$a + $b = ?' : '$a − $b = ?',
+              'Hazine sandığının şifresi: $a ${add ? 'artı' : 'eksi'} $b kaç eder?', add ? a + b : a - b,
+              emoji: '🧰'));
+    } else {
+      ok = await showDialog<bool>(context: context, builder: (_) => const _ChestDialog());
+    }
+    if (ok != true || !mounted) return;
+    _push();
+    world.blocks.remove(cell);
+    world.version++;
+    _burst(cell, const Color(0xFFFFC107), 18);
+    Sfx.play('unlock');
+    final next = tools.where((t) => !game.blockTools.contains(t.id)).firstOrNull;
+    if (next != null) {
+      game.addTool(next.id);
+      if (next.id != 'kalkan') hand = next.id;
+      _changed();
+      await showDialog<void>(context: context, builder: (_) => _ToolDialog(next));
+      if (mounted && next.id != 'kalkan') setState(() => mode = 2);
+    } else {
+      game.addStars(1);
+      _changed();
+      Say.show(context, Who.tamirci, 'Sandıktan bir yıldız çıktı! Bütün aletleri zaten buldun.', mood: 'sevin');
+    }
+  }
+
   @override
   void dispose() {
+    _ticker.dispose();
     pulse.dispose();
     for (final v in _verts) {
       v.dispose();
@@ -944,9 +1234,19 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
   }
 
   // ---------- dokunma ----------
+  /// Dokunulan yüz (karakter hariç)
+  _Face? _faceAt(Offset p) {
+    for (var i = _hit.count - 1; i >= 0; i--) {
+      if (_hit.faces[i].cell < 0) continue;
+      if (_hit.contains(i, p)) return _hit.faces[i];
+    }
+    return null;
+  }
+
   (int, bool, int)? _target(Offset p) {
     final n = _hit.count;
     for (var i = n - 1; i >= 0; i--) {
+      if (_hit.faces[i].cell < 0) continue;
       if (!_hit.contains(i, p)) continue;
       final f = _hit.faces[i];
       final (x, y, z) = cxyz(f.cell);
@@ -965,6 +1265,14 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
   }
 
   void _down(Offset p) {
+    if (mode != 0) {
+      final f = _faceAt(p);
+      setState(() {
+        previewCell = f == null ? null : (mode == 2 ? f.cell : _walkCell(f));
+        previewErase = mode == 2;
+      });
+      return;
+    }
     final t = _target(p);
     setState(() {
       previewCell = t?.$1;
@@ -972,7 +1280,54 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     });
   }
 
+  int _walkCell(_Face f) {
+    final (x, y, z) = cxyz(f.cell);
+    final (nx, ny, nz) = _dirs[f.dir];
+    return ck(x + nx, y + ny, z + nz);
+  }
+
+  void _avatarTap(Offset p) {
+    final f = _faceAt(p);
+    setState(() => previewCell = null);
+    if (f == null) return;
+    final hz = matIndex('hazine');
+    final (x, y, z) = cxyz(f.cell);
+    if (world.blocks[f.cell] == hz) {
+      chestCell = f.cell;
+      breakCell = null;
+      if (_inReach(f.cell)) {
+        chestCell = null;
+        _openChest(f.cell);
+      } else {
+        walkTo = (x, y);
+        Voice.say('Hazine sandığı! Gidip açalım.');
+      }
+      return;
+    }
+    if (mode == 2) {
+      chestCell = null;
+      breakCell = f.cell;
+      hits = 0;
+      if (_inReach(f.cell)) {
+        swing = 0.001;
+      } else {
+        walkTo = (x, y);
+      }
+      return;
+    }
+    // yürü
+    chestCell = null;
+    breakCell = null;
+    final (wx, wy, _) = cxyz(_walkCell(f));
+    walkTo = f.dir == 0 ? (x, y) : (wx, wy);
+    Sfx.play('click', volume: 0.4);
+  }
+
   Future<void> _up(Offset p) async {
+    if (mode != 0) {
+      _avatarTap(p);
+      return;
+    }
     final t = _target(p);
     setState(() => previewCell = null);
     if (t == null) return;
@@ -997,6 +1352,11 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
       Sfx.play('finish');
       Voice.say('${trCapitalize(pf.name)} hazır! $n blok kullandık.');
       _changed();
+      return;
+    }
+    final (kx, ky, kz) = cxyz(k);
+    if (kx == ax.floor() && ky == ay.floor() && (kz == level || kz == level + 1)) {
+      Say.show(context, Who.tozbulut, 'Oraya koyamazsın, orada ben duruyorum!', mood: 'gul');
       return;
     }
     _push();
@@ -1190,13 +1550,46 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
                       }
                     });
                   },
-                  child: ClipRect(child: CustomPaint(size: area, painter: _WorldPainter(this, pulse))),
+                  child: Stack(children: [
+                    ClipRect(child: CustomPaint(size: area, painter: _WorldPainter(this, pulse))),
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Column(children: [
+                        _Tool(Icons.zoom_in, () => setState(() => zoom = min(3.0, zoom + 0.35))),
+                        _Tool(Icons.zoom_out, () => setState(() => zoom = max(0.5, zoom - 0.35))),
+                        _Tool(moveMode ? Icons.open_with : Icons.threesixty, () {
+                          setState(() => moveMode = !moveMode);
+                          Voice.say(moveMode ? 'Kaydır' : 'Döndür');
+                        }, color: moveMode ? const Color(0xFFFFF59D) : Colors.white),
+                        _Tool(Icons.person_pin_circle, () {
+                          setState(() {
+                            fx = ax;
+                            fy = ay;
+                            zoom = max(zoom, 1.4);
+                          });
+                        }),
+                        Bouncy(
+                          onTap: () async {
+                            await Navigator.push(context, fadeRoute(const AvatarScreen()));
+                            if (mounted) setState(() => avatar = myAvatar);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            width: 42,
+                            height: 54,
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                            child: CustomPaint(painter: AvatarPainter(avatar, 0.5)),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
                 );
               }),
             ),
-            _controls(),
-            _tabs(),
-            _palette(),
+            _modes(),
+            if (mode == 0) ...[_controls(), _tabs(), _palette()] else _toolBar(),
           ]),
         ),
       ]),
@@ -1273,15 +1666,142 @@ class _BlokAdasiState extends State<BlokAdasi> with SingleTickerProviderStateMix
     );
   }
 
+  Widget _modes() {
+    const labels = [('🏗️', 'Kur'), ('🚶', 'Yürü'), ('⛏️', 'Kır')];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      child: Row(children: [
+        for (var i = 0; i < 3; i++)
+          Expanded(
+            child: Bouncy(
+              onTap: () {
+                Sfx.play('click');
+                setState(() {
+                  mode = i;
+                  erase = false;
+                  breakCell = null;
+                  chestCell = null;
+                  if (i != 0) {
+                    fx = ax;
+                    fy = ay;
+                    zoom = max(zoom, 1.3);
+                  }
+                });
+                Voice.say(const [
+                  'Kurma. Blok seç ve dokun.',
+                  'Yürü. Gitmek istediğin yere dokun.',
+                  'Kır. Kırmak istediğin bloğa dokun.'
+                ][i]);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                decoration: BoxDecoration(
+                  color: mode == i ? const Color(0xFFFFB300) : Colors.white.withAlpha(220),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(labels[i].$1, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 4),
+                  Text(labels[i].$2, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                ]),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  /// Yürü/Kır modunda: aletler ve envanter
+  Widget _toolBar() {
+    final owned = tools.where((t) => game.blockTools.contains(t.id) && t.id != 'kalkan').toList();
+    final mined = game.mined.entries.where((e) => e.value > 0).toList()..sort((a, b) => b.value.compareTo(a.value));
+    return Container(
+      height: 150,
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('Elimde: ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+          Expanded(
+            child: SizedBox(
+              height: 58,
+              child: ListView(scrollDirection: Axis.horizontal, children: [
+                _toolChip('✋', 'el', hand == null, () => setState(() => hand = null)),
+                for (final t in owned) _toolChip(t.emoji, t.name, hand == t.id, () => setState(() => hand = t.id)),
+                if (game.blockTools.contains('kalkan')) _toolChip('🛡️', 'kalkan ✓', false, () => Voice.say('Kalkanın sol kolunda!')),
+                if (owned.length + (game.blockTools.contains('kalkan') ? 1 : 0) < tools.length)
+                  _toolChip('🧰', '${tools.length - game.blockTools.length} sandıkta', false,
+                      () => Say.show(context, Who.tamirci, 'Şehirde hazine sandıkları var! Bul, Yürü ile yanına git, aç. İçinden alet çıkar.')),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 4),
+        Row(children: [
+          const Text('Envanter ∞  ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: mined.isEmpty
+                  ? const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Kırdığın bloklar burada sayılır. Bütün bloklar sınırsız!',
+                          style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w700)))
+                  : ListView(scrollDirection: Axis.horizontal, children: [
+                      for (final e in mined)
+                        if (matIndex(e.key) >= 0)
+                          Container(
+                            width: 50,
+                            margin: const EdgeInsets.only(right: 4),
+                            child: Stack(children: [
+                              Positioned.fill(child: _MatSwatch(mats[matIndex(e.key)])),
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
+                                  child: Text('${e.value}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ]),
+                          ),
+                    ]),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _toolChip(String emoji, String name, bool on, VoidCallback tap) => Bouncy(
+        onTap: () {
+          Sfx.play('click');
+          Voice.say(name);
+          tap();
+        },
+        child: Container(
+          margin: const EdgeInsets.only(right: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: on ? const Color(0xFFFFF59D) : const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: on ? Colors.orange : Colors.black12, width: on ? 3 : 1),
+          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      );
+
   Widget _controls() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Row(children: [
-          _Tool(Icons.zoom_in, () => setState(() => zoom = min(3.0, zoom + 0.35))),
-          _Tool(Icons.zoom_out, () => setState(() => zoom = max(0.5, zoom - 0.35))),
-          _Tool(moveMode ? Icons.open_with : Icons.threesixty, () {
-            setState(() => moveMode = !moveMode);
-            Voice.say(moveMode ? 'Kaydır' : 'Döndür');
-          }, color: moveMode ? const Color(0xFFFFF59D) : Colors.white),
           _Tool(Icons.undo, _undo),
           const Spacer(),
           Bouncy(
@@ -1413,7 +1933,8 @@ class _WorldPainter extends CustomPainter {
     s.area = size;
     s.cam();
     _sea(canvas);
-    final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null}';
+    final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null},'
+        '${s.ax},${s.ay},${s.az},${s.facing},${s.walk},${s.swing},${s.hand},${s.avatar.encode()},${s.gameTools}';
     if (key != s._geoKey) {
       s._geoKey = key;
       _build(size);
@@ -1436,8 +1957,8 @@ class _WorldPainter extends CustomPainter {
       v.dispose();
     }
     s._verts.clear();
-    final sy = s._sy, cy = s._cy;
-    final reach = max(size.width, size.height / max(0.3, s._sp)) / s._s * 0.8 + 6;
+    final sy = s._sy, cy = s._cy, sp = s._sp, cp = s._cp;
+    final reach = max(size.width, size.height / max(0.3, sp)) / s._s * 0.8 + 6;
     // görünen yüzleri seç ve derinliğe göre sırala
     final faces = s.exposed;
     final vis = <int>[];
@@ -1456,10 +1977,34 @@ class _WorldPainter extends CustomPainter {
       vis.add(i);
       dep.add(s.depth(x + 0.5 + nx * 0.5, y + 0.5 + ny * 0.5, z + 0.5 + nz * 0.5));
     }
+    // karakterin yüzleri (negatif numaralı)
+    final av = <(List<Offset>, int, int)>[]; // köşeler, renk, karo
+    final viewX = sy * cp, viewY = cy * cp, viewZ = sp;
+    final whiteTile = mats.length * 2, faceTile = (mats.length + 1) * 2;
+    for (final b in s.avatarParts()) {
+      final c = boxCorners(b, s.ax, s.ay, s.az, s.facing);
+      for (final f in boxFaces) {
+        final p = [for (final i in f.$1) c[i]];
+        final ux = p[1].$1 - p[0].$1, uy = p[1].$2 - p[0].$2, uz = p[1].$3 - p[0].$3;
+        final vx = p[3].$1 - p[0].$1, vy = p[3].$2 - p[0].$2, vz = p[3].$3 - p[0].$3;
+        // dışa bakan normal = -(u x v)
+        final nx = -(uy * vz - uz * vy), ny = -(uz * vx - ux * vz), nz = -(ux * vy - uy * vx);
+        if (nx * viewX + ny * viewY + nz * viewZ <= 0) continue;
+        final len = sqrt(nx * nx + ny * ny + nz * nz) + 1e-9;
+        final light = (0.66 + 0.34 * (nz / len).clamp(0.0, 1.0) + 0.14 * ((nx * 0.6 + ny * 0.8) / len).clamp(0.0, 1.0)).clamp(0.55, 1.0);
+        final col = Color.lerp(Colors.black, b.color, light)!;
+        final cc = (0xFF << 24) | ((col.r * 255).round() << 16) | ((col.g * 255).round() << 8) | (col.b * 255).round();
+        av.add(([for (final q in p) s.proj(q.$1, q.$2, q.$3)], cc, b.face && f.$2 == 3 ? faceTile : whiteTile));
+        final mx = (p[0].$1 + p[2].$1) / 2, my = (p[0].$2 + p[2].$2) / 2, mz = (p[0].$3 + p[2].$3) / 2;
+        vis.add(-av.length);
+        dep.add(s.depth(mx, my, mz) + 0.02);
+      }
+    }
     final order = List<int>.generate(vis.length, (i) => i)..sort((a, b) => dep[a].compareTo(dep[b]));
     final n = order.length;
     final quads = Float32List(n * 8);
     final hitFaces = <_Face>[];
+    final none = _Face(-1, 0, 0);
     const chunk = 12000;
     for (var start = 0; start < n; start += chunk) {
       final end = min(n, start + chunk);
@@ -1469,29 +2014,44 @@ class _WorldPainter extends CustomPainter {
       final col = Int32List(m * 4);
       final idx = Uint16List(m * 6);
       for (var j = 0; j < m; j++) {
-        final f = faces[vis[order[start + j]]];
-        final (x, y, z) = cxyz(f.cell);
-        final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
-        for (var k = 0; k < 4; k++) {
-          final p = s.proj(c[k * 3], c[k * 3 + 1], c[k * 3 + 2]);
-          pos[j * 8 + k * 2] = p.dx;
-          pos[j * 8 + k * 2 + 1] = p.dy;
-          quads[(start + j) * 8 + k * 2] = p.dx;
-          quads[(start + j) * 8 + k * 2 + 1] = p.dy;
-        }
-        hitFaces.add(f);
-        final r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
-        final u0 = (r.left + 0.02) , v0 = (r.top + 0.02), u1 = (r.right - 0.02), v1 = (r.bottom - 0.02);
-        uv.setAll(j * 8, [u0, v0, u1, v0, u1, v1, u0, v1]);
-        final sh = _shade[f.dir];
+        final vi = vis[order[start + j]];
         int cc;
-        if (Tex.atlas != null) {
-          final g = (255 * sh).round();
-          cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+        ui.Rect r;
+        if (vi < 0) {
+          final a = av[-vi - 1];
+          for (var k = 0; k < 4; k++) {
+            pos[j * 8 + k * 2] = a.$1[k].dx;
+            pos[j * 8 + k * 2 + 1] = a.$1[k].dy;
+            quads[(start + j) * 8 + k * 2] = a.$1[k].dx;
+            quads[(start + j) * 8 + k * 2 + 1] = a.$1[k].dy;
+          }
+          hitFaces.add(none);
+          cc = a.$2;
+          r = Tex.tile(a.$3);
         } else {
-          final mc = mats[f.mat].color;
-          cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+          final f = faces[vi];
+          final (x, y, z) = cxyz(f.cell);
+          final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
+          for (var k = 0; k < 4; k++) {
+            final p = s.proj(c[k * 3], c[k * 3 + 1], c[k * 3 + 2]);
+            pos[j * 8 + k * 2] = p.dx;
+            pos[j * 8 + k * 2 + 1] = p.dy;
+            quads[(start + j) * 8 + k * 2] = p.dx;
+            quads[(start + j) * 8 + k * 2 + 1] = p.dy;
+          }
+          hitFaces.add(f);
+          r = Tex.tile(f.mat * 2 + (f.dir == 0 ? 0 : 1));
+          final sh = _shade[f.dir];
+          if (Tex.atlas != null) {
+            final g = (255 * sh).round();
+            cc = (0xFF << 24) | (g << 16) | (g << 8) | g;
+          } else {
+            final mc = mats[f.mat].color;
+            cc = (0xFF << 24) | ((mc.r * 255 * sh).round() << 16) | ((mc.g * 255 * sh).round() << 8) | (mc.b * 255 * sh).round();
+          }
         }
+        final u0 = r.left + 0.02, v0 = r.top + 0.02, u1 = r.right - 0.02, v1 = r.bottom - 0.02;
+        uv.setAll(j * 8, [u0, v0, u1, v0, u1, v1, u0, v1]);
         col.setAll(j * 4, [cc, cc, cc, cc]);
         final b = j * 4;
         idx.setAll(j * 6, [b, b + 1, b + 2, b, b + 2, b + 3]);
@@ -1506,6 +2066,11 @@ class _WorldPainter extends CustomPainter {
 
   void _overlay(Canvas canvas) {
     final t = anim.value;
+    for (final p in s.parts) {
+      final o = s.proj(p.x, p.y, p.z);
+      final r = s._s * 0.09;
+      canvas.drawRect(Rect.fromCenter(center: o, width: r, height: r), Paint()..color = p.c.withAlpha((255 * min(1, p.life * 2)).toInt()));
+    }
     // görev için parlayan yerler
     final q = s.quest;
     if (s.task != null) {
@@ -2046,7 +2611,7 @@ class _BlockLogoState extends State<BlockLogo> {
   void initState() {
     super.initState();
     if (!Tex.ready) {
-      Tex.load(mats.map((m) => m.id).toList()).then((_) {
+      Tex.load(texIds).then((_) {
         if (mounted) setState(() {});
       });
     }
@@ -2076,4 +2641,35 @@ class _LogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LogoPainter old) => old.ready != ready;
+}
+
+class _Particle {
+  double x, y, z, vx, vy, vz, life;
+  final Color c;
+  _Particle(this.x, this.y, this.z, this.vx, this.vy, this.vz, this.c, this.life);
+}
+
+class _ToolDialog extends StatelessWidget {
+  final Tool t;
+  const _ToolDialog(this.t);
+
+  @override
+  Widget build(BuildContext context) {
+    Voice.say('Sandıktan ${t.name} çıktı! ${t.id == 'kalkan' ? 'Kalkanı sol koluna taktın.' : 'Şimdi Kır düğmesine bas, bloklara dokun.'}');
+    return Dialog(
+      backgroundColor: const Color(0xFFFFF8E1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('🎉 Hazine!', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          Text(t.emoji, style: const TextStyle(fontSize: 80)),
+          SylText(t.name, size: 34),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Harika!', style: TextStyle(fontSize: 20))),
+        ]),
+      ),
+    );
+  }
 }

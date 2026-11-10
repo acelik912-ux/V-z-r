@@ -56,6 +56,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> taskClaimed = <String>{};
   int storyRead = 0;
   int treesPlanted = 0;
+  String avatar = '';
+  Set<String> blockTools = <String>{};
+  Map<String, int> mined = {};
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -298,6 +301,20 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     if (blockItems.add(it)) _changed();
   }
 
+  void setAvatar(String a) {
+    avatar = a;
+    _changed();
+  }
+
+  void addTool(String t) {
+    if (blockTools.add(t)) _changed();
+  }
+
+  void addMined(String m) {
+    mined[m] = (mined[m] ?? 0) + 1;
+    save();
+  }
+
   void plantTree() {
     treesPlanted++;
     save();
@@ -414,6 +431,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'taskClaimed': taskClaimed.toList(),
         'storyRead': storyRead,
         'treesPlanted': treesPlanted,
+        'avatar': avatar,
+        'blockTools': blockTools.toList(),
+        'mined': mined,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -476,6 +496,10 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     blockWorld = j['blockWorld'] as String? ?? '';
     storyRead = gi('storyRead', 0);
     treesPlanted = gi('treesPlanted', 0);
+    avatar = j['avatar'] as String? ?? '';
+    blockTools = ss('blockTools');
+    final mj = j['mined'];
+    if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
     final st = j['stats'];
     if (st is Map) {
       stats = st.map((k, v) => MapEntry(k.toString(), (v as List).map((e) => (e as num).toInt()).toList()));

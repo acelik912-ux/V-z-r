@@ -375,6 +375,44 @@ class Tex {
             g.set(x, y, g.vary(edge ? 0xFF0D3C7A : (yy == 0 ? 0xFF4F8FE0 : 0xFF1E5FB5), 8));
           }
         }
+      case '_beyaz':
+        g.fill(0xFFFFFFFF);
+      case '_yuz':
+        g.fill(0xFFFFFFFF);
+        for (final ex in const [4, 10]) {
+          for (var y = 6; y < 9; y++) {
+            for (var x = ex; x < ex + 2; x++) {
+              g.set(x, y, 0xFF263238);
+            }
+          }
+          g.set(ex, 6, 0xFFFFFFFF);
+        }
+        for (var x = 5; x < 11; x++) {
+          g.set(x, 12, 0xFF8E2A2A);
+        }
+        g.set(4, 11, 0xFF8E2A2A);
+        g.set(11, 11, 0xFF8E2A2A);
+        for (final cx in const [2, 13]) {
+          g.set(cx, 10, 0xFFFFB4B4);
+        }
+      case 'hazine':
+        g.planks(0xFF8D5524);
+        for (var i = 0; i < 16; i++) {
+          g.set(i, side ? 5 : 0, 0xFF5D4037);
+          g.set(i, side ? 6 : 15, 0xFF5D4037);
+          g.set(0, i, 0xFFFFC107);
+          g.set(15, i, 0xFFFFC107);
+        }
+        if (side) {
+          for (var y = 5; y < 10; y++) {
+            for (var x = 6; x < 10; x++) {
+              g.set(x, y, 0xFFFFC107);
+            }
+          }
+          g.set(7, 7, 0xFF3E2723);
+          g.set(8, 7, 0xFF3E2723);
+          g.set(7, 8, 0xFF3E2723);
+        }
       default:
         // yün / renkli bloklar
         g.wool(_woolColors[id] ?? 0xFFFF00FF);

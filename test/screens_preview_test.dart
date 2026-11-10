@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vizir/games/araba_yikama.dart';
 import 'package:vizir/games/blok.dart';
+import 'package:vizir/games/blok_char.dart';
 import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
@@ -57,7 +58,7 @@ void main() {
     await tester.runAsync(() async {
       await game.load();
       await _loadFonts();
-      await Tex.load(mats.map((m) => m.id).toList());
+      await Tex.load(texIds);
     });
     game.driverName = 'Yusuf';
     game.carName = 'Şimşek';
@@ -69,6 +70,8 @@ void main() {
     game.levelStars = {'hece_kamyonu': 3, 'araba_yikama': 2, 'kopru_kur': 1};
     game.stickers = {'arac_10', 'k_robot', 'i_yildiz'};
     game.blockItems = {'beyaz', 'altin', 'fener'};
+    game.avatar = '1,1,2,4,1,0';
+    game.blockTools = {'kazma', 'kalkan'};
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.625;
     Directory('previews').createSync(recursive: true);
@@ -89,6 +92,7 @@ void main() {
       'otopark': () => const Otopark(),
       'trafik': () => const Trafik(),
       'iyilik': () => const IyilikTeslimati(),
+      'karakter': () => const AvatarScreen(),
       'blok': () => const BlokAdasi(),
       'blok_buyuk': () {
         final w = BlockWorld()..seed();
