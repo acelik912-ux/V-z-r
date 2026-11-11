@@ -25,6 +25,7 @@ import 'package:vizir/screens/garage.dart';
 import 'package:vizir/screens/home.dart';
 import 'package:vizir/screens/lock.dart';
 import 'package:vizir/screens/map.dart';
+import 'package:vizir/screens/parent.dart';
 import 'package:vizir/screens/result.dart';
 import 'package:vizir/screens/stories.dart';
 import 'package:vizir/state.dart';
@@ -112,6 +113,7 @@ void main() {
       },
       'canta': () => const BagScreen(selected: 'tahta', shape: 0),
       'koy': () => const VillageScreen(),
+      'sifre': () => const Scaffold(body: Center(child: PinDialog())),
       'para_ustu': () => const Scaffold(body: Center(child: ChangeDialog(name: 'süt', emoji: '🥛', price: 4))),
       'ingilizce': () => const Scaffold(body: Center(child: EnglishQuiz())),
       'kamp': () {

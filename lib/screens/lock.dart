@@ -102,13 +102,7 @@ class _LockScreenState extends State<LockScreen> {
               Positioned(
                 left: 4,
                 bottom: 4,
-                child: GestureDetector(
-                  onLongPress: openParentPanel,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Icon(Icons.settings, color: night ? Colors.white24 : Colors.black26),
-                  ),
-                ),
+                child: const ParentButton(dark: true),
               ),
             ],
           ),
@@ -154,11 +148,7 @@ class _LockScreenState extends State<LockScreen> {
               Positioned(
                 left: 4,
                 bottom: 4,
-                child: GestureDetector(
-                  onLongPress: openParentPanel,
-                  child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.settings, color: Colors.white24)),
-                ),
-              ),
+                child: const ParentButton(dark: true),
             ]),
           ),
         ),

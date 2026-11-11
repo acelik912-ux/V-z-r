@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../sfx.dart';
 import '../state.dart';
@@ -14,25 +15,114 @@ Future<void> openParentPanel() async {
   game.setParentOpen(true);
   try {
     final first = game.pin.isEmpty;
-    final entered = await showDialog<String>(
+    final ok = await showDialog<bool>(
       context: ctx,
-      builder: (_) => PinDialog(title: first ? 'Yeni ebeveyn şifresi belirleyin (4 rakam)' : 'Ebeveyn şifresi'),
+      builder: (_) => PinDialog(first: first),
     );
-    if (entered == null) return;
-    if (first) {
-      game.setPin(entered);
-    } else if (entered != game.pin) {
-      return;
-    }
+    if (ok != true) return;
     await nav.push(MaterialPageRoute(builder: (_) => const ParentPanel()));
   } finally {
     game.setParentOpen(false);
   }
 }
 
+/// Köşedeki ebeveyn düğmesi: büyük dokunma alanı, 1 saniye basılı tutunca
+/// dolan halka ile açılır (çocuk kazara açamaz, ebeveyn kolayca açar).
+class ParentButton extends StatefulWidget {
+  final bool dark;
+  const ParentButton({super.key, this.dark = false});
+
+  @override
+  State<ParentButton> createState() => _ParentButtonState();
+}
+
+class _ParentButtonState extends State<ParentButton> with SingleTickerProviderStateMixin {
+  late final AnimationController hold = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+    ..addStatusListener((st) {
+      if (st == AnimationStatus.completed) {
+        HapticFeedback.mediumImpact();
+        hold.reset();
+        openParentPanel();
+      }
+    });
+  bool hint = false;
+
+  @override
+  void dispose() {
+    hold.dispose();
+    super.dispose();
+  }
+
+  void _down() {
+    setState(() => hint = false);
+    hold.forward(from: 0);
+  }
+
+  void _up() {
+    if (hold.isAnimating && hold.value < 1) {
+      hold.reverse();
+      if (hold.value < 0.35) setState(() => hint = true);
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => hint = false);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = widget.dark ? Colors.white : Colors.black87;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Listener(
+        onPointerDown: (_) => _down(),
+        onPointerUp: (_) => _up(),
+        onPointerCancel: (_) => _up(),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: Stack(alignment: Alignment.center, children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (widget.dark ? Colors.black : Colors.white).withAlpha(110),
+                  border: Border.all(color: fg.withAlpha(90), width: 2),
+                ),
+              ),
+              AnimatedBuilder(
+                animation: hold,
+                builder: (_, __) => SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    value: hold.value,
+                    strokeWidth: 5,
+                    color: const Color(0xFFFFC107),
+                    backgroundColor: Colors.transparent,
+                  ),
+                ),
+              ),
+              Icon(Icons.lock_person, size: 30, color: fg.withAlpha(200)),
+            ]),
+          ),
+        ),
+      ),
+      if (hint)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12)),
+          child: const Text('Ebeveyn: 1 saniye basılı tutun', style: TextStyle(color: Colors.white, fontSize: 14)),
+        ),
+    ]);
+  }
+}
+
+/// Büyük tuşlu şifre ekranı. İlk açılışta şifre belirler (iki kez girilir),
+/// yanlış şifrede kapanmaz, uyarır.
 class PinDialog extends StatefulWidget {
-  final String title;
-  const PinDialog({super.key, required this.title});
+  final bool first;
+  const PinDialog({super.key, this.first = false});
 
   @override
   State<PinDialog> createState() => _PinDialogState();
@@ -40,67 +130,114 @@ class PinDialog extends StatefulWidget {
 
 class _PinDialogState extends State<PinDialog> {
   String code = '';
+  String? firstEntry;
+  String msg = '';
+  bool err = false;
+
+  String get title => widget.first
+      ? (firstEntry == null ? 'Yeni ebeveyn şifresi belirleyin (4 rakam)' : 'Aynı şifreyi tekrar girin')
+      : 'Ebeveyn şifresi';
 
   void _press(String d) {
     if (code.length >= 4) return;
-    setState(() => code += d);
-    if (code.length == 4) {
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) Navigator.pop(context, code);
+    HapticFeedback.selectionClick();
+    setState(() {
+      code += d;
+      err = false;
+      msg = '';
+    });
+    if (code.length == 4) Future.delayed(const Duration(milliseconds: 180), _check);
+  }
+
+  void _check() {
+    if (!mounted) return;
+    if (widget.first) {
+      if (firstEntry == null) {
+        setState(() {
+          firstEntry = code;
+          code = '';
+        });
+      } else if (firstEntry == code) {
+        game.setPin(code);
+        Navigator.pop(context, true);
+      } else {
+        HapticFeedback.heavyImpact();
+        setState(() {
+          firstEntry = null;
+          code = '';
+          err = true;
+          msg = 'Şifreler aynı değil, baştan girin.';
+        });
+      }
+      return;
+    }
+    if (code == game.pin) {
+      Navigator.pop(context, true);
+    } else {
+      HapticFeedback.heavyImpact();
+      setState(() {
+        code = '';
+        err = true;
+        msg = 'Şifre yanlış, tekrar deneyin.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget key(String d) => Padding(
-          padding: const EdgeInsets.all(4),
-          child: SizedBox(
-            width: 64,
-            height: 56,
-            child: OutlinedButton(
-              onPressed: () => _press(d),
-              child: Text(d, style: const TextStyle(fontSize: 24)),
+    Widget key(Widget child, VoidCallback onTap, {Color? color}) => Padding(
+          padding: const EdgeInsets.all(5),
+          child: Material(
+            color: color ?? const Color(0xFFF1F3F6),
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: onTap,
+              child: SizedBox(width: 84, height: 72, child: Center(child: child)),
             ),
           ),
         );
-    return AlertDialog(
-      title: Text(widget.title, style: const TextStyle(fontSize: 18)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            List.generate(4, (i) => i < code.length ? '●' : '○').join(' '),
-            style: const TextStyle(fontSize: 30),
+    Widget digit(String d) => key(Text(d, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700)), () => _press(d));
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 18, 14, 8),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 14),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            for (var i = 0; i < 4; i++)
+              Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.symmetric(horizontal: 9),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < code.length ? (err ? Colors.red : const Color(0xFF3949AB)) : Colors.transparent,
+                  border: Border.all(color: err ? Colors.red : const Color(0xFF3949AB), width: 2.5),
+                ),
+              ),
+          ]),
+          SizedBox(
+            height: 28,
+            child: Center(child: Text(msg, style: const TextStyle(color: Colors.red, fontSize: 15, fontWeight: FontWeight.w600))),
           ),
-          const SizedBox(height: 12),
           for (final row in const [
             ['1', '2', '3'],
             ['4', '5', '6'],
             ['7', '8', '9'],
           ])
-            Row(mainAxisSize: MainAxisSize.min, children: [for (final d in row) key(d)]),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 72),
-              key('0'),
-              Padding(
-                padding: const EdgeInsets.all(4),
-                child: SizedBox(
-                  width: 64,
-                  height: 56,
-                  child: IconButton(
-                    onPressed: () => setState(() => code = code.isEmpty ? '' : code.substring(0, code.length - 1)),
-                    icon: const Icon(Icons.backspace),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+            Row(mainAxisSize: MainAxisSize.min, children: [for (final d in row) digit(d)]),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            key(const Icon(Icons.close, size: 30), () => Navigator.pop(context), color: const Color(0xFFFFEBEE)),
+            digit('0'),
+            key(const Icon(Icons.backspace_outlined, size: 30),
+                () => setState(() => code = code.isEmpty ? '' : code.substring(0, code.length - 1))),
+          ]),
+          const SizedBox(height: 6),
+        ]),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç'))],
     );
   }
 }
@@ -315,14 +452,11 @@ class ParentPanel extends StatelessWidget {
               const Divider(height: 32),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final p = await showDialog<String>(
+                  final ok = await showDialog<bool>(
                     context: context,
-                    builder: (_) => const PinDialog(title: 'Yeni şifre (4 rakam)'),
+                    builder: (_) => const PinDialog(first: true),
                   );
-                  if (p != null && context.mounted) {
-                    game.setPin(p);
-                    _snack(context, 'Şifre değiştirildi');
-                  }
+                  if (ok == true && context.mounted) _snack(context, 'Şifre değiştirildi');
                 },
                 icon: const Icon(Icons.lock_reset),
                 label: const Text('Şifreyi değiştir'),

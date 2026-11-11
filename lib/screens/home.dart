@@ -153,13 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Row(
                   children: [
-                    GestureDetector(
-                      onLongPress: openParentPanel,
-                      child: const Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Icon(Icons.settings, color: Colors.white54),
-                      ),
-                    ),
+                    const ParentButton(dark: true),
                     const Spacer(),
                     if (game.driverName.isNotEmpty)
                       Padding(
