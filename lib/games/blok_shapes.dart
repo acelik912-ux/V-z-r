@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:flutter/material.dart';
+
 /// Şekilli bloklar. Hücrede blok malzemesi + şekil (ve yön) saklanır.
 class ShapeDef {
   final int id;
@@ -187,4 +189,63 @@ List<String> heceler(String w, {bool lettersIfOne = true}) {
   }
   out.add(s.substring(start));
   return out;
+}
+
+/// Şeklin küçük 3B resmi (çanta ve düğmeler için)
+class ShapeIcon extends StatelessWidget {
+  final int shape;
+  final double size;
+  final Color color;
+  const ShapeIcon(this.shape, {super.key, this.size = 40, this.color = const Color(0xFFC08A4E)});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _ShapeIconPainter(shape, color));
+}
+
+class _ShapeIconPainter extends CustomPainter {
+  final int shape;
+  final Color color;
+  _ShapeIconPainter(this.shape, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final polys = shapeLocal(shape).where((p) => p.nx + p.ny + p.nz * 1.2 > 1e-3).toList();
+    double depth(SPoly p) {
+      var d = 0.0;
+      for (var i = 0; i < p.p.length; i += 3) {
+        d += p.p[i] + p.p[i + 1] + p.p[i + 2];
+      }
+      return d / (p.p.length / 3);
+    }
+
+    polys.sort((a, b) => depth(a).compareTo(depth(b)));
+    final s = size.width / 2.2;
+    final o = Offset(size.width / 2, size.height / 2);
+    Offset proj(double x, double y, double z) =>
+        o + Offset((x - y) * 0.87 * s, ((x + y) * 0.5 - z) * s);
+    for (final p in polys) {
+      final path = Path();
+      for (var i = 0; i < p.p.length; i += 3) {
+        final q = proj(p.p[i] - 0.5, p.p[i + 1] - 0.5, p.p[i + 2] - 0.5);
+        if (i == 0) {
+          path.moveTo(q.dx, q.dy);
+        } else {
+          path.lineTo(q.dx, q.dy);
+        }
+      }
+      path.close();
+      final base = p.color != null ? Color(p.color!) : color;
+      final sh = shadeFor(p.nx, p.ny, p.nz);
+      canvas.drawPath(path, Paint()..color = Color.lerp(Colors.black, base, sh)!);
+      canvas.drawPath(
+          path,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = Colors.black26);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ShapeIconPainter old) => old.shape != shape || old.color != color;
 }

@@ -2696,7 +2696,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(shapes[selShape].emoji, style: const TextStyle(fontSize: 22)),
+                ShapeIcon(shapes[selShape].id, size: 30),
                 Text(shapes[selShape].name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
               ]),
             ),

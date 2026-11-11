@@ -40,7 +40,7 @@ List<(String, List<BagItem>)> bagSections() {
     ('🧱 Yapı', tab(0)),
     ('🔷 Şekiller', [
       for (final sh in shapes)
-        BagItem('shape:${sh.id}', sh.name, Center(child: Text(sh.emoji, style: const TextStyle(fontSize: 30))), !bagUnlocked('shape:${sh.id}'))
+        BagItem('shape:${sh.id}', sh.name, Center(child: ShapeIcon(sh.id, size: 46)), !bagUnlocked('shape:${sh.id}'))
     ]),
     ('🎨 Renkler', tab(1)),
     ('🌳 Doğa', tab(2)),
