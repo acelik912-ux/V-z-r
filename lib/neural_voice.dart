@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -103,7 +105,7 @@ class NeuralVoice {
     final my = ++_reqId;
     try {
       await _player.stop();
-      final key = '${text.length}_${text.hashCode.toUnsigned(32)}_${(speed * 100).round()}';
+      final key = 'p2_${text.length}_${text.hashCode.toUnsigned(32)}_${(speed * 100).round()}';
       final path = '$_cacheDir/$key.wav';
       if (!File(path).existsSync()) {
         final c = Completer<bool>();
@@ -113,6 +115,7 @@ class NeuralVoice {
         if (!ok) return false;
       }
       if (my != _reqId) return true; // bu arada yeni bir konuşma başladı
+      onSpeak?.call(true);
       await _player.play(DeviceFileSource(path));
       return true;
     } catch (_) {
@@ -120,8 +123,19 @@ class NeuralVoice {
     }
   }
 
+  /// Konuşma başlayınca true, bitince false (motor sesini kısmak için).
+  static void Function(bool speaking)? onSpeak;
+  static bool _listening = false;
+
+  static void listen() {
+    if (_listening) return;
+    _listening = true;
+    _player.onPlayerComplete.listen((_) => onSpeak?.call(false));
+  }
+
   static Future<void> stop() async {
     _reqId++;
+    onSpeak?.call(false);
     try {
       await _player.stop();
     } catch (_) {}
@@ -154,8 +168,20 @@ void _workerMain(List<Object> args) {
     final id = m[0] as int;
     try {
       final audio = engine.generate(text: m[1] as String, sid: 0, speed: m[2] as double);
-      final ok = audio.samples.isNotEmpty &&
-          sherpa_onnx.writeWave(filename: m[3] as String, samples: audio.samples, sampleRate: audio.sampleRate);
+      // Başa ve sona sessizlik: telefonun hoparlörü açılırken ilk hece,
+      // kapanırken son hece yutulmasın.
+      final sr = audio.sampleRate;
+      final pre = (sr * 0.22).round(), post = (sr * 0.30).round();
+      final src = audio.samples;
+      final padded = Float32List(pre + src.length + post);
+      padded.setRange(pre, pre + src.length, src);
+      // ani başlangıç/bitişte çıt sesi olmasın
+      final fade = min((sr * 0.012).round(), src.length ~/ 4);
+      for (var i = 0; i < fade; i++) {
+        padded[pre + i] *= i / fade;
+        padded[pre + src.length - 1 - i] *= i / fade;
+      }
+      final ok = src.isNotEmpty && sherpa_onnx.writeWave(filename: m[3] as String, samples: padded, sampleRate: sr);
       main.send([id, ok]);
     } catch (_) {
       main.send([id, false]);

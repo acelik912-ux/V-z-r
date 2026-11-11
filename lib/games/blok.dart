@@ -15,6 +15,7 @@ import 'blok_bag.dart';
 import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
+import 'blok_village.dart';
 import 'blok_words.dart';
 import 'blok_tex.dart';
 import 'kit.dart';
@@ -970,6 +971,9 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       if (mounted) setState(() {});
     });
     _loadSigns();
+    Future.delayed(const Duration(milliseconds: 9000), () {
+      if (mounted) _surpriseEgg();
+    });
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
     final sf = widget.startFocus;
@@ -1566,6 +1570,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _tickAnimals(dt);
     if (lt != lifeTick) changed = true;
     if (weather.isNotEmpty) wTime += dt;
+    if (!_dusk && game.windDownAt != null) {
+      _dusk = true;
+      night = true;
+      _geoKey = '';
+      changed = true;
+    }
     if (floats.isNotEmpty) {
       for (final f in floats) {
         f.life -= dt;
@@ -2333,6 +2343,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   final Map<int, String> signs = {};
   String weather = '';
   double wTime = 0;
+  bool _dusk = false;
   final List<_Float> floats = [];
 
   void _loadSigns() {
@@ -2421,6 +2432,46 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       lifeTick++;
     }
     setState(() {});
+  }
+
+  Future<void> _openVillage() async {
+    await Navigator.push(context, fadeRoute(const VillageScreen()));
+    if (!mounted) return;
+    if (pendingBloom > 0) {
+      final r = Random();
+      final cim = matIndex('cim'), cicek = matIndex('cicek');
+      var n = pendingBloom;
+      pendingBloom = 0;
+      for (var i = 0; i < 80 && n > 0; i++) {
+        final x = ax.floor() + r.nextInt(13) - 6, y = ay.floor() + r.nextInt(13) - 6;
+        if (!inside(x, y, 0)) continue;
+        final z = world.topZ(x, y);
+        if (world.blocks[ck(x, y, z)] != cim) continue;
+        world.blocks[ck(x, y, z)] = cicek;
+        _burst(ck(x, y, z), const Color(0xFFFF80AB), 6);
+        n--;
+      }
+      world.version++;
+      _changed();
+      Voice.say('Bak! Paylaştın, şehrinde çiçekler açtı.');
+    }
+    setState(() {});
+  }
+
+  /// Akşam masalında söz verilen sürpriz yumurta: ertesi gün çatlar.
+  void _surpriseEgg() {
+    if (game.surpriseDay.isEmpty || game.surpriseDay == game.dayKey) return;
+    game.surpriseDay = '';
+    game.save();
+    final kind = animalKinds[Random().nextInt(animalKinds.length)];
+    animals.add(Animal(kind, ax + 1.5, ay + 0.5, az, friend: true));
+    _saveLife();
+    lifeTick++;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Sfx.play('unlock');
+      Say.show(context, Who.ayi, 'Günaydın! Dün söz verdiğim sürpriz yumurta çatladı: içinden bir ${kind.name} çıktı! Artık senin arkadaşın.');
+    });
   }
 
   Future<void> _setSign(int cell) async {
@@ -2626,6 +2677,16 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                           });
                         }),
                       ],
+                      Bouncy(
+                        onTap: _openVillage,
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          width: 42,
+                          height: 54,
+                          decoration: BoxDecoration(color: const Color(0xFFFFE0B2), borderRadius: BorderRadius.circular(12)),
+                          child: const Pic('k_teyze', height: 52),
+                        ),
+                      ),
                       Bouncy(
                         onTap: () async {
                           await Navigator.push(context, fadeRoute(const AvatarScreen()));

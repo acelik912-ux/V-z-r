@@ -55,6 +55,13 @@ class Sfx {
     } catch (_) {}
   }
 
+  /// Konuşma sırasında motor sesini kıs, konuşma anlaşılsın.
+  static Future<void> duck(bool on) async {
+    try {
+      await _engine?.setVolume(on ? 0.08 : 0.32);
+    } catch (_) {}
+  }
+
   static Future<void> engineStop() async {
     try {
       await _engine?.stop();

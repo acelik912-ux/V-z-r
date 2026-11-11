@@ -46,7 +46,7 @@ Offset coverPoint(Size screen, Size image, Offset p) {
 
 // ---------------- Karakterler ----------------
 
-enum Who { tamirci, baykus, tozbulut, robot, papagan, surucu }
+enum Who { tamirci, baykus, tozbulut, robot, papagan, surucu, teyze, gezgin, ayi }
 
 const whoNames = {
   Who.tamirci: 'Tamirci Usta',
@@ -55,6 +55,9 @@ const whoNames = {
   Who.robot: 'Robot Rakam',
   Who.papagan: 'Polly',
   Who.surucu: 'Sürücü',
+  Who.teyze: 'Komşu Teyze',
+  Who.gezgin: 'Gezgin',
+  Who.ayi: 'Uykucu Ayı',
 };
 
 /// Karakterin pozuna göre resim adı.
@@ -77,6 +80,12 @@ String whoPic(Who w, [String mood = '']) {
       return 'k_papagan';
     case Who.surucu:
       return 'k_surucu';
+    case Who.teyze:
+      return const {'sevin': 'k_teyze_sevin', 'dusun': 'k_teyze_dusun', 'tesekkur': 'k_teyze_tesekkur'}[mood] ?? 'k_teyze';
+    case Who.gezgin:
+      return const {'sevin': 'k_gezgin_sevin', 'saskin': 'k_gezgin_saskin', 'gosterir': 'k_gezgin_gosterir'}[mood] ?? 'k_gezgin';
+    case Who.ayi:
+      return mood == 'esne' ? 'k_ayi_esne' : 'k_ayi';
   }
 }
 

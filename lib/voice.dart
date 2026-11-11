@@ -72,8 +72,27 @@ class Voice {
     return list.isEmpty ? null : list.first;
   }
 
-  /// Ebeveyn panelindeki hız ayarını doğal sesin hızına çevirir (0.25-0.7 -> 0.9-1.45).
-  static double get neuralSpeed => 0.9 + (game.speechRate - 0.25) / 0.45 * 0.55;
+  /// Ebeveyn panelindeki hız ayarını doğal sesin hızına çevirir (0.25-0.7 -> 0.7-1.2).
+  /// Varsayılan 0.5 -> ~0.98: çocuk için net ve acelesiz.
+  static double get neuralSpeed => 0.7 + (game.speechRate - 0.25) / 0.45 * 0.5;
+
+  /// Doğal ses tek hece ve kısa kelimeleri yutabiliyor; onları biraz yavaş ve
+  /// cümle gibi (noktalı) okut. Sondaki noktalama son sesi tamamlatır.
+  static (String, double) _prep(String text) {
+    var t = text.trim().replaceAll('\n', ' ').replaceAll(RegExp(r'\s+'), ' ');
+    if (t.isEmpty) return (t, neuralSpeed);
+    final last = t[t.length - 1];
+    if (!'.!?,;:…'.contains(last)) t = '$t.';
+    final words = t.split(' ').length;
+    final letters = t.replaceAll(RegExp(r'[^\p{L}]', unicode: true), '').length;
+    var sp = neuralSpeed;
+    if (letters <= 4) {
+      sp *= 0.78; // tek hece: "ka", "nek"
+    } else if (words <= 2) {
+      sp *= 0.88; // tek kelime: "inek", "Aferin!"
+    }
+    return (t, sp);
+  }
 
   static bool _en = false;
 
@@ -112,7 +131,8 @@ class Voice {
         try {
           await _tts.stop();
         } catch (_) {}
-        if (await NeuralVoice.say(text, neuralSpeed)) return;
+        final (t, sp) = _prep(text);
+        if (await NeuralVoice.say(t, sp)) return;
       }
     }
     await NeuralVoice.stop();

@@ -63,6 +63,10 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, int> sylBag = {}; // hece madeninden toplanan heceler
   Map<String, int> crafted = {}; // kelime tezgâhında yapılan kelimeler
   String blockSigns = ''; // konuşan tabelalar: hücre:kelime;...
+  Map<String, int> today = {}; // bugünün özeti: hece, kelime, iyilik, urun, satis
+  List<String> todayWords = [];
+  String surpriseDay = ''; // akşam masalında söz verilen sürpriz yumurta
+  DateTime? windDownAt; // süre bitmeden 3 dk önce
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -99,6 +103,10 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
       playedSecToday++;
     }
     _tickCount++;
+    if (windDownAt == null && lockReason == null && fuelLeftSec <= 180 && fuelLeftSec > 0 && playedSecToday > 60) {
+      windDownAt = DateTime.now();
+      notifyListeners();
+    }
     final lock = lockReason;
     if (lock != _lastLock) {
       _lastLock = lock;
@@ -131,6 +139,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
       bonusCountToday = 0;
       todayPlayed = {};
       taskClaimed = {};
+      today = {};
+      todayWords = [];
+      windDownAt = null;
     }
   }
 
@@ -212,6 +223,25 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---- Öğrenme ve ödüller ----
+  void countToday(String k, [int n = 1]) {
+    today[k] = (today[k] ?? 0) + n;
+  }
+
+  /// Satılacak/paylaşılacak ürünler (hayvan ürünleri ve hasat).
+  Map<String, int> get products => {
+        for (final e in mined.entries)
+          if (e.key.startsWith('urun_') && e.value > 0) e.key.substring(5): e.value
+      };
+
+  bool takeProduct(String id) {
+    final k = 'urun_$id';
+    final v = mined[k] ?? 0;
+    if (v <= 0) return false;
+    mined[k] = v - 1;
+    _changed();
+    return true;
+  }
+
   void addSyl(String s, [int n = 1]) {
     sylBag[s] = (sylBag[s] ?? 0) + n;
     _changed();
@@ -240,6 +270,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
 
   void addCrafted(String w) {
     crafted[w] = (crafted[w] ?? 0) + 1;
+    countToday('kelime');
+    if (!todayWords.contains(w)) todayWords.add(w);
     _changed();
   }
 
@@ -262,6 +294,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   void recordSyllable(String s, bool ok) {
     final e = stats.putIfAbsent(s, () => [0, 0]);
     if (ok) {
+      countToday('hece');
       e[0]++;
     } else {
       e[1]++;
@@ -511,6 +544,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'sylBag': sylBag,
         'crafted': crafted,
         'blockSigns': blockSigns,
+        'today': today,
+        'todayWords': todayWords,
+        'surpriseDay': surpriseDay,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -584,6 +620,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     sylBag = mi('sylBag');
     crafted = mi('crafted');
     blockSigns = j['blockSigns'] as String? ?? '';
+    today = mi('today');
+    todayWords = ((j['todayWords'] as List?) ?? const []).map((e) => e.toString()).toList();
+    surpriseDay = j['surpriseDay'] as String? ?? '';
     final mj = j['mined'];
     if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
     final st = j['stats'];

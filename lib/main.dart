@@ -16,6 +16,8 @@ Future<void> main() async {
   game.start();
   await Voice.init();
   await Sfx.init();
+  NeuralVoice.onSpeak = Sfx.duck;
+  NeuralVoice.listen();
   NeuralVoice.init();
   Music.init();
   runApp(const VizirApp());
@@ -41,6 +43,10 @@ class VizirApp extends StatelessWidget {
           builder: (context, _) => Stack(
             children: [
               if (child != null) child,
+              if (game.windDownAt != null &&
+                  !game.showLock &&
+                  DateTime.now().difference(game.windDownAt!) < const Duration(seconds: 12))
+                const WindDownBanner(),
               if (game.showLock) Positioned.fill(child: LockScreen(reason: game.lockReason!)),
             ],
           ),
