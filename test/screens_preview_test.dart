@@ -99,6 +99,7 @@ void main() {
       'karakter': () => const AvatarScreen(),
       'blok': () => const BlokAdasi(),
       'blok_ic': () => const BlokAdasi(startFirstPerson: true),
+      'blok_arka': () => const BlokAdasi(startFirstPerson: true, startBehind: true),
       'blok_buyuk': () {
         final w = BlockWorld()..seed();
         w.expand(1, 'orman');

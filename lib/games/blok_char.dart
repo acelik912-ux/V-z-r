@@ -6,6 +6,7 @@ import '../art.dart';
 import '../sfx.dart';
 import '../state.dart';
 import '../voice.dart';
+import 'blok_life.dart';
 
 // ======================= KARAKTER =======================
 
@@ -37,6 +38,17 @@ const furColors = [
   Color(0xFF3F7FD0), // mavi
 ];
 const furNames = ['kahverengi', 'siyah', 'mor', 'beyaz', 'altın', 'gri', 'pembe', 'mavi'];
+
+/// Yürürken ayaklardan ve ellerden çıkan renkli izler: (kimlik, heceler, emoji)
+const trails = [
+  ('gokkusagi', ['gök', 'ku', 'şa', 'ğı'], '🌈'),
+  ('yildiz', ['yıl', 'dız'], '⭐'),
+  ('ates', ['a', 'teş'], '🔥'),
+  ('kalp', ['k', 'a', 'l', 'p'], '💖'),
+  ('kopuk', ['kö', 'pük'], '🫧'),
+];
+
+bool trailOwned(String id) => game.blockItems.contains('iz_$id');
 
 /// Zırhlar (pazardan para ile alınır)
 class Armor {
@@ -396,6 +408,27 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
         ]),
       );
 
+
+  Future<void> _setTrail(String id) async {
+    if (id.isNotEmpty && !trailOwned(id)) {
+      final t = trails.firstWhere((e) => e.$1 == id);
+      final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => SpellDialog(
+                parts: t.$2,
+                emoji: t.$3,
+                title: '${t.$2.join()} izi! Adını yaz, senin olsun.',
+                speech: '${t.$2.join()} izi! Adını yaz, senin olsun.',
+              ));
+      if (ok != true || !mounted) return;
+      game.addBlockItem('iz_$id');
+      Sfx.play('unlock');
+    }
+    game.setTrail(id);
+    setState(() {});
+    if (id.isNotEmpty) Voice.say('Yürüyünce arkanda ${trails.firstWhere((e) => e.$1 == id).$2.join()} izi çıkacak!');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -481,6 +514,23 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                       ]),
                     );
                   }),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      const SizedBox(width: 74, child: Text('Renkli iz', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900))),
+                      Expanded(
+                        child: Wrap(spacing: 6, runSpacing: 6, children: [
+                          ChoiceChip(label: const Text('Yok'), selected: game.trail.isEmpty, onSelected: (_) => _setTrail('')),
+                          for (final t in trails)
+                            ChoiceChip(
+                              label: Text('${t.$3} ${t.$2.join()}${trailOwned(t.$1) ? '' : ' 🔒'}'),
+                              selected: game.trail == t.$1,
+                              onSelected: (_) => _setTrail(t.$1),
+                            ),
+                        ]),
+                      ),
+                    ]),
+                  ),
                   if (a.bear) ...[
                     _row('Tüy', furColors.length, a.fur, (i) => furColors[i], (i) {
                       a.fur = i;

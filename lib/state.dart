@@ -65,7 +65,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   String blockSigns = ''; // konuşan tabelalar: hücre:kelime;...
   Map<String, int> today = {}; // bugünün özeti: hece, kelime, iyilik, urun, satis
   List<String> todayWords = [];
-  String surpriseDay = ''; // akşam masalında söz verilen sürpriz yumurta
+  String surpriseDay = '';
+  String trail = ''; // Blok Şehri renkli iz // akşam masalında söz verilen sürpriz yumurta
   DateTime? windDownAt; // süre bitmeden 3 dk önce
 
   int _raceDepth = 0;
@@ -223,6 +224,11 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---- Öğrenme ve ödüller ----
+  void setTrail(String t) {
+    trail = t;
+    _changed();
+  }
+
   void countToday(String k, [int n = 1]) {
     today[k] = (today[k] ?? 0) + n;
   }
@@ -547,6 +553,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'today': today,
         'todayWords': todayWords,
         'surpriseDay': surpriseDay,
+        'trail': trail,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -623,6 +630,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     today = mi('today');
     todayWords = ((j['todayWords'] as List?) ?? const []).map((e) => e.toString()).toList();
     surpriseDay = j['surpriseDay'] as String? ?? '';
+    trail = j['trail'] as String? ?? '';
     final mj = j['mined'];
     if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
     final st = j['stats'];

@@ -862,7 +862,8 @@ class BlokAdasi extends StatefulWidget {
   final bool startFirstPerson;
   final (int, int)? startFocus;
   final bool? startNight;
-  const BlokAdasi({super.key, this.startFirstPerson = false, this.startFocus, this.startNight});
+  final bool startBehind;
+  const BlokAdasi({super.key, this.startFirstPerson = false, this.startFocus, this.startNight, this.startBehind = false});
 
   @override
   State<BlokAdasi> createState() => _BlokAdasiState();
@@ -982,6 +983,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _placeAvatar(17, 17);
     if (widget.startFirstPerson) {
       firstPerson = true;
+      behind = widget.startBehind;
       look = 2.4;
       lookUp = -0.12;
       facing = look;
@@ -1509,6 +1511,22 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       if (az < -3) _placeAvatar(ax.floor(), ay.floor());
       changed = true;
     }
+    // arkadan görünümde karakter baktığı yöne döner
+    if (firstPerson && behind && facing != look) {
+      facing = look;
+      changed = true;
+    }
+    // renkli iz
+    final mv = (ax - _tpx).abs() + (ay - _tpy).abs();
+    _tpx = ax;
+    _tpy = ay;
+    if (game.trail.isNotEmpty && mv > 0.002 && mv < 1) {
+      _trailT -= dt;
+      if (_trailT <= 0) {
+        _trailT = 0.045;
+        _emitTrail();
+      }
+    }
     // kırma
     final bc = breakCell;
     if (bc != null && walkTo == null) {
@@ -1550,7 +1568,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (firstPerson) {
       final h = rayHit();
       var tc = h?.$1;
-      final e = _rayEntity(h == null ? 5.5 : lastRayT);
+      final e = _rayEntity(h == null ? 5.5 + (behind ? camBack : 0) : lastRayT);
       if (e != null) tc = null;
       if (tc != aim || e != aimEnt) {
         aim = tc;
@@ -1591,7 +1609,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.z += p.vz * dt;
-        p.vz -= 9 * dt;
+        p.vz -= p.g * dt;
       }
       parts.removeWhere((p) => p.life <= 0);
       changed = true;
@@ -1607,9 +1625,77 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   double lastRayT = 5.5;
 
+  /// Arkadan görünüm: kamera karakterin arkasında, omuz hizasının biraz üstünde.
+  bool behind = false;
+  double _tpx = 0, _tpy = 0, _trailT = 0, _hue = 0;
+
+  void _emitTrail() {
+    final r = Random();
+    final px = cos(facing), py = -sin(facing); // sağ yan
+    final pts = [
+      (ax + px * 0.14, ay + py * 0.14, az + 0.08), // ayaklar
+      (ax - px * 0.14, ay - py * 0.14, az + 0.08),
+      (ax + px * 0.42, ay + py * 0.42, az + 0.85), // eller
+      (ax - px * 0.42, ay - py * 0.42, az + 0.85),
+    ];
+    for (final (x, y, z) in pts) {
+      if (r.nextDouble() < 0.4) continue;
+      Color c;
+      var kind = 0;
+      var vz = 0.6 + r.nextDouble();
+      var g = 3.0;
+      var life = 0.9 + r.nextDouble() * 0.5;
+      switch (game.trail) {
+        case 'gokkusagi':
+          _hue = (_hue + 14) % 360;
+          c = HSVColor.fromAHSV(1, _hue, 0.85, 1).toColor();
+        case 'yildiz':
+          c = r.nextBool() ? const Color(0xFFFFEB3B) : Colors.white;
+          kind = 1;
+        case 'ates':
+          c = [const Color(0xFFFF5722), const Color(0xFFFF9800), const Color(0xFFFFEB3B)][r.nextInt(3)];
+          vz = 1.2 + r.nextDouble();
+          g = -1.5; // yukarı süzülür
+          life = 0.55;
+        case 'kalp':
+          c = [const Color(0xFFFF4081), const Color(0xFFF48FB1), const Color(0xFFE91E63)][r.nextInt(3)];
+          kind = 2;
+        default: // kopuk
+          c = const Color(0xFFB3E5FC).withAlpha(220);
+          kind = 2;
+          g = -0.6;
+          vz = 0.4;
+          life = 1.6;
+      }
+      parts.add(_Particle(x, y, z, (r.nextDouble() - 0.5) * 0.6, (r.nextDouble() - 0.5) * 0.6, vz, c, life, kind: kind, g: g));
+    }
+    if (parts.length > 400) parts.removeRange(0, parts.length - 400);
+  }
+  double camBack = 0;
+
+  /// Kameranın (gözün) konumu. Birinci şahısta baş, arkadan görünümde
+  /// karakterin arkası; arada blok varsa kamera yaklaşır.
+  (double, double, double) camEye() {
+    final hx = ax, hy = ay, hz = az + 1.55;
+    if (!behind) return (hx, hy, hz);
+    final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
+    var d = 0.0;
+    const want = 3.2;
+    while (d < want) {
+      final nd = d + 0.15;
+      final x = hx - dx * nd, y = hy - dy * nd, z = hz - dz * nd + nd * 0.16;
+      final m = world.blocks[ck(x.floor(), y.floor(), z.floor())];
+      if (m != null && mats[m].id != 'su' && z >= 0) break;
+      d = nd;
+    }
+    d = max(0.0, d - 0.2);
+    camBack = d;
+    return (hx - dx * d, hy - dy * d, hz - dz * d + d * 0.16);
+  }
+
   /// Gözden ileri ışın hayvan ya da ekine çarpıyor mu?
   (int, int)? _rayEntity(double maxT) {
-    final ex = ax, ey = ay, ez = az + 1.55;
+    final (ex, ey, ez) = camEye();
     final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
     double? hitBox(double x0, double y0, double z0, double x1, double y1, double z1) {
       var tmin = 0.0, tmax = maxT;
@@ -1651,7 +1737,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   /// Gözden ileri ışın: ilk dolu blok ve çarptığı yüz yönü (5 blok).
   (int, int)? rayHit() {
-    final ex = ax, ey = ay, ez = az + 1.55;
+    final (ex, ey, ez) = camEye();
+    final reach = 5.5 + (behind ? camBack : 0);
     final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
     var x = ex.floor(), y = ey.floor(), z = ez.floor();
     final sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
@@ -1665,17 +1752,17 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     var face = -1;
     for (var i = 0; i < 40; i++) {
       if (tx < ty && tx < tz) {
-        if (tx > 5.5) break;
+        if (tx > reach) break;
         x += sx;
         tx += ddx;
         face = sx > 0 ? 2 : 1;
       } else if (ty < tz) {
-        if (ty > 5.5) break;
+        if (ty > reach) break;
         y += sy;
         ty += ddy;
         face = sy > 0 ? 4 : 3;
       } else {
-        if (tz > 5.5) break;
+        if (tz > reach) break;
         z += sz;
         tz += ddz;
         face = sz > 0 ? 5 : 0;
@@ -2654,7 +2741,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                     right: 6,
                     top: 6,
                     child: Column(children: [
-                      _ViewSwitch(firstPerson, _toggleView),
+                      _ViewSwitch(!firstPerson ? 0 : (behind ? 2 : 1), _toggleView),
                       _Tool(night ? Icons.wb_sunny : Icons.nightlight_round, () {
                         setState(() {
                           night = !night;
@@ -2809,12 +2896,22 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _toggleView() {
     Sfx.play('uc');
     setState(() {
-      firstPerson = !firstPerson;
+      if (!firstPerson) {
+        firstPerson = true;
+        behind = false;
+      } else if (!behind) {
+        behind = true;
+      } else {
+        firstPerson = false;
+        behind = false;
+      }
       walkTo = null;
       breakCell = null;
       padF = 0;
       padR = 0;
-      if (firstPerson) {
+      if (firstPerson && behind) {
+        lookUp = -0.25;
+      } else if (firstPerson) {
         look = facing;
         lookUp = -0.2;
       } else {
@@ -2825,9 +2922,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
       _geoKey = '';
     });
-    Voice.say(firstPerson
-        ? 'Şimdi karakterin gözünden bakıyorsun! Yön tuşlarıyla yürü, ekranı sürükleyerek etrafına bak.'
-        : 'Dışarıdan bakıyorsun.');
+    Voice.say(!firstPerson
+        ? 'Dışarıdan bakıyorsun.'
+        : (behind
+            ? 'Şimdi karakterini arkadan görüyorsun! Yön tuşlarıyla yürüt.'
+            : 'Şimdi karakterin gözünden bakıyorsun! Yön tuşlarıyla yürü, ekranı sürükleyerek etrafına bak.'));
   }
 
   void _fpTap() {
@@ -3458,9 +3557,10 @@ class _WorldPainter extends CustomPainter {
   Offset _c = Offset.zero;
 
   void _fpCam(Size size) {
-    _ex = s.ax;
-    _ey = s.ay;
-    _ez = s.az + 1.55;
+    final (ex, ey, ez) = s.camEye();
+    _ex = ex;
+    _ey = ey;
+    _ez = ez;
     final th = s.look, ph = s.lookUp;
     _fx = sin(th) * cos(ph);
     _fy = cos(th) * cos(ph);
@@ -3485,7 +3585,8 @@ class _WorldPainter extends CustomPainter {
 
   void _paintFP(Canvas canvas, Size size) {
     _fpCam(size);
-    final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null},${s.lifeTick},${s.cropStamp}';
+    final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null},${s.lifeTick},${s.cropStamp}'
+        '${s.behind ? ',${s.walk},${s.swing},${s.hand},${s.facing},${s.avatar.encode()},${s.gameTools}' : ''}';
     if (key != s._geoKey) {
       s._geoKey = key;
       _buildFP(size);
@@ -3496,7 +3597,7 @@ class _WorldPainter extends CustomPainter {
   void _buildFP(Size size) {
     _clearVerts();
     const range = 24.0;
-    final polys = _collect(_ex, _ey, range, withAvatar: false);
+    final polys = _collect(_ex, _ey, range, withAvatar: s.behind);
     final vis = <int>[];
     final dist = <double>[];
     for (var i = 0; i < polys.length; i++) {
@@ -3569,7 +3670,8 @@ class _WorldPainter extends CustomPainter {
     for (final p in s.parts) {
       final o = fpProj(p.x, p.y, p.z);
       if (o == null) continue;
-      canvas.drawRect(Rect.fromCenter(center: o, width: 8, height: 8), Paint()..color = p.c.withAlpha((255 * min(1, p.life * 2)).toInt()));
+      final d = sqrt(pow(p.x - _ex, 2) + pow(p.y - _ey, 2) + pow(p.z - _ez, 2)) + 0.3;
+      _drawParticle(canvas, o, (_foc * 0.09 / d).clamp(2.0, 30.0), p.c.withAlpha((255 * min(1, p.life * 2)).toInt()), p.kind);
     }
     for (final an in s.animals) {
       if (!an.friend) continue;
@@ -3732,8 +3834,8 @@ class _WorldPainter extends CustomPainter {
     }
     for (final p in s.parts) {
       final o = s.proj(p.x, p.y, p.z);
-      final r = s._s * 0.09;
-      canvas.drawRect(Rect.fromCenter(center: o, width: r, height: r), Paint()..color = p.c.withAlpha((255 * min(1, p.life * 2)).toInt()));
+      final r = s._s * (p.kind == 0 ? 0.09 : 0.13);
+      _drawParticle(canvas, o, r, p.c.withAlpha((255 * min(1, p.life * 2)).toInt()), p.kind);
     }
     final q = s.quest;
     if (s.task != null) {
@@ -4274,7 +4376,32 @@ class _LogoPainter extends CustomPainter {
 class _Particle {
   double x, y, z, vx, vy, vz, life;
   final Color c;
-  _Particle(this.x, this.y, this.z, this.vx, this.vy, this.vz, this.c, this.life);
+  final int kind; // 0 kare, 1 yıldız (elmas), 2 daire
+  final double g; // yerçekimi
+  _Particle(this.x, this.y, this.z, this.vx, this.vy, this.vz, this.c, this.life, {this.kind = 0, this.g = 9});
+}
+
+void _drawParticle(Canvas canvas, Offset o, double r, Color c, int kind) {
+  final paint = Paint()..color = c;
+  switch (kind) {
+    case 1:
+      final path = Path()
+        ..moveTo(o.dx, o.dy - r)
+        ..lineTo(o.dx + r * 0.38, o.dy - r * 0.38)
+        ..lineTo(o.dx + r, o.dy)
+        ..lineTo(o.dx + r * 0.38, o.dy + r * 0.38)
+        ..lineTo(o.dx, o.dy + r)
+        ..lineTo(o.dx - r * 0.38, o.dy + r * 0.38)
+        ..lineTo(o.dx - r, o.dy)
+        ..lineTo(o.dx - r * 0.38, o.dy - r * 0.38)
+        ..close();
+      canvas.drawPath(path, paint);
+    case 2:
+      canvas.drawCircle(o, r * 0.6, paint);
+      canvas.drawCircle(o.translate(-r * 0.2, -r * 0.2), r * 0.18, Paint()..color = Colors.white.withAlpha((c.a * 255).round()));
+    default:
+      canvas.drawRect(Rect.fromCenter(center: o, width: r, height: r), paint);
+  }
 }
 
 class _ToolDialog extends StatelessWidget {
@@ -4303,9 +4430,9 @@ class _ToolDialog extends StatelessWidget {
 }
 
 class _ViewSwitch extends StatelessWidget {
-  final bool fp;
+  final int view; // 0 dışarıdan, 1 içeriden, 2 arkadan
   final VoidCallback onTap;
-  const _ViewSwitch(this.fp, this.onTap);
+  const _ViewSwitch(this.view, this.onTap);
 
   @override
   Widget build(BuildContext context) => Bouncy(
@@ -4314,13 +4441,14 @@ class _ViewSwitch extends StatelessWidget {
           margin: const EdgeInsets.all(2),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           decoration: BoxDecoration(
-            color: fp ? const Color(0xFF7E57C2) : const Color(0xFFFFB300),
+            color: const [Color(0xFFFFB300), Color(0xFF26A69A), Color(0xFF7E57C2)][view],
             borderRadius: BorderRadius.circular(14),
             boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
           ),
           child: Column(children: [
-            Text(fp ? '🎥' : '👁️', style: const TextStyle(fontSize: 22)),
-            Text(fp ? 'Dışarıdan' : 'İçeriden',
+            // bir sonraki görünümü gösterir
+            Text(const ['👁️', '🧍', '🎥'][view], style: const TextStyle(fontSize: 22)),
+            Text(const ['İçeriden', 'Arkadan', 'Dışarıdan'][view],
                 style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white)),
           ]),
         ),
