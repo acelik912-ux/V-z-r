@@ -60,6 +60,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   String blockLife = '';
   Set<String> blockTools = <String>{};
   Map<String, int> mined = {};
+  Map<String, int> sylBag = {}; // hece madeninden toplanan heceler
+  Map<String, int> crafted = {}; // kelime tezgâhında yapılan kelimeler
+  String blockSigns = ''; // konuşan tabelalar: hücre:kelime;...
 
   int _raceDepth = 0;
   bool _parentOpen = false;
@@ -209,6 +212,53 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---- Öğrenme ve ödüller ----
+  void addSyl(String s, [int n = 1]) {
+    sylBag[s] = (sylBag[s] ?? 0) + n;
+    _changed();
+  }
+
+  /// Gereken heceler çantada varsa harcar.
+  bool useSyls(List<String> parts) {
+    final need = <String, int>{};
+    for (final p in parts) {
+      need[p] = (need[p] ?? 0) + 1;
+    }
+    for (final e in need.entries) {
+      if ((sylBag[e.key] ?? 0) < e.value) return false;
+    }
+    for (final e in need.entries) {
+      final left = sylBag[e.key]! - e.value;
+      if (left <= 0) {
+        sylBag.remove(e.key);
+      } else {
+        sylBag[e.key] = left;
+      }
+    }
+    _changed();
+    return true;
+  }
+
+  void addCrafted(String w) {
+    crafted[w] = (crafted[w] ?? 0) + 1;
+    _changed();
+  }
+
+  void saveSigns(String v) {
+    blockSigns = v;
+    save();
+  }
+
+  /// En çok zorlanılan heceler (yanlış oranı yüksek olanlar önce).
+  List<String> weakSyllables([int n = 8]) {
+    final l = stats.entries.where((e) => e.value[1] > 0 && e.key.length <= 4).toList()
+      ..sort((a, b) {
+        double r(List<int> v) => (v[1] + 1) / (v[0] + v[1] + 2);
+        final c = r(b.value).compareTo(r(a.value));
+        return c != 0 ? c : b.value[1].compareTo(a.value[1]);
+      });
+    return l.take(n).map((e) => e.key).toList();
+  }
+
   void recordSyllable(String s, bool ok) {
     final e = stats.putIfAbsent(s, () => [0, 0]);
     if (ok) {
@@ -458,6 +508,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'blockLife': blockLife,
         'blockTools': blockTools.toList(),
         'mined': mined,
+        'sylBag': sylBag,
+        'crafted': crafted,
+        'blockSigns': blockSigns,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -523,6 +576,14 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     avatar = j['avatar'] as String? ?? '';
     blockLife = j['blockLife'] as String? ?? '';
     blockTools = ss('blockTools');
+    Map<String, int> mi(String k) {
+      final v = j[k];
+      return v is Map ? v.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) : <String, int>{};
+    }
+
+    sylBag = mi('sylBag');
+    crafted = mi('crafted');
+    blockSigns = j['blockSigns'] as String? ?? '';
     final mj = j['mined'];
     if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
     final st = j['stats'];

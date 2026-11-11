@@ -328,6 +328,17 @@ class _SpellDialogState extends State<SpellDialog> {
       );
 }
 
+/// Konuşan tabelanın yazısı.
+void paintSign(Canvas canvas, Offset at, String word) {
+  final tp = TextPainter(text: sylSpan(word, 16), textDirection: TextDirection.ltr)..layout();
+  final r = Rect.fromCenter(center: at, width: tp.width + 16, height: tp.height + 8);
+  canvas.drawRRect(RRect.fromRectAndRadius(r.inflate(3), const Radius.circular(6)), Paint()..color = const Color(0xFF6D4C41));
+  canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(5)), Paint()..color = const Color(0xFFFFF3D6));
+  tp.paint(canvas, Offset(at.dx - tp.width / 2, at.dy - tp.height / 2));
+  final hp = TextPainter(text: const TextSpan(text: '🔊', style: TextStyle(fontSize: 11)), textDirection: TextDirection.ltr)..layout();
+  hp.paint(canvas, Offset(r.right - 2, r.top - 9));
+}
+
 /// Dost hayvanın adını başının üstüne yazar.
 void paintNameTag(Canvas canvas, Offset at, String name) {
   final tp = TextPainter(text: sylSpan(name, 15), textDirection: TextDirection.ltr)..layout();

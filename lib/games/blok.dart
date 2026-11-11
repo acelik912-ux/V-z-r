@@ -15,6 +15,7 @@ import 'blok_bag.dart';
 import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
+import 'blok_words.dart';
 import 'blok_tex.dart';
 import 'kit.dart';
 
@@ -98,6 +99,11 @@ const mats = <BlockMat>[
   BlockMat('kirmizitahta', 'kırmızı tahta', Color(0xFFB23A2E), 7),
   BlockMat('yesiltahta', 'yeşil tahta', Color(0xFF4E7D3A), 7),
   BlockMat('mavitahta', 'mavi tahta', Color(0xFF3E6BA8), 7),
+  BlockMat('heceta', 'hece taşı', Color(0xFF9575CD), 2, glow: true),
+  BlockMat('tezgah', 'kelime tezgâhı', Color(0xFFA1887F), 9, start: true),
+  BlockMat('tabela', 'tabela', Color(0xFFD7B98E), 9),
+  BlockMat('hecekapi', 'hece kapısı', Color(0xFF7E57C2), 7),
+  BlockMat('totem', 'hava totemi', Color(0xFF26A69A), 9),
 ];
 
 /// Doku atlasındaki sıra: bloklar, sonra beyaz ve yüz karoları.
@@ -698,7 +704,8 @@ class BlockWorld {
   void mountain(int x0, int x1, int y0, int y1, Random r) {
     if (x1 - x0 < 4 || y1 - y0 < 4) return;
     final tas = matIndex('tas'), toprak = matIndex('toprak'), cim = matIndex('cim'), kar = matIndex('kar');
-    final ores = [matIndex('komur'), matIndex('komur'), matIndex('demirc'), matIndex('demirc'), matIndex('altinc'), matIndex('elmas')];
+    final hc = matIndex('heceta');
+    final ores = [matIndex('komur'), matIndex('komur'), matIndex('demirc'), matIndex('demirc'), matIndex('altinc'), matIndex('elmas'), hc, hc, hc, hc];
     final cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     final rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
     final ph = r.nextDouble() * 6;
@@ -962,6 +969,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     Tex.load(texIds).then((_) {
       if (mounted) setState(() {});
     });
+    _loadSigns();
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
     final sf = widget.startFocus;
@@ -1104,7 +1112,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final m = world.blocks[ck(x, y, z)];
     if (m == null) return false;
     final id = mats[m].id;
-    return id == 'cit' || id == 'kapi';
+    return id == 'cit' || id == 'kapi' || id == 'hecekapi';
   }
 
   double _animalHeight(String id) => const {'inek': 1.25, 'koyun': 1.05, 'tavuk': 0.85, 'kedi': 0.7, 'kopek': 0.85, 'at': 1.75}[id] ?? 1.0;
@@ -1520,6 +1528,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             world.version++;
             game.addMined(mats[m].id);
             _burst(bc, mats[m].color, 14);
+            _afterBreak(bc, mats[m].id);
             breakCell = null;
             hits = 0;
             _changed();
@@ -1556,6 +1565,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final lt = lifeTick;
     _tickAnimals(dt);
     if (lt != lifeTick) changed = true;
+    if (weather.isNotEmpty) wTime += dt;
+    if (floats.isNotEmpty) {
+      for (final f in floats) {
+        f.life -= dt;
+        f.z += dt * 0.7;
+      }
+      floats.removeWhere((f) => f.life <= 0);
+      changed = true;
+    }
     // parçacıklar
     if (parts.isNotEmpty) {
       for (final p in parts) {
@@ -2085,6 +2103,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
     final hz = matIndex('hazine');
     final (x, y, z) = cxyz(f.cell);
+    if (mode == 1 && _useSpecial(f.cell)) return;
     if (world.blocks[f.cell] == hz) {
       chestCell = f.cell;
       breakCell = null;
@@ -2310,6 +2329,158 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   /// Seçili malzemeyi (ve şekli) hücreye koyar.
+  // ================= hece madeni, tezgâh, tabela, hece kapısı, hava totemi =================
+  final Map<int, String> signs = {};
+  String weather = '';
+  double wTime = 0;
+  final List<_Float> floats = [];
+
+  void _loadSigns() {
+    signs.clear();
+    for (final e in game.blockSigns.split(';')) {
+      final i = e.indexOf(':');
+      if (i <= 0) continue;
+      final k = int.tryParse(e.substring(0, i));
+      if (k != null) signs[k] = e.substring(i + 1);
+    }
+  }
+
+  void _saveSigns() => game.saveSigns(signs.entries.map((e) => '${e.key}:${e.value}').join(';'));
+
+  void _float(int cell, String text, [int i = 0]) {
+    final (x, y, z) = cxyz(cell);
+    floats.add(_Float(x + 0.5, y + 0.5, z + 1.0 + i * 0.55, text, 1.8));
+  }
+
+  void _afterBreak(int cell, String id) {
+    if (signs.remove(cell) != null) _saveSigns();
+    final r = Random();
+    var n = 0;
+    if (id == 'heceta') {
+      n = 2;
+    } else if (const {'komur', 'demirc', 'altinc', 'elmas'}.contains(id)) {
+      n = r.nextDouble() < 0.5 ? 1 : 0;
+    } else if (id == 'tas' || id == 'tasduvar' || id == 'kumtasi') {
+      n = r.nextDouble() < 0.25 ? 1 : 0;
+    }
+    if (n == 0) return;
+    final got = <String>[];
+    for (var i = 0; i < n; i++) {
+      final syl = pickDropSyl(r);
+      game.addSyl(syl);
+      got.add(syl);
+      _float(cell, syl, i);
+    }
+    Sfx.play('pop');
+    Voice.say(got.join('... '));
+    final total = game.sylBag.values.fold(0, (a, b) => a + b);
+    if (total <= 2 && mounted) {
+      Say.show(context, Who.tamirci,
+          'Hece taşı buldun: ${got.join(', ')}! Hecelerle kelime yapmak için yukarıdaki 🔤 düğmesine ya da kelime tezgâhına dokun.',
+          mood: 'sevin');
+    }
+  }
+
+  bool _useSpecial(int cell) {
+    final m = world.blocks[cell];
+    if (m == null) return false;
+    switch (mats[m].id) {
+      case 'tezgah':
+        _openBench();
+        return true;
+      case 'tabela':
+        final w = signs[cell];
+        if (w == null) {
+          _setSign(cell);
+        } else {
+          Voice.say(trCapitalize(w));
+          _float(cell, w);
+        }
+        return true;
+      case 'hecekapi':
+        _openWordDoor(cell);
+        return true;
+      case 'totem':
+        _castWeather();
+        return true;
+    }
+    return false;
+  }
+
+  Future<void> _openBench() async {
+    await Navigator.push(context, fadeRoute(const WorkbenchScreen()));
+    if (!mounted) return;
+    final r = Random();
+    for (final id in pendingAnimals) {
+      final a = r.nextDouble() * 2 * pi;
+      animals.add(Animal(kindById(id), ax + sin(a) * 1.6, ay + cos(a) * 1.6, az, friend: true));
+    }
+    if (pendingAnimals.isNotEmpty) {
+      pendingAnimals.clear();
+      _saveLife();
+      lifeTick++;
+    }
+    setState(() {});
+  }
+
+  Future<void> _setSign(int cell) async {
+    final w = await showDialog<String>(context: context, builder: (_) => const SignDialog());
+    if (w == null || !mounted) return;
+    setState(() => signs[cell] = w);
+    _saveSigns();
+    Sfx.play('unlock');
+    Voice.say('Tabelada ${trCapitalize(w)} yazıyor! Dokununca okur.');
+  }
+
+  Future<void> _openWordDoor(int cell) async {
+    final list = recipesNow();
+    final rc = list[Random().nextInt(list.length)];
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(
+              parts: rc.parts,
+              emoji: rc.emoji,
+              title: 'Hece kapısı! ${rc.word} yaz, kapı açılsın.',
+              speech: 'Hece kapısı! ${trCapitalize(rc.word)} yaz, kapı açılsın.',
+            ));
+    if (ok != true || !mounted) return;
+    final hk = matIndex('hecekapi'), kp = matIndex('kapi');
+    final (x, y, z) = cxyz(cell);
+    for (var zz = z - 2; zz <= z + 2; zz++) {
+      final k = ck(x, y, zz);
+      if (world.blocks[k] == hk) world.blocks[k] = kp;
+    }
+    world.version++;
+    _changed();
+    Sfx.play('unlock');
+    game.addCoins(1);
+    Say.show(context, Who.tamirci, 'Kapı açıldı! Hece kapısını sen de evine koyabilirsin.', mood: 'sevin');
+  }
+
+  Future<void> _castWeather() async {
+    final w = await showDialog<String>(context: context, builder: (_) => const WeatherDialog());
+    if (w == null || !mounted) return;
+    setState(() {
+      weather = w == 'gunes' ? '' : w;
+      if (w == 'gunes') night = false;
+    });
+    var msg = '';
+    if (w == 'yagmur') {
+      for (final k in cropsAt.keys.toList()) {
+        final c = cropsAt[k]!;
+        cropsAt[k] = (c.$1, c.$2 - cropStageMs);
+      }
+      _saveLife();
+      msg = 'Yağmur yağıyor! Bütün ekinler sulandı ve büyüdü.';
+    } else if (w == 'kar') {
+      msg = 'Kar yağıyor! Her yer bembeyaz olacak.';
+    } else {
+      msg = 'Güneş açtı! Hava çok güzel.';
+    }
+    Sfx.play('unlock');
+    Say.show(context, Who.tozbulut, msg, mood: 'gul');
+  }
+
   void _putBlock(int k, int dir) {
     final mi = matIndex(sel);
     world.blocks[k] = mi;
@@ -2319,6 +2490,20 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       world.shapeAt[k] = selShape * 4 + dir;
     } else {
       world.shapeAt.remove(k);
+    }
+    if (sel == 'tabela') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _setSign(k);
+      });
+    } else if (sel == 'tezgah' || sel == 'totem' || sel == 'hecekapi') {
+      final tip = const {
+        'tezgah': 'Kelime tezgâhı kuruldu! Yürü ile üstüne dokun, hecelerden kelime yap.',
+        'totem': 'Hava totemi kuruldu! Yürü ile dokun; güneş, yağmur ya da kar yağdır.',
+        'hecekapi': 'Hece kapısı! Yürü ile dokununca bir kelime sorar, doğru yazan girer.',
+      }[sel]!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Say.show(context, Who.tamirci, tip, mood: 'iyi');
+      });
     }
   }
 
@@ -2337,11 +2522,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         SafeArea(
           child: Column(children: [
             TopBar('Blok Şehri', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                child: Text('🪙${game.coins}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+              Bouncy(
+                onTap: _openBench,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                  child: Text('🪙${game.coins} 🔤${game.sylBag.values.fold(0, (a, b) => a + b)}',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                ),
               ),
               Bouncy(
                 onTap: _grow,
@@ -2588,6 +2777,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
     final t = aim;
     if (t == null) return;
+    if (_useSpecial(t)) return;
     if (world.blocks[t] == matIndex('hazine')) {
       _openChest(t);
     }
@@ -2953,6 +3143,7 @@ const _glowColors = {
   'led_yesil': Color(0xFF00E676),
   'led_mor': Color(0xFFD500F9),
   'led_sari': Color(0xFFFFEA00),
+  'heceta': Color(0xFFB388FF),
 };
 
 class _WorldPainter extends CustomPainter {
@@ -3081,6 +3272,7 @@ class _WorldPainter extends CustomPainter {
       _overlay(canvas);
     }
     _nightAndGlow(canvas, size);
+    _weatherFx(canvas, size);
     if (s.firstPerson) _fpHud(canvas, size);
   }
 
@@ -3272,6 +3464,7 @@ class _WorldPainter extends CustomPainter {
   }
 
   void _fpHud(Canvas canvas, Size size) {
+    _labels(canvas, fpProj, s.ax, s.ay);
     // hedeflenen blok çerçevesi
     final a = s.aim;
     if (a != null) {
@@ -3384,8 +3577,64 @@ class _WorldPainter extends CustomPainter {
     }
   }
 
+  void _labels(Canvas canvas, Offset? Function(double, double, double) pr, double ox, double oy) {
+    final tb = matIndex('tabela');
+    for (final e in s.signs.entries) {
+      if (s.world.blocks[e.key] != tb) continue;
+      final (x, y, z) = cxyz(e.key);
+      if ((x - ox).abs() > 14 || (y - oy).abs() > 14) continue;
+      final o = pr(x + 0.5, y + 0.5, z + 1.45);
+      if (o != null) paintSign(canvas, o, e.value);
+    }
+    for (final f in s.floats) {
+      final o = pr(f.x, f.y, f.z);
+      if (o == null) continue;
+      final a = (255 * min(1.0, f.life)).toInt();
+      final tp = TextPainter(
+          text: TextSpan(
+              text: f.text,
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Color.fromARGB(a, 255, 255, 255),
+                  shadows: [Shadow(color: Color.fromARGB(a, 74, 20, 140), blurRadius: 4, offset: const Offset(1, 1))])),
+          textDirection: TextDirection.ltr)
+        ..layout();
+      final r = Rect.fromCenter(center: o, width: tp.width + 14, height: tp.height + 6);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(9)), Paint()..color = Color.fromARGB((a * 0.85).toInt(), 149, 117, 205));
+      tp.paint(canvas, Offset(o.dx - tp.width / 2, o.dy - tp.height / 2));
+    }
+  }
+
+  void _weatherFx(Canvas canvas, Size size) {
+    if (s.weather.isEmpty) return;
+    final t = s.wTime;
+    final r = Random(3);
+    if (s.weather == 'yagmur') {
+      canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0x28304060));
+      final p = Paint()
+        ..color = const Color(0xAAB3E5FC)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      for (var i = 0; i < 90; i++) {
+        final x = r.nextDouble() * size.width, sp = 520 + r.nextDouble() * 300, ph = r.nextDouble();
+        final y = (ph * size.height + t * sp) % (size.height + 40) - 20;
+        canvas.drawLine(Offset(x, y), Offset(x - 4, y + 16), p);
+      }
+    } else {
+      final p = Paint()..color = const Color(0xE6FFFFFF);
+      for (var i = 0; i < 80; i++) {
+        final x0 = r.nextDouble() * size.width, sp = 35 + r.nextDouble() * 45, ph = r.nextDouble(), rad = 2 + r.nextDouble() * 2.5;
+        final y = (ph * size.height + t * sp) % (size.height + 20) - 10;
+        final x = x0 + sin(t * 1.3 + ph * 9) * 12;
+        canvas.drawCircle(Offset(x, y), rad, p);
+      }
+    }
+  }
+
   void _overlay(Canvas canvas) {
     final t = anim.value;
+    _labels(canvas, (x, y, z) => s.proj(x, y, z), s.fx, s.fy);
     for (final a in s.animals) {
       if (!a.friend) continue;
       paintNameTag(canvas, s.proj(a.x, a.y, a.z + s._animalHeight(a.kind.id) + 0.4), a.kind.name);
@@ -4032,4 +4281,11 @@ class _Job {
         wy = [y - 3, y - 3],
         wz = [z, z],
         wf = [0, 0];
+}
+
+class _Float {
+  double x, y, z;
+  final String text;
+  double life;
+  _Float(this.x, this.y, this.z, this.text, this.life);
 }

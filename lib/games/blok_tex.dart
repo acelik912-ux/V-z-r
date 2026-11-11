@@ -502,6 +502,98 @@ class Tex {
           g.set(8, 7, 0xFF3E2723);
           g.set(7, 8, 0xFF3E2723);
         }
+      case 'heceta':
+        g.noise(0xFF8E8E8E, 12);
+        // parlayan mor harf izleri
+        for (final p in const [(2, 2), (3, 2), (4, 2), (3, 3), (3, 4), (9, 3), (9, 4), (10, 5), (11, 4), (11, 3),
+          (5, 9), (5, 10), (5, 11), (6, 10), (7, 9), (7, 11), (11, 10), (12, 10), (12, 11), (12, 12), (11, 12)]) {
+          g.set(p.$1, p.$2, 0xFFB388FF);
+        }
+        g.set(3, 2, 0xFFE1D5FF);
+        g.set(12, 11, 0xFFE1D5FF);
+      case 'tezgah':
+        if (side) {
+          g.planks(0xFF8D6E63);
+          for (var x = 0; x < 16; x++) {
+            g.set(x, 0, 0xFF4E342E);
+            g.set(x, 1, 0xFF6D4C41);
+          }
+          for (var y = 5; y < 11; y++) {
+            g.set(4, y, 0xFF9E9E9E);
+            g.set(11, y, 0xFF6D4C41);
+          }
+          g.set(3, 5, 0xFF9E9E9E);
+          g.set(5, 5, 0xFF9E9E9E);
+        } else {
+          g.planks(0xFFBCAAA4);
+          const cs = [0xFFB39DDB, 0xFFFFCC80, 0xFF80CBC4, 0xFFEF9A9A];
+          for (var i = 0; i < 4; i++) {
+            final ox = 2 + (i % 2) * 7, oy = 2 + (i ~/ 2) * 7;
+            for (var y = oy; y < oy + 5; y++) {
+              for (var x = ox; x < ox + 5; x++) {
+                g.set(x, y, cs[i]);
+              }
+            }
+            g.set(ox + 2, oy + 2, 0xFF311B92);
+          }
+        }
+      case 'tabela':
+        g.planks(0xFFD7B98E);
+        if (side) {
+          for (var x = 2; x < 14; x++) {
+            g.set(x, 6, 0xFF5D4037);
+            g.set(x, 9, 0xFF5D4037);
+          }
+          for (var x = 3; x < 13; x += 2) {
+            g.set(x, 7, 0xFF3E2723);
+            g.set(x + 1, 8, 0xFF3E2723);
+          }
+        }
+      case 'hecekapi':
+        g.planks(0xFF7E57C2);
+        for (var i = 0; i < 16; i++) {
+          g.set(0, i, 0xFF4527A0);
+          g.set(15, i, 0xFF4527A0);
+        }
+        if (side) {
+          for (var y = 6; y < 11; y++) {
+            for (var x = 6; x < 10; x++) {
+              g.set(x, y, 0xFFFFC107);
+            }
+          }
+          g.set(7, 4, 0xFFFFC107);
+          g.set(8, 4, 0xFFFFC107);
+          g.set(6, 5, 0xFFFFC107);
+          g.set(9, 5, 0xFFFFC107);
+          g.set(7, 8, 0xFF3E2723);
+          g.set(8, 8, 0xFF3E2723);
+          g.set(7, 9, 0xFF3E2723);
+        }
+      case 'totem':
+        g.noise(0xFF26A69A, 10);
+        if (side) {
+          for (final ex in const [3, 10]) {
+            for (var y = 4; y < 7; y++) {
+              for (var x = ex; x < ex + 3; x++) {
+                g.set(x, y, 0xFFFFFFFF);
+              }
+            }
+            g.set(ex + 1, 5, 0xFF004D40);
+          }
+          for (var x = 4; x < 12; x++) {
+            g.set(x, 10, 0xFF004D40);
+          }
+          g.set(4, 9, 0xFF004D40);
+          g.set(11, 9, 0xFF004D40);
+          for (var x = 0; x < 16; x++) {
+            g.set(x, 14, 0xFFFFD54F);
+          }
+        } else {
+          for (var x = 3; x < 13; x++) {
+            g.set(x, 7, 0xFFFFD54F);
+            g.set(7, x, 0xFFFFD54F);
+          }
+        }
       default:
         // yün / renkli bloklar
         g.wool(_woolColors[id] ?? 0xFFFF00FF);

@@ -268,6 +268,20 @@ class ParentPanel extends StatelessWidget {
                 ],
               ),
               const Divider(height: 32),
+              _title('Gelişim haritası'),
+              const Text('Her harf, içinde geçtiği hecelerdeki başarıya göre renklenir. '
+                  'Yeşil: oturmuş · Sarı: gelişiyor · Kırmızı: zorlanıyor · Gri: henüz denenmedi'),
+              const SizedBox(height: 8),
+              const LetterMap(),
+              const SizedBox(height: 10),
+              Text('Blok Şehri: ${game.crafted.values.fold(0, (a, b) => a + b)} kelime yapıldı · '
+                  'çantada ${game.sylBag.values.fold(0, (a, b) => a + b)} hece taşı'),
+              if (game.weakSyllables().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text('Mağarada daha sık çıkacak heceler: ${game.weakSyllables().join(', ')}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+              const Divider(height: 32),
               _title('En çok zorlandığı heceler'),
               if (entries.isEmpty) const Text('Henüz kayıt yok.'),
               for (final e in entries.take(15))
@@ -381,5 +395,51 @@ class _VoicePickerState extends State<_VoicePicker> {
         const SizedBox(height: 8),
       ],
     );
+  }
+}
+
+/// Ses gruplarına göre harf harf başarı haritası.
+class LetterMap extends StatelessWidget {
+  const LetterMap({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = <String, int>{}, bad = <String, int>{};
+    for (final e in game.stats.entries) {
+      for (final ch in trLower(e.key).split('').toSet()) {
+        ok[ch] = (ok[ch] ?? 0) + e.value[0];
+        bad[ch] = (bad[ch] ?? 0) + e.value[1];
+      }
+    }
+    Color col(String ch) {
+      final o = ok[ch] ?? 0, b = bad[ch] ?? 0;
+      if (o + b < 3) return const Color(0xFFE0E0E0);
+      final r = o / (o + b);
+      if (r >= 0.85) return const Color(0xFFA5D6A7);
+      if (r >= 0.65) return const Color(0xFFFFE082);
+      return const Color(0xFFEF9A9A);
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var g = 0; g < letterGroups.length; g++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            SizedBox(
+              width: 64,
+              child: Text('${g + 1}. grup', style: TextStyle(fontWeight: game.letterGroup == g + 1 ? FontWeight.w900 : FontWeight.normal)),
+            ),
+            for (final ch in letterGroups[g].split(''))
+              Container(
+                width: 36,
+                height: 36,
+                margin: const EdgeInsets.only(right: 4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: col(ch), borderRadius: BorderRadius.circular(8)),
+                child: Text(ch, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              ),
+          ]),
+        ),
+    ]);
   }
 }

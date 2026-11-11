@@ -10,6 +10,7 @@ import 'package:vizir/games/araba_yikama.dart';
 import 'package:vizir/games/blok.dart';
 import 'package:vizir/games/blok_bag.dart';
 import 'package:vizir/games/blok_char.dart';
+import 'package:vizir/games/blok_words.dart';
 import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
@@ -109,6 +110,10 @@ void main() {
         return const BlokAdasi(startFocus: (34, 4), startNight: true);
       },
       'canta': () => const BagScreen(selected: 'tahta', shape: 0),
+      'tezgah': () {
+        game.sylBag = {'nek': 1, 'ka': 2, 'le': 1, 'kin': 1, 'kil': 1};
+        return const WorkbenchScreen();
+      },
       'hikayeler': () => const StoryShelf(),
       'hikaye': () => StoryReader(stories[0], 0),
       'album': () => const AlbumScreen(),
