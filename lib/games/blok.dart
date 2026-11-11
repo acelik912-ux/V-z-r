@@ -2890,6 +2890,68 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       );
 
 
+}
+
+/// Ekrandaki dokunulabilir çokgenler (ekran koordinatında, x,y çiftleri)
+class _HitData {
+  List<_Face> faces = [];
+  List<Float32List> polys = [];
+  int get count => min(faces.length, polys.length);
+
+  bool contains(int i, Offset p) {
+    final q = polys[i];
+    final n = q.length ~/ 2;
+    if (n < 3) return false;
+    var sign = 0;
+    for (var k = 0; k < n; k++) {
+      final ax = q[k * 2], ay = q[k * 2 + 1];
+      final bx = q[((k + 1) % n) * 2], by = q[((k + 1) % n) * 2 + 1];
+      final cr = (bx - ax) * (p.dy - ay) - (by - ay) * (p.dx - ax);
+      final sg = cr > 0 ? 1 : (cr < 0 ? -1 : 0);
+      if (sg == 0) continue;
+      if (sign == 0) {
+        sign = sg;
+      } else if (sg != sign) {
+        return false;
+      }
+    }
+    return sign != 0;
+  }
+}
+
+/// Dünya uzayında dışbükey bir çokgen
+class _Poly {
+  final List<double> p; // x,y,z üçlüleri
+  final List<double> uv; // atlas u,v çiftleri
+  final int color;
+  final _Face hit;
+  final double nx, ny, nz, cx, cy, cz;
+  _Poly(this.p, this.uv, this.color, this.hit, this.nx, this.ny, this.nz, this.cx, this.cy, this.cz);
+}
+
+const _glowColors = {
+  'fener': Color(0xFFFFC107),
+  'mesale': Color(0xFFFF9800),
+  'lamba': Color(0xFFFFF59D),
+  'led_kirmizi': Color(0xFFFF1744),
+  'led_mavi': Color(0xFF2979FF),
+  'led_yesil': Color(0xFF00E676),
+  'led_mor': Color(0xFFD500F9),
+  'led_sari': Color(0xFFFFEA00),
+};
+
+class _WorldPainter extends CustomPainter {
+  final _BlokAdasiState s;
+  final Animation<double> anim;
+  _WorldPainter(this.s, this.anim) : super(repaint: anim);
+
+  static const _shade = [1.0, 0.80, 0.66, 0.72, 0.88, 0.55];
+
+  static int _gray(double sh) {
+    final g = (255 * sh).round().clamp(0, 255);
+    return (0xFF << 24) | (g << 16) | (g << 8) | g;
+  }
+
   static int _tint(Color c, double sh) =>
       (0xFF << 24) | ((c.r * 255 * sh).round().clamp(0, 255) << 16) | ((c.g * 255 * sh).round().clamp(0, 255) << 8) | (c.b * 255 * sh).round().clamp(0, 255);
 
@@ -3606,34 +3668,6 @@ class _Tool extends StatelessWidget {
             ),
             child: Icon(icon, size: 22),
           ),
-        ),
-      );
-}
-
-class _PaletteItem extends StatelessWidget {
-  final String name;
-  final bool on;
-  final VoidCallback onTap;
-  final Widget child;
-  const _PaletteItem(this.name, this.on, this.onTap, {required this.child});
-
-  @override
-  Widget build(BuildContext context) => Bouncy(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 68,
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: on ? const Color(0xFFFFF59D) : const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: on ? Colors.orange : Colors.black12, width: on ? 3 : 1),
-          ),
-          child: Column(children: [
-            Expanded(child: child),
-            Text(name, maxLines: 1, overflow: TextOverflow.clip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-          ]),
         ),
       );
 }
