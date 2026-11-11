@@ -106,7 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             Sfx.horn(game.config.horn);
                             Voice.say(game.carName.isEmpty ? 'Arabamız hazır!' : '${game.carName} hazır!');
                           },
-                          child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.bottomCenter,
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
                             SpinningCar(game.config, width: 230),
                             if (game.carName.isNotEmpty)
                               Container(
@@ -115,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Text(game.carName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                               ),
                           ]),
+                          ),
                         ),
                       ),
                     ],
