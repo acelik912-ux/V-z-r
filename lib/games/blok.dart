@@ -852,7 +852,9 @@ class MathTask {
 
 class BlokAdasi extends StatefulWidget {
   final bool startFirstPerson;
-  const BlokAdasi({super.key, this.startFirstPerson = false});
+  final (int, int)? startFocus;
+  final bool? startNight;
+  const BlokAdasi({super.key, this.startFirstPerson = false, this.startFocus, this.startNight});
 
   @override
   State<BlokAdasi> createState() => _BlokAdasiState();
@@ -962,6 +964,9 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     });
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
+    final sf = widget.startFocus;
+    if (sf != null) _lookAt(sf.$1, sf.$2);
+    if (widget.startNight != null) night = widget.startNight!;
     _placeAvatar(17, 17);
     if (widget.startFirstPerson) {
       firstPerson = true;
