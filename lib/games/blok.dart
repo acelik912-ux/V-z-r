@@ -863,7 +863,9 @@ class BlokAdasi extends StatefulWidget {
   final (int, int)? startFocus;
   final bool? startNight;
   final bool startBehind;
-  const BlokAdasi({super.key, this.startFirstPerson = false, this.startFocus, this.startNight, this.startBehind = false});
+  final bool startFlying;
+  const BlokAdasi(
+      {super.key, this.startFirstPerson = false, this.startFocus, this.startNight, this.startBehind = false, this.startFlying = false});
 
   @override
   State<BlokAdasi> createState() => _BlokAdasiState();
@@ -932,8 +934,78 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   String get gameTools => game.blockTools.join();
 
-  List<ABox> avatarParts() => avatarBoxes(avatar,
-      walk: walk, swing: swing, tool: hand, shield: game.blockTools.contains('kalkan'));
+  List<ABox> avatarParts() {
+    final b = avatarBoxes(avatar, walk: flying ? 0 : walk, swing: swing, tool: hand, shield: game.blockTools.contains('kalkan'));
+    if (!flying) return b;
+    // kanatlar: sırtta, çırparken aşağı yukarı oynar
+    final f = sin(flyT * 9) * 0.07;
+    const w = Color(0xFFF5F5F5), e = Color(0xFFB3E5FC);
+    return [
+      ...b,
+      ABox(-0.42, -0.2, 1.08 + f, 0.3, 0.03, 0.16, w),
+      ABox(0.42, -0.2, 1.08 + f, 0.3, 0.03, 0.16, w),
+      ABox(-0.62, -0.21, 0.98 + f * 1.6, 0.14, 0.03, 0.1, e),
+      ABox(0.62, -0.21, 0.98 + f * 1.6, 0.14, 0.03, 0.1, e),
+    ];
+  }
+
+  // ================= uçma =================
+  bool flying = false;
+  double flyT = 0;
+  int flyUp = 0; // 1 yüksel, -1 in
+
+  Future<void> _toggleFly() async {
+    if (!flying && !game.blockItems.contains('kanat')) {
+      final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => const SpellDialog(
+                parts: ['ka', 'nat'],
+                emoji: '🪽',
+                title: 'Uçmak için kanat lazım! kanat yaz.',
+                speech: 'Uçmak için kanat lazım! Kanat yaz, kanatların çıksın!',
+              ));
+      if (ok != true || !mounted) return;
+      game.addBlockItem('kanat');
+      Sfx.play('unlock');
+    }
+    setState(() {
+      flying = !flying;
+      flyUp = 0;
+      walkTo = null;
+      if (flying) {
+        grounded = false;
+        vz = 0;
+        if (bodyFree(ax, ay, az + 0.8)) az += 0.8;
+      } else {
+        grounded = false;
+        vz = 0;
+      }
+      _geoKey = '';
+    });
+    Sfx.play('uc', volume: 0.6);
+    Voice.say(flying ? 'Uçuyorsun! Yüksel tuşuyla yukarı, İn tuşuyla aşağı.' : 'Yere iniyorsun.');
+  }
+
+  Widget _flyChip() => Bouncy(
+        onTap: _toggleFly,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: flying ? const Color(0xFF8D6E63) : const Color(0xFF29B6F6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))],
+          ),
+          child: Text(flying ? '🦶 Kon' : '🪽 Uç', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+        ),
+      );
+
+  Widget _upBtn() => flying
+      ? _ActionBtn('⬆️', 'Yüksel', const Color(0xFF29B6F6), down: () => flyUp = 1, up: () => flyUp = 0)
+      : _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump);
+
+  Widget _downBtn() => _ActionBtn('⬇️', 'İn', const Color(0xFF7986CB), down: () => flyUp = -1, up: () => flyUp = 0);
 
   Quest? get quest {
     for (final q in quests) {
@@ -984,6 +1056,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (widget.startFirstPerson) {
       firstPerson = true;
       behind = widget.startBehind;
+      if (widget.startFlying) {
+        flying = true;
+        az += 3;
+        lookUp = -0.45;
+      }
       look = 2.4;
       lookUp = -0.12;
       facing = look;
@@ -1474,7 +1551,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
     final ml = sqrt(mx * mx + my * my);
     if (ml > 0) {
-      final speed = 3.8 * dt / max(1, ml);
+      final speed = (flying ? 5.6 : 3.8) * dt / max(1, ml);
       if (!firstPerson) facing = atan2(mx, my);
       final moved = _move(mx * speed, my * speed);
       if (moved) {
@@ -1493,9 +1570,20 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       changed = true;
     }
     if (firstPerson) facing = look;
+    // uçarken yerçekimi yok
+    if (flying) {
+      flyT += dt;
+      grounded = false;
+      vz = 0;
+      if (flyUp != 0) {
+        final nz = (az + flyUp * 4.5 * dt).clamp(-1.0, H + 10.0);
+        if (bodyFree(ax, ay, nz)) az = nz;
+      }
+      changed = true;
+    }
     // yerçekimi
-    if (grounded && bodyFree(ax, ay, az - 0.06)) grounded = false;
-    if (!grounded) {
+    if (!flying && grounded && bodyFree(ax, ay, az - 0.06)) grounded = false;
+    if (!flying && !grounded) {
       vz -= 24 * dt;
       final nz = az + vz * dt;
       if (vz < 0 && !bodyFree(ax, ay, nz)) {
@@ -2794,11 +2882,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                     Positioned(
                       right: 8,
                       bottom: 8,
-                      child: Column(children: [
-                        _ActionBtn('🧱', 'Koy', const Color(0xFF66BB6A), down: () => _fpPlace()),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        _flyChip(),
+                        Row(children: [
+                          if (flying) ...[_downBtn(), const SizedBox(width: 8)],
+                          _ActionBtn('🧱', 'Koy', const Color(0xFF66BB6A), down: () => _fpPlace()),
+                        ]),
                         const SizedBox(height: 8),
                         Row(children: [
-                          _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump),
+                          _upBtn(),
                           const SizedBox(width: 8),
                           _ActionBtn(aimEnt == null ? '⛏️' : (aimEnt!.$1 == 2 ? '💛' : '🧺'),
                               aimEnt == null ? 'Kır' : (aimEnt!.$1 == 2 ? 'Sev' : 'Topla'), const Color(0xFFEF5350), big: true, down: () {
@@ -2809,7 +2901,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                       ]),
                     )
                   else if (mode != 0)
-                    Positioned(right: 8, bottom: 8, child: _ActionBtn('⬆️', 'Zıpla', const Color(0xFF42A5F5), down: jump)),
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        _flyChip(),
+                        Row(children: [if (flying) ...[_downBtn(), const SizedBox(width: 8)], _upBtn()]),
+                      ]),
+                    ),
                 ]);
               }),
             ),
@@ -3445,7 +3544,7 @@ class _WorldPainter extends CustomPainter {
       s.cam();
       _sea(canvas);
       final key = '${s.yaw},${s.pitch},${s.zoom},${s.fx},${s.fy},$size,${s.world.version},${Tex.atlas != null},'
-          '${s.ax},${s.ay},${s.az},${s.facing},${s.walk},${s.swing},${s.hand},${s.avatar.encode()},${s.gameTools},${s.lifeTick},${s.cropStamp}';
+          '${s.ax},${s.ay},${s.az},${s.facing},${s.walk},${s.swing},${s.hand},${s.avatar.encode()},${s.gameTools},${s.lifeTick},${s.cropStamp},${s.flying ? s.flyT : 0}';
       if (key != s._geoKey) {
         s._geoKey = key;
         _build(size);
@@ -3586,7 +3685,7 @@ class _WorldPainter extends CustomPainter {
   void _paintFP(Canvas canvas, Size size) {
     _fpCam(size);
     final key = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null},${s.lifeTick},${s.cropStamp}'
-        '${s.behind ? ',${s.walk},${s.swing},${s.hand},${s.facing},${s.avatar.encode()},${s.gameTools}' : ''}';
+        '${s.behind ? ',${s.walk},${s.swing},${s.hand},${s.facing},${s.avatar.encode()},${s.gameTools},${s.flying ? s.flyT : 0}' : ''}';
     if (key != s._geoKey) {
       s._geoKey = key;
       _buildFP(size);

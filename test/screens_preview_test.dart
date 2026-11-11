@@ -100,6 +100,7 @@ void main() {
       'blok': () => const BlokAdasi(),
       'blok_ic': () => const BlokAdasi(startFirstPerson: true),
       'blok_arka': () => const BlokAdasi(startFirstPerson: true, startBehind: true),
+      'blok_ucus': () => const BlokAdasi(startFirstPerson: true, startBehind: true, startFlying: true),
       'blok_buyuk': () {
         final w = BlockWorld()..seed();
         w.expand(1, 'orman');
