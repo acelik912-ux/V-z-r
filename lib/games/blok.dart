@@ -2669,10 +2669,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             border: Border.all(color: const Color(0xFF4E342E), width: 3),
             boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
           ),
-          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text('🎒', style: TextStyle(fontSize: 28)),
-            Text('Çanta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
-          ]),
+          child: const FittedBox(
+            child: Padding(
+              padding: EdgeInsets.all(4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('🎒', style: TextStyle(fontSize: 28)),
+                Text('Çanta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+              ]),
+            ),
+          ),
         ),
       );
 
@@ -2682,10 +2687,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
           width: 52,
           margin: const EdgeInsets.only(right: 6),
           decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(14)),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Text(shapes[selShape].emoji, style: const TextStyle(fontSize: 22)),
-            FittedBox(child: Text(shapes[selShape].name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800))),
-          ]),
+          child: FittedBox(
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(shapes[selShape].emoji, style: const TextStyle(fontSize: 22)),
+                Text(shapes[selShape].name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+              ]),
+            ),
+          ),
         ),
       );
 
