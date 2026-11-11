@@ -38,17 +38,45 @@ const furColors = [
 ];
 const furNames = ['kahverengi', 'siyah', 'mor', 'beyaz', 'altın', 'gri', 'pembe', 'mavi'];
 
+/// Zırhlar (pazardan para ile alınır)
+class Armor {
+  final String id;
+  final String name;
+  final Color color;
+  final Color trim;
+  final int price;
+  const Armor(this.id, this.name, this.color, this.trim, this.price);
+}
+
+const armors = [
+  Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15),
+  Armor('demir', 'demir zırh', Color(0xFFB0BEC5), Color(0xFF78909C), 40),
+  Armor('altin', 'altın zırh', Color(0xFFFFC107), Color(0xFFFF8F00), 80),
+  Armor('elmas', 'elmas zırh', Color(0xFF4DD0E1), Color(0xFF00838F), 150),
+  Armor('zumrut', 'zümrüt zırh', Color(0xFF00C853), Color(0xFF1B5E20), 250),
+];
+
 class Avatar {
   int skin, hair, style, shirt, pants, hat;
   bool bear;
   int fur;
-  Avatar({this.skin = 0, this.hair = 0, this.style = 0, this.shirt = 0, this.pants = 6, this.hat = 0, this.bear = false, this.fur = 0});
+  int armor; // 0 yok, 1.. armors[armor-1]
+  Avatar(
+      {this.skin = 0,
+      this.hair = 0,
+      this.style = 0,
+      this.shirt = 0,
+      this.pants = 6,
+      this.hat = 0,
+      this.bear = false,
+      this.fur = 0,
+      this.armor = 0});
 
-  String encode() => '$skin,$hair,$style,$shirt,$pants,$hat,${bear ? 1 : 0},$fur';
+  String encode() => '$skin,$hair,$style,$shirt,$pants,$hat,${bear ? 1 : 0},$fur,$armor';
 
   static Avatar? decode(String s) {
     final p = s.split(',').map(int.tryParse).toList();
-    if ((p.length != 6 && p.length != 8) || p.any((e) => e == null)) return null;
+    if ((p.length != 6 && p.length != 8 && p.length != 9) || p.any((e) => e == null)) return null;
     return Avatar(
         skin: p[0]!,
         hair: p[1]!,
@@ -56,11 +84,12 @@ class Avatar {
         shirt: p[3]!,
         pants: p[4]!,
         hat: p[5]!,
-        bear: p.length == 8 && p[6] == 1,
-        fur: p.length == 8 ? p[7]! : 0);
+        bear: p.length >= 8 && p[6] == 1,
+        fur: p.length >= 8 ? p[7]! : 0,
+        armor: p.length >= 9 ? p[8]! : 0);
   }
 
-  Avatar copy() => Avatar(skin: skin, hair: hair, style: style, shirt: shirt, pants: pants, hat: hat, bear: bear, fur: fur);
+  Avatar copy() => Avatar(skin: skin, hair: hair, style: style, shirt: shirt, pants: pants, hat: hat, bear: bear, fur: fur, armor: armor);
 }
 
 /// Hazır karakterler
@@ -147,6 +176,19 @@ List<ABox> bearBoxes(Avatar a, {double walk = 0, double swing = 0, String? tool,
     case 3: // takke
       out.add(ABox(0, 0.02, 1.645, 0.22, 0.22, 0.04, hat));
   }
+  if (a.armor > 0 && a.armor <= armors.length) {
+    final ar = armors[a.armor - 1];
+    out.removeWhere((b) => b.cz > 1.6 && b.color == hat);
+    out.addAll([
+      ABox(0, 0.01, 1.6, 0.27, 0.25, 0.06, ar.color),
+      ABox(0, 0, 0.8, 0.31, 0.23, 0.26, ar.color),
+      ABox(0, 0.235, 0.8, 0.14, 0.01, 0.18, ar.trim),
+      ABox(-0.38, 0, 1.0, 0.115, 0.125, 0.08, ar.trim, pivotZ: 1.05, angle: armL),
+      ABox(0.38, 0, 1.0, 0.115, 0.125, 0.08, ar.trim, pivotZ: 1.05, angle: armR),
+      ABox(-0.15, 0.02, 0.06, 0.135, 0.16, 0.06, ar.trim, pivotZ: 0.44, angle: leg),
+      ABox(0.15, 0.02, 0.06, 0.135, 0.16, 0.06, ar.trim, pivotZ: 0.44, angle: -leg),
+    ]);
+  }
   if (tool != null) out.addAll(_toolBoxes(tool, armR, hx: 0.38, hz: 0.56, pz: 1.05));
   if (shield) {
     out.add(ABox(-0.5, 0.02, 0.82, 0.03, 0.22, 0.26, const Color(0xFF1565C0), pivotZ: 1.05, angle: armL));
@@ -195,6 +237,25 @@ List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? too
       out.add(ABox(0, 0, 1.9, 0.2, 0.2, 0.1, hat));
     default: // takke
       out.add(ABox(0, 0, 1.87, 0.24, 0.24, 0.05, hat));
+  }
+  if (a.armor > 0 && a.armor <= armors.length) {
+    final ar = armors[a.armor - 1];
+    // başlıktaki saç/şapka yerine miğfer
+    out.removeWhere((b) => b.cz > 1.75 || (b.cz > 1.5 && b.cy < -0.15));
+    out.addAll([
+      ABox(0, -0.01, 1.84, 0.26, 0.26, 0.07, ar.color),
+      ABox(0, -0.22, 1.68, 0.26, 0.05, 0.16, ar.color),
+      ABox(-0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
+      ABox(0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
+      ABox(0, 0, 1.1, 0.27, 0.16, 0.31, ar.color),
+      ABox(0, 0.165, 1.12, 0.12, 0.01, 0.2, ar.trim),
+      ABox(-0.36, 0, 1.3, 0.12, 0.12, 0.1, ar.trim, pivotZ: 1.39, angle: armL),
+      ABox(0.36, 0, 1.3, 0.12, 0.12, 0.1, ar.trim, pivotZ: 1.39, angle: armR),
+      ABox(-0.13, 0, 0.5, 0.125, 0.135, 0.2, ar.color, pivotZ: 0.75, angle: leg),
+      ABox(0.13, 0, 0.5, 0.125, 0.135, 0.2, ar.color, pivotZ: 0.75, angle: -leg),
+      ABox(-0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: leg),
+      ABox(0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: -leg),
+    ]);
   }
   if (tool != null) out.addAll(_toolBoxes(tool, armR));
   if (shield) {
@@ -396,6 +457,30 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                         ),
                       ),
                   ]),
+                  Builder(builder: (_) {
+                    final owned = [for (var i = 0; i < armors.length; i++) if (game.blockItems.contains('zirh_${armors[i].id}')) i + 1];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        const SizedBox(width: 74, child: Text('Zırh', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900))),
+                        Expanded(
+                          child: owned.isEmpty
+                              ? const Text('Pazardan zırh alınca burada seçersin 🛡️',
+                                  style: TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w700))
+                              : Wrap(spacing: 6, runSpacing: 6, children: [
+                                  ChoiceChip(label: const Text('Yok'), selected: a.armor == 0, onSelected: (_) => _set(() => a.armor = 0)),
+                                  for (final i in owned)
+                                    ChoiceChip(
+                                      avatar: CircleAvatar(backgroundColor: armors[i - 1].color, radius: 8),
+                                      label: Text(armors[i - 1].name.split(' ').first),
+                                      selected: a.armor == i,
+                                      onSelected: (_) => _set(() => a.armor = i),
+                                    ),
+                                ]),
+                        ),
+                      ]),
+                    );
+                  }),
                   if (a.bear) ...[
                     _row('Tüy', furColors.length, a.fur, (i) => furColors[i], (i) {
                       a.fur = i;

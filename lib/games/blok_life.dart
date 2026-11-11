@@ -37,8 +37,14 @@ class Animal {
   double x, y, z, facing = 0, walk = 0, timer = 0;
   (double, double)? target;
   bool friend;
+  bool stay = false;
+  int last = 0; // son ürün zamanı
   Animal(this.kind, this.x, this.y, this.z, {this.friend = false});
 }
+
+/// Hayvan ürünü: (ad, emoji)
+const animalProducts = {'inek': ('süt', '🥛'), 'koyun': ('yün', '🧶'), 'tavuk': ('yumurta', '🥚')};
+const productMs = 90000;
 
 AnimalKind kindById(String id) => animalKinds.firstWhere((k) => k.id == id, orElse: () => animalKinds[0]);
 

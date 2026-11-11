@@ -321,6 +321,18 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     save();
   }
 
+  void addCoins(int n) {
+    coins += n;
+    _changed();
+  }
+
+  bool spendCoins(int n) {
+    if (coins < n) return false;
+    coins -= n;
+    _changed();
+    return true;
+  }
+
   void addHeart() {
     hearts++;
     _changed();

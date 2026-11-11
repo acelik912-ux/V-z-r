@@ -386,6 +386,84 @@ class Tex {
             }
           }
         }
+      case 'mesale':
+        g.planks(0xFF6D4C41);
+      case 'lamba':
+        g.fill(0xFF9E9E9E);
+        for (var y = 2; y < 14; y++) {
+          for (var x = 2; x < 14; x++) {
+            g.set(x, y, g.vary(0xFFFFFDE7, 4));
+          }
+        }
+      case 'led_kirmizi':
+      case 'led_mavi':
+      case 'led_yesil':
+      case 'led_mor':
+      case 'led_sari':
+        final c = const {
+          'led_kirmizi': 0xFFFF1744,
+          'led_mavi': 0xFF2979FF,
+          'led_yesil': 0xFF00E676,
+          'led_mor': 0xFFD500F9,
+          'led_sari': 0xFFFFEA00
+        }[id]!;
+        g.fill(0xFF263238);
+        for (var y = 1; y < 15; y += 3) {
+          for (var x = 1; x < 15; x += 3) {
+            g.set(x, y, c);
+            g.set(x + 1, y, c);
+            g.set(x, y + 1, c);
+            g.set(x + 1, y + 1, 0xFFFFFFFF);
+          }
+        }
+      case 'komur':
+      case 'demirc':
+      case 'altinc':
+        g.noise(0xFF8E8E8E, 12);
+        final oc = const {'komur': 0xFF212121, 'demirc': 0xFFD7A07A, 'altinc': 0xFFFFD54F}[id]!;
+        for (final p in const [(2, 3), (9, 2), (5, 8), (12, 7), (3, 12), (10, 12)]) {
+          g.set(p.$1, p.$2, oc);
+          g.set(p.$1 + 1, p.$2, oc);
+          g.set(p.$1, p.$2 + 1, oc);
+        }
+      case 'acikkutuk':
+        if (side) {
+          for (var x = 0; x < 16; x++) {
+            for (var y = 0; y < 16; y++) {
+              g.set(x, y, g.vary((y * 3 + x) % 11 == 0 ? 0xFF3E2723 : 0xFFEDE7E3, 6));
+            }
+          }
+        } else {
+          for (var y = 0; y < 16; y++) {
+            for (var x = 0; x < 16; x++) {
+              final d = sqrt(pow(x - 7.5, 2) + pow(y - 7.5, 2));
+              g.set(x, y, g.vary(d > 7 ? 0xFFEDE7E3 : ((d ~/ 2).isEven ? 0xFFE0C9A6 : 0xFFCDB08A), 5));
+            }
+          }
+        }
+      case 'zemin':
+        for (var y = 0; y < 16; y++) {
+          for (var x = 0; x < 16; x++) {
+            final blk = ((x ~/ 4) + (y ~/ 8)).isEven;
+            final line = blk ? y % 8 == 7 || x % 4 == 3 : x % 4 == 3 || y % 8 == 7;
+            g.set(x, y, line ? 0xFF8D6E4A : g.vary(blk ? 0xFFC49A6C : 0xFFB4895C, 6));
+          }
+        }
+      case 'ahsapcati':
+        for (var y = 0; y < 16; y++) {
+          for (var x = 0; x < 16; x++) {
+            final yy = y % 4;
+            final shift = (y ~/ 4).isEven ? 0 : 2;
+            final edge = yy == 3 || ((x + shift) % 4 == 0 && yy > 0);
+            g.set(x, y, g.vary(edge ? 0xFF4E342E : 0xFF8D6E63, 7));
+          }
+        }
+      case 'kirmizitahta':
+        g.planks(0xFFB23A2E);
+      case 'yesiltahta':
+        g.planks(0xFF4E7D3A);
+      case 'mavitahta':
+        g.planks(0xFF3E6BA8);
       case '_beyaz':
         g.fill(0xFFFFFFFF);
       case '_yuz':
