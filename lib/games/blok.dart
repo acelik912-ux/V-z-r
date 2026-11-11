@@ -1680,17 +1680,17 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (!behind) return (hx, hy, hz);
     final dx = sin(look) * cos(lookUp), dy = cos(look) * cos(lookUp), dz = sin(lookUp);
     var d = 0.0;
-    const want = 3.2;
+    const want = 4.2;
     while (d < want) {
       final nd = d + 0.15;
-      final x = hx - dx * nd, y = hy - dy * nd, z = hz - dz * nd + nd * 0.16;
+      final x = hx - dx * nd, y = hy - dy * nd, z = hz - dz * nd + nd * 0.12;
       final m = world.blocks[ck(x.floor(), y.floor(), z.floor())];
       if (m != null && mats[m].id != 'su' && z >= 0) break;
       d = nd;
     }
     d = max(0.0, d - 0.2);
     camBack = d;
-    return (hx - dx * d, hy - dy * d, hz - dz * d + d * 0.16);
+    return (hx - dx * d, hy - dy * d, hz - dz * d + d * 0.12);
   }
 
   /// Gözden ileri ışın hayvan ya da ekine çarpıyor mu?
