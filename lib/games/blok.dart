@@ -2376,7 +2376,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final total = game.sylBag.values.fold(0, (a, b) => a + b);
     if (total <= 2 && mounted) {
       Say.show(context, Who.tamirci,
-          'Hece taşı buldun: ${got.join(', ')}! Hecelerle kelime yapmak için yukarıdaki 🔤 düğmesine ya da kelime tezgâhına dokun.',
+          'Hece taşı buldun: ${got.join(', ')}! Aşağıdaki 🔨 düğmesine dokun, hecelerden kelime yap.',
           mood: 'sevin');
     }
   }
@@ -2528,8 +2528,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                  child: Text('🪙${game.coins} 🔤${game.sylBag.values.fold(0, (a, b) => a + b)}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                  child: Text('🪙${game.coins}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
                 ),
               ),
               Bouncy(
@@ -2840,7 +2839,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
           ]),
         ),
         const SizedBox(height: 4),
-        Expanded(child: Row(children: [_bagButton(), _shapeButton(), Expanded(child: _recentList())])),
+        Expanded(child: Row(children: [_bagButton(), _benchButton(), _shapeButton(), Expanded(child: _recentList())])),
       ]),
     );
   }
@@ -2870,6 +2869,29 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text('🎒', style: TextStyle(fontSize: 28)),
                 Text('Çanta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+              ]),
+            ),
+          ),
+        ),
+      );
+
+  Widget _benchButton() => Bouncy(
+        onTap: _openBench,
+        child: Container(
+          width: 56,
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFB39DDB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF4527A0), width: 3),
+          ),
+          child: FittedBox(
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🔨', style: TextStyle(fontSize: 22)),
+                Text('${game.sylBag.values.fold(0, (a, b) => a + b)} hece',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
               ]),
             ),
           ),
@@ -2918,7 +2940,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         margin: const EdgeInsets.fromLTRB(10, 4, 10, 8),
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [_bagButton(), _shapeButton(), Expanded(child: _recentList())]),
+        child: Row(children: [_bagButton(), _benchButton(), _shapeButton(), Expanded(child: _recentList())]),
       );
 
   Widget _modes() {
@@ -3555,6 +3577,14 @@ class _WorldPainter extends CustomPainter {
       final gc = _glowColors[id];
       if (gc == null) continue;
       final (x, y, z) = cxyz(e.key);
+      final b = s.world.blocks;
+      if (b.containsKey(ck(x + 1, y, z)) &&
+          b.containsKey(ck(x - 1, y, z)) &&
+          b.containsKey(ck(x, y + 1, z)) &&
+          b.containsKey(ck(x, y - 1, z)) &&
+          b.containsKey(ck(x, y, z + 1))) {
+        continue;
+      }
       if ((x - ox).abs() > reach || (y - oy).abs() > reach) continue;
       Offset? p;
       double r;
