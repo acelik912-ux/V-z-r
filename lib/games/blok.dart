@@ -4309,7 +4309,7 @@ class _WorldPainter extends CustomPainter {
     for (final e in s.world.places.entries) {
       final (x, y) = e.value;
       final dd = sqrt(pow(x - ox, 2) + pow(y - oy, 2));
-      if (dd > 48) continue;
+      if (dd > (s.firstPerson ? 48 : 24)) continue;
       final o = pr(x + 0.5, y + 0.5, s.world.topZ(x, y) + 5.5);
       if (o != null) paintPlace(canvas, o, e.key, scale: dd < 20 ? 1 : 0.8);
     }
