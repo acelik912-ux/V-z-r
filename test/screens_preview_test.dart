@@ -13,6 +13,7 @@ import 'package:vizir/games/blok_char.dart';
 import 'package:vizir/games/blok_words.dart';
 import 'package:vizir/games/blok_village.dart';
 import 'package:vizir/games/blok_friends.dart';
+import 'package:vizir/games/blok_map.dart';
 import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
@@ -137,6 +138,14 @@ void main() {
       'zirh_ayi': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,1,2,5')),
       'arkadas_emir': () => Scaffold(
           body: Center(child: FriendOrderDialog(Friend('Ali', Avatar.decode('0,0,1,3,0,1,0,0,4')!, 0, 0, 0)))),
+      'harita_buyuk': () {
+        final w = BlockWorld()..seed();
+        w.expand(1, 'adalar');
+        w.expand(0, 'koyler');
+        return FutureBuilder(
+            future: buildMapImage(w),
+            builder: (_, snap) => WorldMapScreen(img: snap.data, px: 17, py: 17, facing: 0.5, places: w.places, friends: const []));
+      },
       'yerler': () => const Scaffold(body: Center(child: PlacesDialog(['Sürgü Adası', 'Malatya Adası', 'Harput Köyü', 'Darende Köyü']))),
       'sifre': () => const Scaffold(body: Center(child: PinDialog())),
       'para_ustu': () => const Scaffold(body: Center(child: ChangeDialog(name: 'süt', emoji: '🥛', price: 4))),

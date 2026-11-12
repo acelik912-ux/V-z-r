@@ -16,6 +16,7 @@ import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
 import 'blok_friends.dart';
+import 'blok_map.dart';
 import 'blok_village.dart';
 import 'blok_words.dart';
 import 'blok_tex.dart';
@@ -1266,11 +1267,54 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   // ================= yerler =================
+  // ================= harita =================
+  ui.Image? mapImg;
+  int _mapVer = -1;
+  bool _mapBusy = false;
+  double _mapT = 0;
+
+  void _refreshMap() {
+    if (_mapBusy || _mapVer == world.version) return;
+    _mapBusy = true;
+    final v = world.version;
+    buildMapImage(world).then((im) {
+      _mapBusy = false;
+      if (!mounted) return;
+      setState(() {
+        mapImg?.dispose();
+        mapImg = im;
+        _mapVer = v;
+      });
+    });
+  }
+
+  Future<void> _openMap() async {
+    _refreshMap();
+    final r = await Navigator.push<(int, int, String?)>(
+        context,
+        fadeRoute<(int, int, String?)>(WorldMapScreen(
+          img: mapImg,
+          px: ax,
+          py: ay,
+          facing: facing,
+          places: world.places,
+          friends: [for (final f in friends) (f.x, f.y, f.name)],
+        )));
+    if (r == null || !mounted) return;
+    final (x, y, name) = r;
+    if (!inside(x, y, 0)) return;
+    _teleport(x, y, name);
+  }
+
   Future<void> _goPlaces() async {
     final names = world.places.keys.toList();
     final n = await showDialog<String>(context: context, builder: (_) => PlacesDialog(names));
     if (n == null || !mounted) return;
     final (x, y) = world.places[n]!;
+    _teleport(x, y, n);
+  }
+
+  void _teleport(int x, int y, String? n) {
     setState(() {
       flying = false;
       _placeAvatar(x, y);
@@ -1286,7 +1330,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       _geoKey = '';
     });
     Sfx.play('unlock');
-    Voice.say('$n! Hoş geldin.');
+    _burst(ck(x, y, az.floor() + 1), const Color(0xFF80DEEA), 16);
+    Voice.say(n != null ? '$n! Hoş geldin.' : 'Işınlandın!');
   }
 
   // ================= uçma =================
@@ -2080,6 +2125,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _tickAnimals(dt);
     if (lt != lifeTick) changed = true;
     if (weather.isNotEmpty) wTime += dt;
+    _mapT += dt;
+    if (_mapT > 3) {
+      _mapT = 0;
+      _refreshMap();
+    }
     if (!_dusk && game.windDownAt != null) {
       _dusk = true;
       night = true;
@@ -2421,6 +2471,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    mapImg?.dispose();
     _saveLife();
     saveFriends(friends);
     _ticker.dispose();
@@ -3337,7 +3388,20 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                     ]),
                   ),
                   if (firstPerson || mode != 0) Positioned(left: 8, bottom: 8, child: _pad()),
-                  if (pendingOrder != null) Positioned(left: 8, right: 60, top: 8, child: Center(child: _orderBanner())),
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: MiniMap(
+                      img: mapImg,
+                      px: ax,
+                      py: ay,
+                      facing: facing,
+                      places: world.places,
+                      friends: [for (final f in friends) (f.x, f.y)],
+                      onTap: _openMap,
+                    ),
+                  ),
+                  if (pendingOrder != null) Positioned(left: 8, right: 60, top: 116, child: Center(child: _orderBanner())),
                   if (firstPerson)
                     Positioned(
                       right: 8,
