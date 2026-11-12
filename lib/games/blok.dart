@@ -15,6 +15,7 @@ import 'blok_bag.dart';
 import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
+import 'blok_friends.dart';
 import 'blok_village.dart';
 import 'blok_words.dart';
 import 'blok_tex.dart';
@@ -231,6 +232,76 @@ List<(int, int, int, int)> _mosque() {
   return out;
 }
 
+List<(int, int, int, int)> _school() {
+  final w = matIndex('sari'), b = matIndex('beyaz'), c = matIndex('pencere'), d = matIndex('kapi'), k = matIndex('kiremit');
+  final pole = matIndex('demir'), red = matIndex('kirmizi');
+  final out = <(int, int, int, int)>[];
+  for (var z = 0; z < 4; z++) {
+    for (var dx = -4; dx <= 4; dx++) {
+      for (var dy = 0; dy <= 6; dy++) {
+        final edge = dx.abs() == 4 || dy == 0 || dy == 6;
+        if (!edge) continue;
+        var m = (dx.abs() == 4 && (dy == 0 || dy == 6)) ? b : w;
+        if (dy == 0 && dx == 0 && z < 2) m = d;
+        if ((z == 1 || z == 2) && ((dx.abs() == 4 && dy.isOdd) || ((dy == 0 || dy == 6) && dx.abs() >= 2 && dx.abs() <= 3))) m = c;
+        if (z == 3) m = b;
+        out.add((dx, dy, z, m));
+      }
+    }
+  }
+  for (var dx = -3; dx <= 3; dx++) {
+    for (var dy = 1; dy <= 5; dy++) {
+      out.add((dx, dy, -1, matIndex('tahta')));
+    }
+  }
+  for (var dx = -4; dx <= 4; dx++) {
+    for (var dy = 0; dy <= 6; dy++) {
+      out.add((dx, dy, 4, k));
+    }
+  }
+  for (var dx = -3; dx <= 3; dx++) {
+    for (var dy = 1; dy <= 5; dy++) {
+      out.add((dx, dy, 5, k));
+    }
+  }
+  // bayrak direği ve bayrak
+  for (var z = 0; z <= 7; z++) {
+    out.add((6, 0, z, pole));
+  }
+  for (final p in const [(7, 6), (8, 6), (9, 6), (7, 7), (8, 7), (9, 7)]) {
+    out.add((p.$1, 0, p.$2, red));
+  }
+  return out;
+}
+
+List<(int, int, int, int)> _tower() {
+  final t = matIndex('tasduvar'), d = matIndex('kapi'), c = matIndex('pencere'), red = matIndex('kirmizi'), pole = matIndex('demir');
+  final out = <(int, int, int, int)>[];
+  for (var z = 0; z < 8; z++) {
+    for (var dx = -1; dx <= 1; dx++) {
+      for (var dy = 0; dy <= 2; dy++) {
+        if (dx == 0 && dy == 1) continue;
+        var m = t;
+        if (dy == 0 && dx == 0 && z < 2) m = d;
+        if (z == 5 && dx == 0 && dy == 0) m = c;
+        out.add((dx, dy, z, m));
+      }
+    }
+  }
+  for (var dx = -2; dx <= 2; dx++) {
+    for (var dy = -1; dy <= 3; dy++) {
+      out.add((dx, dy, 8, t));
+      if ((dx.abs() == 2 || dy == -1 || dy == 3) && (dx + dy).isEven) out.add((dx, dy, 9, t));
+    }
+  }
+  for (var z = 9; z <= 11; z++) {
+    out.add((0, 1, z, pole));
+  }
+  out.add((1, 1, 11, red));
+  out.add((2, 1, 11, red));
+  return out;
+}
+
 List<(int, int, int, int)> _bridge() {
   final t = matIndex('tahta'), c = matIndex('cit');
   return [
@@ -315,6 +386,8 @@ final prefabs = <Prefab>[
   const Prefab('p_yol', 'yol', '🛣️', _road),
   const Prefab('p_ahir', 'ahır', '🛖', _barn),
   const Prefab('p_agil', 'ağıl', '🐑', _pen),
+  const Prefab('p_okul', 'okul', '🏫', _school),
+  const Prefab('p_kule', 'kule', '🏰', _tower),
 ];
 
 Prefab? prefabById(String id) {
@@ -347,7 +420,12 @@ const biomes = [
   ('kumsal', 'Kumsal', '🏖️'),
   ('tepe', 'Tepeler', '⛰️'),
   ('dag', 'Mağaralı dağ', '🗻'),
+  ('adalar', 'Adalar denizi', '🏝️'),
+  ('koyler', 'Köyler', '🏘️'),
 ];
+
+/// Denizdeki adaların ve karadaki köylerin adları
+const placeNames = ['Sürgü', 'Darende', 'Ulupınar', 'Malatya', 'Kocaeli', 'Darıca', 'İstanbul', 'Ankara', 'İzmir', 'Elazığ', 'Harput'];
 
 // Şehirdeki önemli yerler
 const riverY = 21;
@@ -380,6 +458,9 @@ class BlockWorld {
     return n;
   }
 
+  /// Adı olan yerler (ada, köy): ad -> (x, y)
+  final Map<String, (int, int)> places = {};
+
   int topZ(int x, int y) {
     for (var z = H - 1; z >= 0; z--) {
       if (blocks.containsKey(ck(x, y, z))) return z;
@@ -410,13 +491,21 @@ class BlockWorld {
         ..write(e.value);
     }
     final sh = shapeAt.entries.map((e) => '${e.key}:${e.value}').join(',');
-    return 'v4|$minX,$maxX,$minY,$maxY|$g|$b|$sh';
+    final pl = places.entries.map((e) => '${e.key}:${e.value.$1}:${e.value.$2}').join(';');
+    return 'v4|$minX,$maxX,$minY,$maxY|$g|$b|$sh|$pl';
   }
 
   bool decode(String s) {
     final parts = s.split('|');
     if (parts[0] == 'v4' && parts.length >= 4) {
       shapeAt.clear();
+      places.clear();
+      if (parts.length >= 6 && parts[5].isNotEmpty) {
+        for (final e in parts[5].split(';')) {
+          final kv = e.split(':');
+          if (kv.length == 3) places[kv[0]] = (int.parse(kv[1]), int.parse(kv[2]));
+        }
+      }
       if (parts.length >= 5 && parts[4].isNotEmpty) {
         for (final e in parts[4].split(',')) {
           final kv = e.split(':');
@@ -550,6 +639,7 @@ class BlockWorld {
   /// Kameranın baktığı yöne yeni arazi ekler. dir: 0 +y, 1 +x, 2 -y, 3 -x
   void expand(int dir, String biome, {int size = 20}) {
     final r = Random();
+    if (biome == 'adalar' || biome == 'koyler') size = 64;
     int x0, x1, y0, y1;
     switch (dir) {
       case 0:
@@ -601,10 +691,14 @@ class BlockWorld {
             m = cim;
           case 'dag':
             m = r.nextInt(9) == 0 ? cicek : cim;
+          case 'adalar':
+            m = su;
+          case 'koyler':
+            m = r.nextInt(14) == 0 ? cicek : cim;
           default:
             m = r.nextInt(biome == 'cayir' ? 5 : 12) == 0 ? cicek : cim;
         }
-        final e = edgeMat(x, y);
+        final e = biome == 'adalar' ? null : edgeMat(x, y);
         if (e != null) {
           m = e;
           h = 0;
@@ -622,6 +716,8 @@ class BlockWorld {
     maxX = max(maxX, x1);
     minY = min(minY, y0);
     maxY = max(maxY, y1);
+    if (biome == 'adalar') _islands(x0, x1, y0, y1, r);
+    if (biome == 'koyler') _villages(x0, x1, y0, y1, r);
     // ağaçlar
     final trees = switch (biome) { 'dag' => 3, 'orman' => 22, 'cayir' => 4, 'tepe' => 6, 'kar' => 7, 'gol' => 5, _ => 2 };
     for (var i = 0; i < trees; i++) {
@@ -655,6 +751,81 @@ class BlockWorld {
     version++;
   }
 
+  /// Alanı ızgaraya bölüp her hücreye bir yer koyar.
+  List<(int, int, double, double)> _grid(int x0, int x1, int y0, int y1, int n, Random r) {
+    final w = x1 - x0 + 1, h = y1 - y0 + 1;
+    final cols = w >= h ? 4 : 3;
+    final rows = (n / cols).ceil();
+    final cw = w / cols, ch = h / rows;
+    final out = <(int, int, double, double)>[];
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < cols; col++) {
+        if (out.length >= n) break;
+        final cx = (x0 + cw * (col + 0.5) + (r.nextDouble() - 0.5) * cw * 0.15).round();
+        final cy = (y0 + ch * (row + 0.5) + (r.nextDouble() - 0.5) * ch * 0.15).round();
+        out.add((cx, cy, cw, ch));
+      }
+    }
+    return out;
+  }
+
+  /// Denizde adlı adalar: kumsal, çimenli tepe, ağaç, ev ya da cami.
+  void _islands(int x0, int x1, int y0, int y1, Random r) {
+    final kum = matIndex('kum'), cim = matIndex('cim'), toprak = matIndex('toprak');
+    final cells = _grid(x0, x1, y0, y1, placeNames.length, r);
+    for (var i = 0; i < cells.length; i++) {
+      final (cx, cy, cw, ch) = cells[i];
+      final rad = max(3.0, min(7.0, min(cw, ch) / 2 - 1.5));
+      final ph = r.nextDouble() * 6;
+      for (var x = (cx - rad - 1).floor(); x <= cx + rad + 1; x++) {
+        for (var y = (cy - rad - 1).floor(); y <= cy + rad + 1; y++) {
+          if (!inside(x, y, 0)) continue;
+          final a = atan2(y - cy, x - cx);
+          final d = sqrt(pow(x - cx, 2) + pow(y - cy, 2)) / (rad * (1 + 0.12 * sin(a * 3 + ph)));
+          if (d > 1) continue;
+          if (d > 0.72) {
+            blocks[ck(x, y, 0)] = kum;
+          } else {
+            blocks[ck(x, y, 0)] = toprak;
+            blocks[ck(x, y, 1)] = cim;
+          }
+        }
+      }
+      final name = placeNames[i];
+      if (rad >= 4.4) {
+        final big = i % 3 == 1 ? _mosque() : _house();
+        stamp(big, cx, cy - 2, 2, 0);
+      } else {
+        stamp(_lamp(), cx, cy, 2, 0);
+      }
+      for (var t = 0; t < 2; t++) {
+        final a = r.nextDouble() * 2 * pi;
+        final tx = (cx + cos(a) * rad * 0.55).round(), ty = (cy + sin(a) * rad * 0.55).round();
+        if (topZ(tx, ty) == 1) stamp(_tree(), tx, ty, 2, 0);
+      }
+      places['$name Adası'] = (cx, cy);
+    }
+  }
+
+  /// Karada adlı köyler: patika yollar, evler, bazılarında cami, ağaçlar.
+  void _villages(int x0, int x1, int y0, int y1, Random r) {
+    final yol = matIndex('toprakyol');
+    final cells = _grid(x0, x1, y0, y1, placeNames.length, r);
+    for (var i = 0; i < cells.length; i++) {
+      final (cx, cy, _, _) = cells[i];
+      for (var d = -6; d <= 6; d++) {
+        if (inside(cx + d, cy, 0)) blocks[ck(cx + d, cy, 0)] = yol;
+        if (inside(cx, cy + d, 0)) blocks[ck(cx, cy + d, 0)] = yol;
+      }
+      stamp(_house(), cx - 4, cy + 2, 1, 0);
+      stamp(_house(), cx + 4, cy + 2, 1, 0);
+      stamp(i % 3 == 0 ? _mosque() : _house(), cx - 4, cy - 2, 1, 2);
+      stamp(_tree(), cx + 4, cy - 4, 1, 0);
+      stamp(_lamp(), cx + 1, cy + 1, 1, 0);
+      places['${placeNames[i]} Köyü'] = (cx, cy);
+    }
+  }
+
   void seed() {
     minX = 0;
     maxX = W - 1;
@@ -662,6 +833,7 @@ class BlockWorld {
     maxY = D - 1;
     blocks.clear();
     shapeAt.clear();
+    places.clear();
     final cim = matIndex('cim'), su = matIndex('su'), kum = matIndex('kum'), cicek = matIndex('cicek');
     final asf = matIndex('asfalt'), yol = matIndex('yol');
     for (var x = 0; x < W; x++) {
@@ -949,6 +1121,174 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     ];
   }
 
+  // ================= arkadaşlar =================
+  final List<Friend> friends = [];
+  (int, String)? pendingOrder; // (arkadaş, hazır yapı) yer seçilmeyi bekliyor
+
+  void _tickFriends(double dt) {
+    var any = false;
+    for (var i = 0; i < friends.length; i++) {
+      final f = friends[i];
+      double? tx, ty;
+      var speed = 4.0;
+      if (f.mode == 0) {
+        // oyuncunun arkasında, yan yana dizilerek
+        final side = (i.isEven ? 1 : -1) * (0.9 + (i ~/ 2) * 0.9);
+        final bx = ax - sin(facing) * 1.8 + cos(facing) * side, by = ay - cos(facing) * 1.8 - sin(facing) * side;
+        if (sqrt(pow(bx - f.x, 2) + pow(by - f.y, 2)) > 1.4) {
+          tx = bx;
+          ty = by;
+        }
+        // çok uzakta kaldıysa (ışınlanma, uçma) yanına gelsin
+        if (friendDist(f, ax, ay) > 30) {
+          f.x = bx;
+          f.y = by;
+        }
+        speed = flying ? 6.5 : 4.4;
+      } else if (f.mode == 2 && f.goal != null) {
+        tx = f.goal!.$1 + 0.5 - 1.5;
+        ty = f.goal!.$2 + 0.5 - 1.5;
+        speed = 6.5;
+        if (sqrt(pow(tx - f.x, 2) + pow(ty - f.y, 2)) < 0.6) {
+          final pf = prefabById(f.job ?? '');
+          final (gx, gy, gz) = f.goal!;
+          if (pf != null) {
+            final plan = world.plan(pf.cells(), gx, gy, gz, f.jobDir);
+            if (pf.id == 'p_agac') game.plantTree();
+            _startJob(pf, plan, gx, gy, gz, friend: f);
+          } else {
+            f.mode = 0;
+          }
+          tx = null;
+        }
+      }
+      if (f.mode == 3) {
+        any = true;
+        continue;
+      }
+      if (tx != null && ty != null) {
+        final dx = tx - f.x, dy = ty - f.y, d = sqrt(dx * dx + dy * dy);
+        final st = min(d, speed * dt);
+        f.x += dx / d * st;
+        f.y += dy / d * st;
+        f.facing = atan2(dx, dy);
+        f.walk += dt * 11;
+        any = true;
+      } else if (f.walk != 0) {
+        f.walk = 0;
+        any = true;
+      }
+      final gz = world.topZ(f.x.floor(), f.y.floor()) + 1.0;
+      if ((gz - f.z).abs() > 0.01) {
+        f.z += (gz - f.z) * min(1, dt * 10);
+        any = true;
+      }
+    }
+    if (any) lifeTick++;
+  }
+
+  Future<void> _friendsMenu() async {
+    final i = await showDialog<int>(context: context, builder: (_) => FriendsDialog(friends));
+    if (i == null || !mounted) return;
+    if (i == -1) {
+      final f = await createFriend(context, ax, ay, az);
+      if (f == null || !mounted) return;
+      setState(() => friends.add(f));
+      saveFriends(friends);
+      lifeTick++;
+      return;
+    }
+    _friendTap(i);
+  }
+
+  Future<void> _friendTap(int i) async {
+    if (i < 0 || i >= friends.length) return;
+    final f = friends[i];
+    Voice.say('Efendim? Ben ${f.name}. Ne yapayım?');
+    final r = await showDialog<String>(context: context, builder: (_) => FriendOrderDialog(f));
+    if (r == null || !mounted) return;
+    switch (r) {
+      case 'gel':
+        f.mode = 0;
+        Voice.say('${f.name}: Tamam, seninle geliyorum!');
+      case 'bekle':
+        f.mode = 1;
+        Voice.say('${f.name}: Burada bekliyorum.');
+      case 'sil':
+        friends.removeAt(i);
+        Voice.say('${f.name} evine gitti. Güle güle ${f.name}!');
+      default:
+        setState(() => pendingOrder = (i, r));
+        Voice.say('${f.name}: Nereye ${jobName(r)} yapayım? Ekranda bir yere dokun!');
+    }
+    saveFriends(friends);
+    setState(() {});
+  }
+
+  /// Seçilen yere arkadaşı gönder.
+  void _giveOrder(int cell) {
+    final o = pendingOrder;
+    if (o == null) return;
+    pendingOrder = null;
+    if (o.$1 >= friends.length) return;
+    final f = friends[o.$1];
+    final (x, y, _) = cxyz(cell);
+    f.goal = (x, y, world.topZ(x, y) + 1);
+    f.job = o.$2;
+    f.jobDir = forwardDir;
+    f.mode = 2;
+    Sfx.play('click');
+    Voice.say('${f.name}: Tamam! Oraya gidip ${jobName(o.$2)} yapıyorum.');
+    setState(() {});
+  }
+
+  Widget _orderBanner() {
+    final o = pendingOrder!;
+    final f = o.$1 < friends.length ? friends[o.$1] : null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xEE6A1B9A),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 6)],
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Flexible(
+          child: Text('📍 ${f?.name ?? ''} nereye ${jobName(o.$2)} yapsın? Bir yere dokun!',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+        ),
+        IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => setState(() => pendingOrder = null),
+        ),
+      ]),
+    );
+  }
+
+  // ================= yerler =================
+  Future<void> _goPlaces() async {
+    final names = world.places.keys.toList();
+    final n = await showDialog<String>(context: context, builder: (_) => PlacesDialog(names));
+    if (n == null || !mounted) return;
+    final (x, y) = world.places[n]!;
+    setState(() {
+      flying = false;
+      _placeAvatar(x, y);
+      walkTo = null;
+      fx = x + 0.5;
+      fy = y + 0.5;
+      for (final f in friends) {
+        if (f.mode == 0) {
+          f.x = ax + 1;
+          f.y = ay - 1;
+        }
+      }
+      _geoKey = '';
+    });
+    Sfx.play('unlock');
+    Voice.say('$n! Hoş geldin.');
+  }
+
   // ================= uçma =================
   bool flying = false;
   double flyT = 0;
@@ -1044,6 +1384,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       if (mounted) setState(() {});
     });
     _loadSigns();
+    friends.addAll(loadFriends());
+    for (final f in friends) {
+      f.x = f.mode == 1 ? f.x : ax + 1.2;
+      f.y = f.mode == 1 ? f.y : ay + 0.6;
+    }
     Future.delayed(const Duration(milliseconds: 9000), () {
       if (mounted) _surpriseEgg();
     });
@@ -1092,10 +1437,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   final List<_Job> jobs = [];
   static final workerLook = Avatar(skin: 1, hair: 0, style: 2, shirt: 4, pants: 1, hat: 0);
 
-  void _startJob(Prefab pf, List<(int, int)> plan, int x, int y, int z) {
+  void _startJob(Prefab pf, List<(int, int)> plan, int x, int y, int z, {Friend? friend}) {
     if (plan.isEmpty) return;
-    final job = _Job(pf.name, plan, x + 0.5, y + 0.5, z.toDouble());
+    final job = _Job(pf.name, plan, x + 0.5, y + 0.5, z.toDouble())..friend = friend;
     jobs.add(job);
+    if (friend != null) {
+      friend.mode = 3;
+      Voice.say('${friend.name}: ${trCapitalize(pf.name)} yapmaya başladım! ${plan.length} blok koyacağım.');
+      return;
+    }
     Sfx.play('horn1');
     Say.show(context, Who.tamirci, 'İşçiler geldi! ${trCapitalize(pf.name)} için ${plan.length} blok koyacaklar. Haydi izleyelim!', mood: 'iyi');
   }
@@ -1116,6 +1466,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       if (j.i > 0 && j.i <= j.cells.length) {
         final (k, _) = j.cells[j.i - 1];
         final (bx, by, bz) = cxyz(k);
+        final fr = j.friend;
+        if (fr != null) {
+          final tx = bx + 0.5 - 1.2, ty = by + 0.5 + 0.7;
+          fr.x += (tx - fr.x) * min(1, dt * 6);
+          fr.y += (ty - fr.y) * min(1, dt * 6);
+          fr.z += (max(0, bz - 0.0) - fr.z) * min(1, dt * 6);
+          fr.facing = atan2(bx + 0.5 - fr.x, by + 0.5 - fr.y);
+          fr.anim += dt;
+        }
         for (var w = 0; w < 2; w++) {
           final tx = bx + 0.5 + (w == 0 ? -1.1 : 1.1), ty = by + 0.5 + (w == 0 ? 0.6 : -0.6);
           j.wx[w] += (tx - j.wx[w]) * min(1, dt * 6);
@@ -1130,7 +1489,17 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     for (final j in done) {
       jobs.remove(j);
       Sfx.play('finish');
-      Say.show(context, Who.tamirci, 'İşçiler ${j.name} işini bitirdi! ${j.cells.length} blok kullandılar. Elinize sağlık!', mood: 'sevin');
+      final fr = j.friend;
+      if (fr != null) {
+        fr.mode = 0;
+        fr.job = null;
+        fr.goal = null;
+        fr.z = world.topZ(fr.x.floor(), fr.y.floor()) + 1.0;
+        saveFriends(friends);
+        Say.show(context, Who.tamirci, '${fr.name} ${j.name} işini bitirdi! ${j.cells.length} blok kullandı. Eline sağlık ${fr.name}!', mood: 'sevin');
+      } else {
+        Say.show(context, Who.tamirci, 'İşçiler ${j.name} işini bitirdi! ${j.cells.length} blok kullandılar. Elinize sağlık!', mood: 'sevin');
+      }
       _changed();
     }
   }
@@ -1272,7 +1641,16 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         out.add((b, ax, ay, az, facing, 1, 0));
       }
     }
+    for (var i = 0; i < friends.length; i++) {
+      final f = friends[i];
+      if ((f.x - fx).abs() > 40 && (f.x - ax).abs() > 40) continue;
+      for (final b in avatarBoxes(f.look,
+          walk: f.walk, swing: f.mode == 3 ? (f.anim * 2.5) % 1 : 0, tool: f.mode == 3 ? 'kazma' : null)) {
+        out.add((b, f.x, f.y, f.z, f.facing, 6, i));
+      }
+    }
     for (final j in jobs) {
+      if (j.friend != null) continue;
       for (var w = 0; w < 2; w++) {
         for (final b in avatarBoxes(workerLook, walk: 0, swing: (j.anim * 2.5 + w * 0.5) % 1, tool: 'kazma')) {
           out.add((b, j.wx[w], j.wy[w], j.wz[w], j.wf[w], 5, 0));
@@ -1671,6 +2049,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       _tickJobs(dt);
       changed = true;
     }
+    if (friends.isNotEmpty) {
+      final lt0 = lifeTick;
+      _tickFriends(dt);
+      if (lifeTick != lt0) changed = true;
+    }
     // hayvanlar
     final lt = lifeTick;
     _tickAnimals(dt);
@@ -1803,6 +2186,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
     (int, int)? best;
     var bt = maxT;
+    for (var i = 0; i < friends.length; i++) {
+      final f = friends[i];
+      final t = hitBox(f.x - 0.35, f.y - 0.35, f.z, f.x + 0.35, f.y + 0.35, f.z + 1.9);
+      if (t != null && t < bt) {
+        bt = t;
+        best = (6, i);
+      }
+    }
     for (var i = 0; i < animals.length; i++) {
       final a = animals[i];
       final h = _animalHeight(a.kind.id);
@@ -1868,7 +2259,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   void _fpAction() {
     final e = aimEnt;
+    if (pendingOrder != null && e == null && aim != null) {
+      _giveOrder(aim!);
+      return;
+    }
     if (e != null) {
+      if (e.$1 == 6) _friendTap(e.$2);
       if (e.$1 == 2) _befriend(e.$2);
       if (e.$1 == 3) _harvest(e.$2);
       return;
@@ -1890,6 +2286,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _fpPlace() {
     final a = aim, n = aimNormal;
     if (a == null || n == null) return;
+    if (pendingOrder != null) {
+      _giveOrder(a);
+      return;
+    }
     if (sel.startsWith('seed_')) {
       final (x, y, z) = cxyz(a);
       if (n == 0) _plant(ck(x, y, z + 1));
@@ -2001,6 +2401,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   @override
   void dispose() {
     _saveLife();
+    saveFriends(friends);
     _ticker.dispose();
     pulse.dispose();
     for (final v in _verts) {
@@ -2252,7 +2653,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   void _down(Offset p) {
     final fe = _faceAt(p);
-    if (fe != null && (fe.ent == 2 || fe.ent == 3)) return;
+    if (fe != null && (fe.ent == 2 || fe.ent == 3 || fe.ent == 6)) return;
     if (mode != 0) {
       final f = _faceAt(p);
       setState(() {
@@ -2278,6 +2679,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final f = _faceAt(p);
     setState(() => previewCell = null);
     if (f == null) return;
+    if (f.ent == 6) {
+      _friendTap(f.cell);
+      return;
+    }
+    if (pendingOrder != null && (f.ent == 0 || f.ent == 4)) {
+      _giveOrder(f.cell);
+      return;
+    }
     if (f.ent == 2) {
       _befriend(f.cell);
       return;
@@ -2326,6 +2735,16 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       return;
     }
     final fe = _faceAt(p);
+    if (fe != null && fe.ent == 6) {
+      setState(() => previewCell = null);
+      _friendTap(fe.cell);
+      return;
+    }
+    if (pendingOrder != null) {
+      setState(() => previewCell = null);
+      if (fe != null && (fe.ent == 0 || fe.ent == 4)) _giveOrder(fe.cell);
+      return;
+    }
     if (fe != null && (fe.ent == 2 || fe.ent == 3)) {
       setState(() => previewCell = null);
       if (fe.ent == 2) _befriend(fe.cell);
@@ -2431,8 +2850,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   Future<void> _grow() async {
-    final biome = await showDialog<String>(context: context, builder: (_) => const _GrowDialog());
+    final biome = await showDialog<String>(context: context, builder: (_) => _GrowDialog(world.places.isNotEmpty));
     if (biome == null || !mounted) return;
+    if (biome == 'goto') {
+      _goPlaces();
+      return;
+    }
     if (worldW >= 1000 && worldD >= 1000) {
       Say.show(context, Who.tamirci, 'Şehir dünyanın kenarına ulaştı! Daha büyüyemez.');
       return;
@@ -2853,6 +3276,17 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                         }),
                       ],
                       Bouncy(
+                        onTap: _friendsMenu,
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(12)),
+                          child: const Text('👥', style: TextStyle(fontSize: 24)),
+                        ),
+                      ),
+                      Bouncy(
                         onTap: _openVillage,
                         child: Container(
                           margin: const EdgeInsets.all(2),
@@ -2878,6 +3312,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                     ]),
                   ),
                   if (firstPerson || mode != 0) Positioned(left: 8, bottom: 8, child: _pad()),
+                  if (pendingOrder != null) Positioned(left: 8, right: 60, top: 8, child: Center(child: _orderBanner())),
                   if (firstPerson)
                     Positioned(
                       right: 8,
@@ -3871,6 +4306,18 @@ class _WorldPainter extends CustomPainter {
 
   void _labels(Canvas canvas, Offset? Function(double, double, double) pr, double ox, double oy) {
     final tb = matIndex('tabela');
+    for (final e in s.world.places.entries) {
+      final (x, y) = e.value;
+      final dd = sqrt(pow(x - ox, 2) + pow(y - oy, 2));
+      if (dd > 48) continue;
+      final o = pr(x + 0.5, y + 0.5, s.world.topZ(x, y) + 5.5);
+      if (o != null) paintPlace(canvas, o, e.key, scale: dd < 20 ? 1 : 0.8);
+    }
+    for (final f in s.friends) {
+      if ((f.x - ox).abs() > 20 || (f.y - oy).abs() > 20) continue;
+      final o = pr(f.x, f.y, f.z + 2.25);
+      if (o != null) paintNameTag(canvas, o, f.name);
+    }
     for (final e in s.signs.entries) {
       if (s.world.blocks[e.key] != tb) continue;
       final (x, y, z) = cxyz(e.key);
@@ -4125,7 +4572,8 @@ class _MathDialogState extends State<_MathDialog> {
 }
 
 class _GrowDialog extends StatelessWidget {
-  const _GrowDialog();
+  final bool places;
+  const _GrowDialog(this.places);
 
   @override
   Widget build(BuildContext context) {
@@ -4166,7 +4614,14 @@ class _GrowDialog extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          if (places)
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0277BD), minimumSize: const Size(230, 50)),
+              onPressed: () => Navigator.pop(context, 'goto'),
+              icon: const Text('📍', style: TextStyle(fontSize: 22)),
+              label: const Text('Adalara, köylere git', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            ),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç', style: TextStyle(fontSize: 16))),
         ]),
       ),
@@ -4591,6 +5046,7 @@ class _ActionBtn extends StatelessWidget {
 class _Job {
   final String name;
   final List<(int, int)> cells;
+  Friend? friend; // yapan arkadaş (yoksa iki işçi)
   int i = 0;
   double t = 0, anim = 0, finished = 0;
   final List<double> wx, wy, wz, wf;

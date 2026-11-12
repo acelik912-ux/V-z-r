@@ -12,6 +12,7 @@ import 'package:vizir/games/blok_bag.dart';
 import 'package:vizir/games/blok_char.dart';
 import 'package:vizir/games/blok_words.dart';
 import 'package:vizir/games/blok_village.dart';
+import 'package:vizir/games/blok_friends.dart';
 import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
@@ -115,6 +116,19 @@ void main() {
       },
       'canta': () => const BagScreen(selected: 'tahta', shape: 0),
       'koy': () => const VillageScreen(),
+      'adalar': () {
+        final w = BlockWorld()..seed();
+        w.expand(1, 'adalar');
+        w.expand(0, 'koyler');
+        game.blockWorld = w.encode();
+        game.blockFriends = 'Ali~0,0,1,3,0,1,0,0,3~16.0~17.0~1.0~0;Ayşe~1,2,1,5,2,0,0,0,5~18.5~16.0~1.0~0';
+        return BlokAdasi(startFocus: (w.places['Darende Adası']!.$1, w.places['Darende Adası']!.$2));
+      },
+      'zirh_elmas': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,4')),
+      'zirh_ayi': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,1,2,5')),
+      'arkadas_emir': () => Scaffold(
+          body: Center(child: FriendOrderDialog(Friend('Ali', Avatar.decode('0,0,1,3,0,1,0,0,4')!, 0, 0, 0)))),
+      'yerler': () => const Scaffold(body: Center(child: PlacesDialog(['Sürgü Adası', 'Malatya Adası', 'Harput Köyü', 'Darende Köyü']))),
       'sifre': () => const Scaffold(body: Center(child: PinDialog())),
       'para_ustu': () => const Scaffold(body: Center(child: ChangeDialog(name: 'süt', emoji: '🥛', price: 4))),
       'ingilizce': () => const Scaffold(body: Center(child: EnglishQuiz())),

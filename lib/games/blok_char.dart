@@ -57,16 +57,62 @@ class Armor {
   final Color color;
   final Color trim;
   final int price;
-  const Armor(this.id, this.name, this.color, this.trim, this.price);
+  final Color cape; // pelerin
+  final Color gem; // göğüsteki ve miğferdeki taş
+  final Color? plume; // miğfer sorgucu
+  final bool horns; // miğferde boynuz/kanat
+  const Armor(this.id, this.name, this.color, this.trim, this.price,
+      {required this.cape, required this.gem, this.plume, this.horns = false});
 }
 
 const armors = [
-  Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15),
-  Armor('demir', 'demir zırh', Color(0xFFB0BEC5), Color(0xFF78909C), 40),
-  Armor('altin', 'altın zırh', Color(0xFFFFC107), Color(0xFFFF8F00), 80),
-  Armor('elmas', 'elmas zırh', Color(0xFF4DD0E1), Color(0xFF00838F), 150),
-  Armor('zumrut', 'zümrüt zırh', Color(0xFF00C853), Color(0xFF1B5E20), 250),
+  Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15, cape: Color(0xFF4E342E), gem: Color(0xFFFFB300)),
+  Armor('demir', 'demir zırh', Color(0xFFB0BEC5), Color(0xFF607D8B), 40,
+      cape: Color(0xFF1565C0), gem: Color(0xFF90CAF9), plume: Color(0xFFD32F2F)),
+  Armor('altin', 'altın zırh', Color(0xFFFFC107), Color(0xFFFF8F00), 80,
+      cape: Color(0xFFC62828), gem: Color(0xFFE53935), plume: Color(0xFFFFFFFF)),
+  Armor('elmas', 'elmas zırh', Color(0xFF4DD0E1), Color(0xFF00838F), 150,
+      cape: Color(0xFF6A1B9A), gem: Color(0xFFE0F7FA), plume: Color(0xFFFFD54F), horns: true),
+  Armor('zumrut', 'zümrüt zırh', Color(0xFF00C853), Color(0xFF1B5E20), 250,
+      cape: Color(0xFFFFD54F), gem: Color(0xFFB2FF59), plume: Color(0xFFFFD54F), horns: true),
 ];
+
+/// Görkemli zırh parçaları (pelerin, omuzluk, sorguç, taş, kemer). Ölçüler insan için;
+/// [k] ayı için büyütme, [dz] yükseklik kayması.
+List<ABox> armorExtras(Armor ar, {required double armL, required double armR, required double leg,
+    double headTop = 1.88, double chestZ = 1.12, double chestY = 0.165, double shoulderX = 0.36, double shoulderZ = 1.38,
+    double pivot = 1.39, double backY = -0.17, double capeZ = 1.0, double capeH = 0.36, double w = 1}) {
+  final capeA = -0.12 - leg.abs() * 0.35;
+  final out = <ABox>[
+    // pelerin (arkada, yürürken dalgalanır)
+    ABox(0, backY - 0.035, capeZ, 0.25 * w, 0.02, capeH, ar.cape, pivotZ: capeZ + capeH, angle: capeA),
+    ABox(0, backY - 0.03, capeZ + capeH - 0.04, 0.27 * w, 0.03, 0.05, ar.trim),
+    // büyük omuzluklar (iki kat)
+    ABox(-shoulderX - 0.02, 0, shoulderZ, 0.17, 0.16, 0.08, ar.color, pivotZ: pivot, angle: armL),
+    ABox(shoulderX + 0.02, 0, shoulderZ, 0.17, 0.16, 0.08, ar.color, pivotZ: pivot, angle: armR),
+    ABox(-shoulderX - 0.02, 0, shoulderZ + 0.08, 0.13, 0.13, 0.03, ar.trim, pivotZ: pivot, angle: armL),
+    ABox(shoulderX + 0.02, 0, shoulderZ + 0.08, 0.13, 0.13, 0.03, ar.trim, pivotZ: pivot, angle: armR),
+    // göğüs taşı ve kemer
+    ABox(0, chestY + 0.012, chestZ + 0.04, 0.065, 0.012, 0.065, ar.gem),
+    ABox(0, chestY + 0.02, chestZ + 0.04, 0.03, 0.01, 0.03, const Color(0xFFFFFFFF)),
+    ABox(0, 0, chestZ - 0.3, 0.29 * w, chestY + 0.01, 0.035, ar.trim),
+    ABox(0, chestY + 0.02, chestZ - 0.3, 0.05, 0.012, 0.045, ar.gem),
+    // miğfer: alın taşı
+    ABox(0, 0.245, headTop - 0.1, 0.05, 0.012, 0.04, ar.gem),
+  ];
+  final pl = ar.plume;
+  if (pl != null) {
+    out.add(ABox(0, -0.02, headTop + 0.1, 0.045, 0.2, 0.09, pl));
+    out.add(ABox(0, -0.2, headTop + 0.03, 0.045, 0.06, 0.12, pl));
+  }
+  if (ar.horns) {
+    out.add(ABox(-0.29, 0.02, headTop + 0.02, 0.04, 0.04, 0.1, ar.trim));
+    out.add(ABox(0.29, 0.02, headTop + 0.02, 0.04, 0.04, 0.1, ar.trim));
+    out.add(ABox(-0.33, 0.02, headTop + 0.14, 0.03, 0.03, 0.06, ar.gem));
+    out.add(ABox(0.33, 0.02, headTop + 0.14, 0.03, 0.03, 0.06, ar.gem));
+  }
+  return out;
+}
 
 class Avatar {
   int skin, hair, style, shirt, pants, hat;
@@ -199,6 +245,20 @@ List<ABox> bearBoxes(Avatar a, {double walk = 0, double swing = 0, String? tool,
       ABox(0.38, 0, 1.0, 0.115, 0.125, 0.08, ar.trim, pivotZ: 1.05, angle: armR),
       ABox(-0.15, 0.02, 0.06, 0.135, 0.16, 0.06, ar.trim, pivotZ: 0.44, angle: leg),
       ABox(0.15, 0.02, 0.06, 0.135, 0.16, 0.06, ar.trim, pivotZ: 0.44, angle: -leg),
+      ...armorExtras(ar,
+          armL: armL,
+          armR: armR,
+          leg: leg,
+          headTop: 1.66,
+          chestZ: 0.86,
+          chestY: 0.235,
+          shoulderX: 0.38,
+          shoulderZ: 1.1,
+          pivot: 1.05,
+          backY: -0.24,
+          capeZ: 0.7,
+          capeH: 0.32,
+          w: 1.2),
     ]);
   }
   if (tool != null) out.addAll(_toolBoxes(tool, armR, hx: 0.38, hz: 0.56, pz: 1.05));
@@ -267,6 +327,10 @@ List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? too
       ABox(0.13, 0, 0.5, 0.125, 0.135, 0.2, ar.color, pivotZ: 0.75, angle: -leg),
       ABox(-0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: leg),
       ABox(0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: -leg),
+      // eldivenler
+      ABox(-0.36, 0, 0.8, 0.105, 0.105, 0.08, ar.trim, pivotZ: 1.39, angle: armL),
+      ABox(0.36, 0, 0.8, 0.105, 0.105, 0.08, ar.trim, pivotZ: 1.39, angle: armR),
+      ...armorExtras(ar, armL: armL, armR: armR, leg: leg),
     ]);
   }
   if (tool != null) out.addAll(_toolBoxes(tool, armR));
@@ -357,20 +421,25 @@ const boxFaces = <(List<int>, int)>[
 // ======================= KARAKTER EKRANI =======================
 
 class AvatarScreen extends StatefulWidget {
-  const AvatarScreen({super.key});
+  /// Arkadaş oluştururken: başlangıç görünümü verilir, sonuç kodlanmış görünüm olarak döner.
+  final Avatar? friendStart;
+  const AvatarScreen({super.key, this.friendStart});
 
   @override
   State<AvatarScreen> createState() => _AvatarScreenState();
 }
 
 class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderStateMixin {
-  late Avatar a = myAvatar;
+  late Avatar a = widget.friendStart?.copy() ?? myAvatar;
+  bool get friend => widget.friendStart != null;
   late final AnimationController spin = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
 
   @override
   void initState() {
     super.initState();
-    Voice.say('Kendi karakterini oluştur! Hazır birini seç ya da renklerini değiştir.');
+    Voice.say(friend
+        ? 'Yeni arkadaşını oluştur! Saçını, giysisini, rengini sen seç.'
+        : 'Kendi karakterini oluştur! Hazır birini seç ya da renklerini değiştir.');
   }
 
   @override
@@ -438,7 +507,7 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
         ),
         child: SafeArea(
           child: Column(children: [
-            const TopBar('Karakterim'),
+            TopBar(friend ? 'Yeni arkadaş' : 'Karakterim'),
             SizedBox(
               height: 230,
               child: AnimatedBuilder(
@@ -514,6 +583,7 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                       ]),
                     );
                   }),
+                  if (!friend)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(children: [
@@ -578,13 +648,18 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(backgroundColor: const Color(0xFF43A047)),
                   onPressed: () {
+                    if (friend) {
+                      Sfx.play('unlock');
+                      Navigator.pop(context, a.encode());
+                      return;
+                    }
                     game.setAvatar(a.encode());
                     Sfx.play('unlock');
                     Voice.say('Harika görünüyorsun! Haydi şehre!');
                     Navigator.pop(context, true);
                   },
                   icon: const Icon(Icons.check, size: 28),
-                  label: const Text('Bu benim!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  label: Text(friend ? 'Tamam, isim verelim' : 'Bu benim!', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
                 ),
               ),
             ),
