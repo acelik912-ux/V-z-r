@@ -405,6 +405,24 @@ class ParentPanel extends StatelessWidget {
                 ],
               ),
               const Divider(height: 32),
+              _title('Altın (Blok Şehri)'),
+              Row(children: [
+                Text('🪙 ${game.coins}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 12),
+                for (final n in const [10, 50])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: OutlinedButton(
+                      onPressed: () {
+                        game.addCoins(n);
+                        _snack(context, '$n altın verildi');
+                      },
+                      child: Text('+$n altın'),
+                    ),
+                  ),
+              ]),
+              const Text('Ödül olarak altın verebilirsiniz; zırhlar altınla alınır.'),
+              const Divider(height: 32),
               _title('Gelişim haritası'),
               const Text('Her harf, içinde geçtiği hecelerdeki başarıya göre renklenir. '
                   'Yeşil: oturmuş · Sarı: gelişiyor · Kırmızı: zorlanıyor · Gri: henüz denenmedi'),

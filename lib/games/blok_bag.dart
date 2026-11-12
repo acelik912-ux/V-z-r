@@ -85,21 +85,11 @@ class _BagScreenState extends State<BagScreen> {
     Sfx.play('click');
     if (it.id.startsWith('zirh_')) {
       final idx = armors.indexWhere((a) => 'zirh_${a.id}' == it.id) + 1;
-      if (!it.locked) {
-        final av = myAvatar..armor = idx;
-        game.setAvatar(av.encode());
-        if (mounted) Navigator.pop(context, null);
-        return;
-      }
-      // önce zırhı büyük göster
-      final ar = armors[idx - 1];
-      final buy = await showDialog<bool>(context: context, builder: (_) => ArmorPreview(ar, owned: false));
-      if (buy != true || !mounted) return;
-      if (game.coins < it.price) {
-        Voice.say('${it.name} ${it.price} altın. Senin ${game.coins} altının var. Hasat yaparak, hayvanlara bakarak altın kazan!');
-        _toast('${it.price} 🪙 gerekli, sende ${game.coins} 🪙 var');
-        return;
-      }
+      if (!await getArmor(context, idx) || !mounted) return;
+      final av = myAvatar..armor = idx;
+      game.setAvatar(av.encode());
+      Navigator.pop(context, null);
+      return;
     }
     if (it.locked) {
       final ok = await showDialog<bool>(
@@ -125,10 +115,6 @@ class _BagScreenState extends State<BagScreen> {
       }
     }
     if (mounted) Navigator.pop(context, it.id);
-  }
-
-  void _toast(String t) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t, style: const TextStyle(fontSize: 18)), duration: const Duration(seconds: 2)));
   }
 
   @override
@@ -236,7 +222,9 @@ class ArmorPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Voice.say('${trCapitalize(a.name)}. Bunu giyen ${a.hero} olur! ${a.info ?? ''} Fiyatı ${a.price} altın.');
+    final enough = game.coins >= a.price;
+    Voice.say('${trCapitalize(a.name)}. Bunu giyen ${a.hero} olur! ${a.info ?? ''} Fiyatı ${a.price} altın.'
+        '${enough ? '' : ' Senin ${game.coins} altının var. Tarlada hasat yap, hayvanlarından ürün al, tezgâhta kelime yap; altın kazan!'}');
     return Dialog(
       backgroundColor: const Color(0xFFFFF8E1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
@@ -256,15 +244,47 @@ class ArmorPreview extends StatelessWidget {
               child: Text(a.info!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             ),
           const SizedBox(height: 10),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF8F00), minimumSize: const Size(220, 54)),
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Text('🪙', style: TextStyle(fontSize: 22)),
-            label: Text('${a.price} altına al', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-          ),
+          if (enough)
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF8F00), minimumSize: const Size(220, 54)),
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Text('🪙', style: TextStyle(fontSize: 22)),
+              label: Text('${a.price} altına al', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFFFE0B2), borderRadius: BorderRadius.circular(16)),
+              child: Text('🪙 ${a.price} altın lazım, sende ${game.coins} var.\n🌾 Hasat, 🥛 ürün, 🔨 kelime yaparak kazan!',
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç', style: TextStyle(fontSize: 16))),
         ]),
       ),
     );
   }
+}
+
+/// Zırhı göster, gerekirse altınla al (adını heceleyerek). Sahipse ya da alındıysa true.
+Future<bool> getArmor(BuildContext context, int idx) async {
+  final ar = armors[idx - 1];
+  final key = 'zirh_${ar.id}';
+  if (game.blockItems.contains(key)) return true;
+  final buy = await showDialog<bool>(context: context, builder: (_) => ArmorPreview(ar));
+  if (buy != true || !context.mounted) return false;
+  if (game.coins < ar.price) return false;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => SpellDialog(
+      parts: heceler(trLower(ar.name.split(' ').first)),
+      emoji: '🛡️',
+      title: '${ar.price} 🪙 ile almak için adını yaz',
+      speech: '${ar.name}. Almak için adını hecelerle yaz!',
+    ),
+  );
+  if (ok != true || !context.mounted) return false;
+  if (!game.spendCoins(ar.price)) return false;
+  game.addBlockItem(key);
+  Sfx.play('unlock');
+  return true;
 }

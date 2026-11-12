@@ -1363,6 +1363,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final a = avatar.armor;
     if (a == before || a <= 0 || a > armors.length) return;
     final ar = armors[a - 1];
+    // içeriden bakarken kendini göremez: arkadan görünüme geç
+    if (firstPerson && !behind) {
+      behind = true;
+      lookUp = -0.25;
+      _geoKey = '';
+    }
     final c = ck(ax.floor(), ay.floor(), az.floor() + 1);
     _burst(c, ar.gem, 18);
     _burst(c, ar.color, 14);
