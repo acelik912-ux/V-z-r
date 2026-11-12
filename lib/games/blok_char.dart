@@ -61,21 +61,82 @@ class Armor {
   final Color gem; // göğüsteki ve miğferdeki taş
   final Color? plume; // miğfer sorgucu
   final bool horns; // miğferde boynuz/kanat
+  final int helm; // 0 şövalye miğferi, 1 sivri miğfer + zincir, 2 sarıklı miğfer, 3 yeniçeri börkü
+  final String? pic; // pazardaki resim
+  final String? info; // tarihî zırhlar için kısa bilgi
   const Armor(this.id, this.name, this.color, this.trim, this.price,
-      {required this.cape, required this.gem, this.plume, this.horns = false});
+      {required this.cape, required this.gem, this.plume, this.horns = false, this.helm = 0, this.pic, this.info});
 }
 
 const armors = [
-  Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15, cape: Color(0xFF4E342E), gem: Color(0xFFFFB300)),
+  Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15,
+      cape: Color(0xFF4E342E), gem: Color(0xFFFFB300), pic: 'zirh_deri'),
   Armor('demir', 'demir zırh', Color(0xFFB0BEC5), Color(0xFF607D8B), 40,
-      cape: Color(0xFF1565C0), gem: Color(0xFF90CAF9), plume: Color(0xFFD32F2F)),
+      cape: Color(0xFF1565C0), gem: Color(0xFF90CAF9), plume: Color(0xFFD32F2F), pic: 'zirh_demir'),
   Armor('altin', 'altın zırh', Color(0xFFFFC107), Color(0xFFFF8F00), 80,
-      cape: Color(0xFFC62828), gem: Color(0xFFE53935), plume: Color(0xFFFFFFFF)),
+      cape: Color(0xFFC62828), gem: Color(0xFFE53935), plume: Color(0xFFFFFFFF), pic: 'zirh_altin'),
   Armor('elmas', 'elmas zırh', Color(0xFF4DD0E1), Color(0xFF00838F), 150,
-      cape: Color(0xFF6A1B9A), gem: Color(0xFFE0F7FA), plume: Color(0xFFFFD54F), horns: true),
+      cape: Color(0xFF6A1B9A), gem: Color(0xFFE0F7FA), plume: Color(0xFFFFD54F), horns: true, pic: 'zirh_elmas'),
   Armor('zumrut', 'zümrüt zırh', Color(0xFF00C853), Color(0xFF1B5E20), 250,
-      cape: Color(0xFFFFD54F), gem: Color(0xFFB2FF59), plume: Color(0xFFFFD54F), horns: true),
+      cape: Color(0xFFFFD54F), gem: Color(0xFFB2FF59), plume: Color(0xFFFFD54F), horns: true, pic: 'zirh_zumrut'),
+  // tarihî zırhlar (Müslüman devletler)
+  Armor('selcuklu', 'Selçuklu zırhı', Color(0xFF26A69A), Color(0xFFFFB300), 90,
+      cape: Color(0xFF0D47A1), gem: Color(0xFFFFD54F), helm: 1,
+      info: 'Selçuklu süvarileri sivri miğfer ve küçük pullardan yapılmış zırh giyerdi. Anadolu kapısını açan Malazgirt zaferi onlarındı.'),
+  Armor('osmanli', 'Osmanlı sipahi zırhı', Color(0xFFC62828), Color(0xFFFFC107), 120,
+      cape: Color(0xFF7F0000), gem: Color(0xFF00E676), plume: Color(0xFFFFFFFF), helm: 2,
+      info: 'Sipahiler Osmanlının atlı askerleriydi. Sarıklı miğfer, zincir zırh ve kırmızı kaftan giyerlerdi.'),
+  Armor('yeniceri', 'Yeniçeri zırhı', Color(0xFF1565C0), Color(0xFFFFC107), 120,
+      cape: Color(0xFFFAFAFA), gem: Color(0xFFE53935), helm: 3,
+      info: 'Yeniçeriler başlarına arkası sarkan beyaz börk takardı. Mehter marşıyla yürürlerdi.'),
+  Armor('memluk', 'Memlük zırhı', Color(0xFFB87333), Color(0xFF5D4037), 150,
+      cape: Color(0xFFFDD835), gem: Color(0xFF29B6F6), plume: Color(0xFFFFFFFF), helm: 2,
+      info: 'Memlükler Mısır ve Şam\'ı korudu. Altın sarısı sancakları ve bakır renkli zırhlarıyla tanınırlardı.'),
+  Armor('endulus', 'Endülüs zırhı', Color(0xFFF5F5F5), Color(0xFFD4AF37), 180,
+      cape: Color(0xFF00695C), gem: Color(0xFFE53935), helm: 1,
+      info: 'Endülüs Müslümanları İspanya\'da yüzyıllarca yaşadı. Beyaz-altın zırhları ve güzel saraylarıyla ünlüydüler.'),
 ];
+
+/// Miğfer biçimine göre baş parçaları. [top] başın üstü, [w] genişlik çarpanı.
+List<ABox> helmBoxes(Armor ar, double top, {double w = 1, double front = 0.25}) {
+  const white = Color(0xFFFAFAFA), chain = Color(0xFF9E9E9E);
+  switch (ar.helm) {
+    case 1: // sivri miğfer, burun siperi, zincir perde
+      return [
+        ABox(0, 0, top - 0.02, 0.27 * w, 0.27 * w, 0.045, ar.color),
+        ABox(0, 0, top + 0.06, 0.2 * w, 0.2 * w, 0.04, ar.color),
+        ABox(0, 0, top + 0.13, 0.13 * w, 0.13 * w, 0.035, ar.color),
+        ABox(0, 0, top + 0.19, 0.07, 0.07, 0.035, ar.trim),
+        ABox(0, 0, top + 0.26, 0.025, 0.025, 0.05, ar.trim),
+        ABox(0, 0, top + 0.02, 0.275 * w, 0.275 * w, 0.015, ar.trim),
+        ABox(0, front + 0.005, top - 0.2, 0.03, 0.01, 0.13, ar.trim),
+        ABox(0, -front + 0.01, top - 0.32, 0.26 * w, 0.02, 0.2, chain),
+        ABox(-0.255 * w, 0, top - 0.3, 0.015, 0.22, 0.16, chain),
+        ABox(0.255 * w, 0, top - 0.3, 0.015, 0.22, 0.16, chain),
+      ];
+    case 2: // sarıklı miğfer
+      return [
+        ABox(0, 0, top - 0.02, 0.28 * w, 0.28 * w, 0.06, white),
+        ABox(0, 0, top + 0.08, 0.24 * w, 0.24 * w, 0.05, white),
+        ABox(0, 0.005, top + 0.03, 0.285 * w, 0.27 * w, 0.012, const Color(0xFFE0E0E0)),
+        ABox(0, 0, top + 0.15, 0.17 * w, 0.17 * w, 0.04, ar.color),
+        ABox(0, 0, top + 0.22, 0.05, 0.05, 0.05, ar.trim),
+        ABox(0, front + 0.035, top + 0.04, 0.045, 0.012, 0.045, ar.gem),
+        ABox(0, -front + 0.01, top - 0.3, 0.24 * w, 0.02, 0.18, chain),
+      ];
+    case 3: // yeniçeri börkü
+      return [
+        ABox(0, 0, top + 0.0, 0.25 * w, 0.25 * w, 0.06, ar.trim),
+        ABox(0, -0.02, top + 0.16, 0.22 * w, 0.21 * w, 0.12, white),
+        ABox(0, -0.05, top + 0.31, 0.2 * w, 0.18 * w, 0.05, white),
+        ABox(0, -front - 0.01, top - 0.18, 0.2 * w, 0.02, 0.3, white),
+        ABox(0, front - 0.02, top + 0.16, 0.05, 0.012, 0.1, ar.trim),
+        ABox(0, front - 0.01, top + 0.1, 0.03, 0.012, 0.03, ar.gem),
+      ];
+    default:
+      return const [];
+  }
+}
 
 /// Görkemli zırh parçaları (pelerin, omuzluk, sorguç, taş, kemer). Ölçüler insan için;
 /// [k] ayı için büyütme, [dz] yükseklik kayması.
@@ -97,15 +158,19 @@ List<ABox> armorExtras(Armor ar, {required double armL, required double armR, re
     ABox(0, chestY + 0.02, chestZ + 0.04, 0.03, 0.01, 0.03, const Color(0xFFFFFFFF)),
     ABox(0, 0, chestZ - 0.3, 0.29 * w, chestY + 0.01, 0.035, ar.trim),
     ABox(0, chestY + 0.02, chestZ - 0.3, 0.05, 0.012, 0.045, ar.gem),
-    // miğfer: alın taşı
-    ABox(0, 0.245, headTop - 0.1, 0.05, 0.012, 0.04, ar.gem),
   ];
+  if (ar.helm == 0) out.add(ABox(0, 0.245, headTop - 0.1, 0.05, 0.012, 0.04, ar.gem));
   final pl = ar.plume;
-  if (pl != null) {
+  if (pl != null && ar.helm == 0) {
     out.add(ABox(0, -0.02, headTop + 0.1, 0.045, 0.2, 0.09, pl));
     out.add(ABox(0, -0.2, headTop + 0.03, 0.045, 0.06, 0.12, pl));
   }
-  if (ar.horns) {
+  if (pl != null && ar.helm == 2) {
+    // sorguç: sarığın önünde dik tüy
+    out.add(ABox(0, 0.17, headTop + 0.27, 0.03, 0.035, 0.13, pl));
+    out.add(ABox(0, 0.13, headTop + 0.4, 0.025, 0.05, 0.05, pl));
+  }
+  if (ar.horns && ar.helm == 0) {
     out.add(ABox(-0.29, 0.02, headTop + 0.02, 0.04, 0.04, 0.1, ar.trim));
     out.add(ABox(0.29, 0.02, headTop + 0.02, 0.04, 0.04, 0.1, ar.trim));
     out.add(ABox(-0.33, 0.02, headTop + 0.14, 0.03, 0.03, 0.06, ar.gem));
@@ -238,7 +303,7 @@ List<ABox> bearBoxes(Avatar a, {double walk = 0, double swing = 0, String? tool,
     final ar = armors[a.armor - 1];
     out.removeWhere((b) => b.cz > 1.6 && b.color == hat);
     out.addAll([
-      ABox(0, 0.01, 1.6, 0.27, 0.25, 0.06, ar.color),
+      if (ar.helm == 0) ABox(0, 0.01, 1.6, 0.27, 0.25, 0.06, ar.color) else ...helmBoxes(ar, 1.64, w: 1.05, front: 0.27),
       ABox(0, 0, 0.8, 0.31, 0.23, 0.26, ar.color),
       ABox(0, 0.235, 0.8, 0.14, 0.01, 0.18, ar.trim),
       ABox(-0.38, 0, 1.0, 0.115, 0.125, 0.08, ar.trim, pivotZ: 1.05, angle: armL),
@@ -315,10 +380,13 @@ List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? too
     // başlıktaki saç/şapka yerine miğfer
     out.removeWhere((b) => b.cz > 1.75 || (b.cz > 1.5 && b.cy < -0.15));
     out.addAll([
-      ABox(0, -0.01, 1.84, 0.26, 0.26, 0.07, ar.color),
-      ABox(0, -0.22, 1.68, 0.26, 0.05, 0.16, ar.color),
-      ABox(-0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
-      ABox(0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
+      if (ar.helm == 0) ...[
+        ABox(0, -0.01, 1.84, 0.26, 0.26, 0.07, ar.color),
+        ABox(0, -0.22, 1.68, 0.26, 0.05, 0.16, ar.color),
+        ABox(-0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
+        ABox(0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
+      ] else
+        ...helmBoxes(ar, 1.88),
       ABox(0, 0, 1.1, 0.27, 0.16, 0.31, ar.color),
       ABox(0, 0.165, 1.12, 0.12, 0.01, 0.2, ar.trim),
       ABox(-0.36, 0, 1.3, 0.12, 0.12, 0.1, ar.trim, pivotZ: 1.39, angle: armL),
@@ -573,7 +641,9 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                                   ChoiceChip(label: const Text('Yok'), selected: a.armor == 0, onSelected: (_) => _set(() => a.armor = 0)),
                                   for (final i in owned)
                                     ChoiceChip(
-                                      avatar: CircleAvatar(backgroundColor: armors[i - 1].color, radius: 8),
+                                      avatar: armors[i - 1].pic != null
+                                          ? Pic(armors[i - 1].pic!, height: 26)
+                                          : CircleAvatar(backgroundColor: armors[i - 1].color, radius: 8),
                                       label: Text(armors[i - 1].name.split(' ').first),
                                       selected: a.armor == i,
                                       onSelected: (_) => _set(() => a.armor = i),

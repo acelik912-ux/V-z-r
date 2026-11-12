@@ -125,6 +125,10 @@ void main() {
         return BlokAdasi(startFocus: (w.places['Darende Adası']!.$1, w.places['Darende Adası']!.$2));
       },
       'zirh_elmas': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,4')),
+      'zirh_osmanli': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,7')),
+      'zirh_yeniceri': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,8')),
+      'zirh_selcuklu': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,6')),
+      'zirh_onizleme': () => Scaffold(body: Center(child: ArmorPreview(armors[2]))),
       'zirh_ayi': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,1,2,5')),
       'arkadas_emir': () => Scaffold(
           body: Center(child: FriendOrderDialog(Friend('Ali', Avatar.decode('0,0,1,3,0,1,0,0,4')!, 0, 0, 0)))),

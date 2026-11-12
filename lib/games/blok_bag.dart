@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../art.dart';
 import '../sfx.dart';
 import '../state.dart';
+import '../syllables.dart';
 import '../voice.dart';
 import 'blok.dart';
 import 'blok_char.dart';
@@ -57,7 +58,7 @@ List<(String, List<BagItem>)> bagSections() {
     ]),
     ('🛒 Pazar (zırhlar)', [
       for (final a in armors)
-        BagItem('zirh_${a.id}', a.name, Center(child: Icon(Icons.shield, size: 36, color: a.color)), !bagUnlocked('zirh_${a.id}'),
+        BagItem('zirh_${a.id}', a.name, Center(child: a.pic != null ? Pic(a.pic!, height: 52) : ArmorIcon(a)), !bagUnlocked('zirh_${a.id}'),
             price: a.price),
     ]),
   ];
@@ -91,6 +92,10 @@ class _BagScreenState extends State<BagScreen> {
         if (mounted) Navigator.pop(context, null);
         return;
       }
+      // önce zırhı büyük göster
+      final ar = armors[idx - 1];
+      final buy = await showDialog<bool>(context: context, builder: (_) => ArmorPreview(ar, owned: false));
+      if (buy != true || !mounted) return;
       if (game.coins < it.price) {
         Voice.say('${it.name} ${it.price} altın. Senin ${game.coins} altının var. Hasat yaparak, hayvanlara bakarak altın kazan!');
         _toast('${it.price} 🪙 gerekli, sende ${game.coins} 🪙 var');
@@ -101,7 +106,7 @@ class _BagScreenState extends State<BagScreen> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (_) => SpellDialog(
-          parts: heceler(it.name),
+          parts: heceler(it.id.startsWith('zirh_') ? trLower(it.name.split(' ').first) : it.name),
           emoji: it.id.startsWith('zirh_') ? '🛡️' : '🔒',
           title: it.price > 0 ? '${it.price} 🪙 ile almak için adını yaz' : 'Açmak için adını yaz',
           speech: '${it.name}. Açmak için adını hecelerle yaz!',
@@ -202,6 +207,63 @@ class _BagScreenState extends State<BagScreen> {
               ]),
             ),
           ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Resmi olmayan zırhlar için: miğfer ve kalkan simgesi, zırh renklerinde.
+class ArmorIcon extends StatelessWidget {
+  final Armor a;
+  const ArmorIcon(this.a, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Stack(alignment: Alignment.center, children: [
+        Icon(Icons.shield, size: 44, color: a.color),
+        Icon(Icons.shield_outlined, size: 44, color: a.trim),
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: a.gem, shape: BoxShape.circle)),
+        Positioned(
+          top: 0,
+          child: Container(width: 30, height: 6, decoration: BoxDecoration(color: a.cape, borderRadius: BorderRadius.circular(3))),
+        ),
+      ]);
+}
+
+/// Zırhı büyük gösterir, fiyatını ve (tarihî zırhlarda) kısa bilgisini okur.
+class ArmorPreview extends StatelessWidget {
+  final Armor a;
+  final bool owned;
+  const ArmorPreview(this.a, {super.key, this.owned = false});
+
+  @override
+  Widget build(BuildContext context) {
+    Voice.say('${trCapitalize(a.name)}. ${a.info ?? ''} Fiyatı ${a.price} altın.');
+    return Dialog(
+      backgroundColor: const Color(0xFFFFF8E1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(trCapitalize(a.name), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 230,
+            child: a.pic != null ? Pic(a.pic!, height: 230) : Transform.scale(scale: 3.2, child: ArmorIcon(a)),
+          ),
+          if (a.info != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(a.info!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF8F00), minimumSize: const Size(220, 54)),
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Text('🪙', style: TextStyle(fontSize: 22)),
+            label: Text('${a.price} altına al', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç', style: TextStyle(fontSize: 16))),
         ]),
       ),
     );
