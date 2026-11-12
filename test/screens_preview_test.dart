@@ -191,4 +191,41 @@ void main() {
       }
     });
   });
+
+  testWidgets('Zırh giyme', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Voice.muted = true;
+    await tester.runAsync(() async {
+      await game.load();
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.625;
+    game.avatar = '0,0,1,3,0,1,0,0';
+    game.blockItems = {'zirh_selcuklu'};
+    game.coins = 500;
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (c) => Scaffold(
+                body: Center(
+                    child: ElevatedButton(
+                        onPressed: () => Navigator.push<String>(
+                            c, MaterialPageRoute(builder: (_) => const BagScreen(selected: 'tahta', shape: 0))),
+                        child: const Text('ac')))))));
+    await tester.tap(find.text('ac'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final tile = find.text('Selçuklu zırhı');
+    await tester.scrollUntilVisible(tile, 300, scrollable: find.byType(Scrollable).first);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(tile);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // ignore: avoid_print
+    print('ZIRH_SONUC avatar=${game.avatar} items=${game.blockItems}');
+    expect(Avatar.decode(game.avatar)!.armor, 6);
+  });
 }
