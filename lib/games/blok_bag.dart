@@ -88,7 +88,6 @@ class _BagScreenState extends State<BagScreen> {
       if (!it.locked) {
         final av = myAvatar..armor = idx;
         game.setAvatar(av.encode());
-        Voice.say('${it.name} giydin!');
         if (mounted) Navigator.pop(context, null);
         return;
       }
@@ -121,7 +120,6 @@ class _BagScreenState extends State<BagScreen> {
         final idx = armors.indexWhere((a) => 'zirh_${a.id}' == it.id) + 1;
         final av = myAvatar..armor = idx;
         game.setAvatar(av.encode());
-        Voice.say('${it.name} senin! Hemen giydin.');
         if (mounted) Navigator.pop(context, null);
         return;
       }
@@ -238,14 +236,15 @@ class ArmorPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Voice.say('${trCapitalize(a.name)}. ${a.info ?? ''} Fiyatı ${a.price} altın.');
+    Voice.say('${trCapitalize(a.name)}. Bunu giyen ${a.hero} olur! ${a.info ?? ''} Fiyatı ${a.price} altın.');
     return Dialog(
       backgroundColor: const Color(0xFFFFF8E1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(trCapitalize(a.name), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          Text(trCapitalize(a.name), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          Text('👑 ${a.hero}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFFBF360C))),
           const SizedBox(height: 8),
           SizedBox(
             height: 230,

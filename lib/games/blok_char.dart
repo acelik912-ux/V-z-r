@@ -64,36 +64,61 @@ class Armor {
   final int helm; // 0 şövalye miğferi, 1 sivri miğfer + zincir, 2 sarıklı miğfer, 3 yeniçeri börkü
   final String? pic; // pazardaki resim
   final String? info; // tarihî zırhlar için kısa bilgi
+  final String hero; // giyince dönüşülen kahraman
+  final String heroTo; // "… dönüştün" için yönelme hâli
+  final String heroLine; // dönüşünce söylenen kısa söz
   const Armor(this.id, this.name, this.color, this.trim, this.price,
-      {required this.cape, required this.gem, this.plume, this.horns = false, this.helm = 0, this.pic, this.info});
+      {required this.cape,
+      required this.gem,
+      required this.hero,
+      required this.heroTo,
+      required this.heroLine,
+      this.plume,
+      this.horns = false,
+      this.helm = 0,
+      this.pic,
+      this.info});
+
+  /// "Şimdi Sultan Alparslan'a dönüştün! …"
+  String get transform => 'Şimdi $heroTo dönüştün! $heroLine';
 }
 
 const armors = [
   Armor('deri', 'deri zırh', Color(0xFF8D6E63), Color(0xFF5D4037), 15,
+      hero: 'Battal Gazi', heroTo: 'Battal Gazi\'ye', heroLine: 'Kahramanlık destanlarının yiğidi Battal Gazi oldun!',
       cape: Color(0xFF4E342E), gem: Color(0xFFFFB300), pic: 'zirh_deri'),
   Armor('demir', 'demir zırh', Color(0xFFB0BEC5), Color(0xFF607D8B), 40,
+      hero: 'Ertuğrul Gazi', heroTo: 'Ertuğrul Gazi\'ye', heroLine: 'Obasını koruyan cesur Ertuğrul Gazi oldun!',
       cape: Color(0xFF1565C0), gem: Color(0xFF90CAF9), plume: Color(0xFFD32F2F), pic: 'zirh_demir'),
   Armor('altin', 'altın zırh', Color(0xFFFFC107), Color(0xFFFF8F00), 80,
+      hero: 'Kanuni Sultan Süleyman', heroTo: 'Kanuni Sultan Süleyman\'a', heroLine: 'Adaletiyle bilinen büyük sultan oldun!',
       cape: Color(0xFFC62828), gem: Color(0xFFE53935), plume: Color(0xFFFFFFFF), pic: 'zirh_altin'),
   Armor('elmas', 'elmas zırh', Color(0xFF4DD0E1), Color(0xFF00838F), 150,
+      hero: 'Yavuz Sultan Selim', heroTo: 'Yavuz Sultan Selim\'e', heroLine: 'Yıldırım gibi hızlı, cesur sultan oldun!',
       cape: Color(0xFF6A1B9A), gem: Color(0xFFE0F7FA), plume: Color(0xFFFFD54F), horns: true, pic: 'zirh_elmas'),
   Armor('zumrut', 'zümrüt zırh', Color(0xFF00C853), Color(0xFF1B5E20), 250,
+      hero: 'Abdülhamid Han', heroTo: 'Abdülhamid Han\'a', heroLine: 'Okullar, hastaneler, demiryolları yaptıran Abdülhamid Han oldun!',
       cape: Color(0xFFFFD54F), gem: Color(0xFFB2FF59), plume: Color(0xFFFFD54F), horns: true, pic: 'zirh_zumrut'),
   // tarihî zırhlar (Müslüman devletler)
   Armor('selcuklu', 'Selçuklu zırhı', Color(0xFF26A69A), Color(0xFFFFB300), 90,
-      cape: Color(0xFF0D47A1), gem: Color(0xFFFFD54F), helm: 1,
+      hero: 'Sultan Alparslan', heroTo: 'Sultan Alparslan\'a', heroLine: 'Malazgirt zaferiyle Anadolu\'nun kapısını açan sultan oldun!',
+      cape: Color(0xFF0D47A1), gem: Color(0xFFFFD54F), pic: 'zirh_selcuklu', helm: 1,
       info: 'Selçuklu süvarileri sivri miğfer ve küçük pullardan yapılmış zırh giyerdi. Anadolu kapısını açan Malazgirt zaferi onlarındı.'),
   Armor('osmanli', 'Osmanlı sipahi zırhı', Color(0xFFC62828), Color(0xFFFFC107), 120,
-      cape: Color(0xFF7F0000), gem: Color(0xFF00E676), plume: Color(0xFFFFFFFF), helm: 2,
+      hero: 'Osman Gazi', heroTo: 'Osman Gazi\'ye', heroLine: 'Osmanlı Devleti\'ni kuran adil bey oldun!',
+      cape: Color(0xFF7F0000), gem: Color(0xFF00E676), plume: Color(0xFFFFFFFF), pic: 'zirh_osmanli', helm: 2,
       info: 'Sipahiler Osmanlının atlı askerleriydi. Sarıklı miğfer, zincir zırh ve kırmızı kaftan giyerlerdi.'),
   Armor('yeniceri', 'Yeniçeri zırhı', Color(0xFF1565C0), Color(0xFFFFC107), 120,
-      cape: Color(0xFFFAFAFA), gem: Color(0xFFE53935), helm: 3,
+      hero: 'Fatih Sultan Mehmet', heroTo: 'Fatih Sultan Mehmet\'e', heroLine: 'İstanbul\'u fetheden genç sultan oldun!',
+      cape: Color(0xFFFAFAFA), gem: Color(0xFFE53935), pic: 'zirh_yeniceri', helm: 3,
       info: 'Yeniçeriler başlarına arkası sarkan beyaz börk takardı. Mehter marşıyla yürürlerdi.'),
   Armor('memluk', 'Memlük zırhı', Color(0xFFB87333), Color(0xFF5D4037), 150,
-      cape: Color(0xFFFDD835), gem: Color(0xFF29B6F6), plume: Color(0xFFFFFFFF), helm: 2,
+      hero: 'Sultan Baybars', heroTo: 'Sultan Baybars\'a', heroLine: 'Şam\'ı ve Mısır\'ı koruyan yiğit sultan oldun!',
+      cape: Color(0xFFFDD835), gem: Color(0xFF29B6F6), plume: Color(0xFFFFFFFF), pic: 'zirh_memluk', helm: 2,
       info: 'Memlükler Mısır ve Şam\'ı korudu. Altın sarısı sancakları ve bakır renkli zırhlarıyla tanınırlardı.'),
   Armor('endulus', 'Endülüs zırhı', Color(0xFFF5F5F5), Color(0xFFD4AF37), 180,
-      cape: Color(0xFF00695C), gem: Color(0xFFE53935), helm: 1,
+      hero: 'Tarık bin Ziyad', heroTo: 'Tarık bin Ziyad\'a', heroLine: 'Endülüs\'e ilk adımı atan cesur komutan oldun!',
+      cape: Color(0xFF00695C), gem: Color(0xFFE53935), pic: 'zirh_endulus', helm: 1,
       info: 'Endülüs Müslümanları İspanya\'da yüzyıllarca yaşadı. Beyaz-altın zırhları ve güzel saraylarıyla ünlüydüler.'),
 ];
 
@@ -644,9 +669,12 @@ class _AvatarScreenState extends State<AvatarScreen> with SingleTickerProviderSt
                                       avatar: armors[i - 1].pic != null
                                           ? Pic(armors[i - 1].pic!, height: 26)
                                           : CircleAvatar(backgroundColor: armors[i - 1].color, radius: 8),
-                                      label: Text(armors[i - 1].name.split(' ').first),
+                                      label: Text(armors[i - 1].hero),
                                       selected: a.armor == i,
-                                      onSelected: (_) => _set(() => a.armor = i),
+                                      onSelected: (_) {
+                                        _set(() => a.armor = i);
+                                        Voice.say(armors[i - 1].transform);
+                                      },
                                     ),
                                 ]),
                         ),

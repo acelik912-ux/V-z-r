@@ -1358,10 +1358,25 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   bool unlocked(String id) => bagUnlocked(id);
 
+  /// Zırh değiştiyse dönüşüm: ışıltı ve kahramanın adı.
+  void _armorChanged(int before) {
+    final a = avatar.armor;
+    if (a == before || a <= 0 || a > armors.length) return;
+    final ar = armors[a - 1];
+    final c = ck(ax.floor(), ay.floor(), az.floor() + 1);
+    _burst(c, ar.gem, 18);
+    _burst(c, ar.color, 14);
+    _burst(c, const Color(0xFFFFD54F), 12);
+    Sfx.play('unlock');
+    Say.show(context, Who.tamirci, '✨ ${ar.transform}', mood: 'sevin');
+  }
+
   Future<void> _openBag() async {
+    final before = avatar.armor;
     final r = await Navigator.push<String>(context, fadeRoute(BagScreen(selected: sel, shape: selShape)));
     if (!mounted) return;
     setState(() => avatar = myAvatar);
+    _armorChanged(before);
     if (r == null) return;
     if (r.startsWith('shape:')) {
       final n = int.parse(r.substring(6));
@@ -3298,8 +3313,12 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                       ),
                       Bouncy(
                         onTap: () async {
+                          final before = avatar.armor;
                           await Navigator.push(context, fadeRoute(const AvatarScreen()));
-                          if (mounted) setState(() => avatar = myAvatar);
+                          if (mounted) {
+                            setState(() => avatar = myAvatar);
+                            _armorChanged(before);
+                          }
                         },
                         child: Container(
                           margin: const EdgeInsets.all(2),
@@ -4312,6 +4331,13 @@ class _WorldPainter extends CustomPainter {
       if (dd > (s.firstPerson ? 48 : 24)) continue;
       final o = pr(x + 0.5, y + 0.5, s.world.topZ(x, y) + 5.5);
       if (o != null) paintPlace(canvas, o, e.key, scale: dd < 20 ? 1 : 0.8);
+    }
+    if (!s.firstPerson || s.behind) {
+      final a = s.avatar.armor;
+      if (a > 0 && a <= armors.length) {
+        final o = pr(s.ax, s.ay, s.az + 2.35);
+        if (o != null) paintNameTag(canvas, o, '👑 ${armors[a - 1].hero}');
+      }
     }
     for (final f in s.friends) {
       if ((f.x - ox).abs() > 20 || (f.y - oy).abs() > 20) continue;
