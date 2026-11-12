@@ -4342,7 +4342,7 @@ class _WorldPainter extends CustomPainter {
       final a = s.avatar.armor;
       if (a > 0 && a <= armors.length) {
         final o = pr(s.ax, s.ay, s.az + 2.35);
-        if (o != null) paintNameTag(canvas, o, '👑 ${armors[a - 1].hero}');
+        if (o != null) paintNameTag(canvas, o, armors[a - 1].hero);
       }
     }
     for (final f in s.friends) {

@@ -405,27 +405,7 @@ List<ABox> avatarBoxes(Avatar a, {double walk = 0, double swing = 0, String? too
     final ar = armors[a.armor - 1];
     // başlıktaki saç/şapka yerine miğfer
     out.removeWhere((b) => b.cz > 1.75 || (b.cz > 1.5 && b.cy < -0.15));
-    out.addAll([
-      if (ar.helm == 0) ...[
-        ABox(0, -0.01, 1.84, 0.26, 0.26, 0.07, ar.color),
-        ABox(0, -0.22, 1.68, 0.26, 0.05, 0.16, ar.color),
-        ABox(-0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
-        ABox(0.245, 0, 1.68, 0.025, 0.22, 0.14, ar.trim),
-      ] else
-        ...helmBoxes(ar, 1.88),
-      ABox(0, 0, 1.1, 0.27, 0.16, 0.31, ar.color),
-      ABox(0, 0.165, 1.12, 0.12, 0.01, 0.2, ar.trim),
-      ABox(-0.36, 0, 1.3, 0.12, 0.12, 0.1, ar.trim, pivotZ: 1.39, angle: armL),
-      ABox(0.36, 0, 1.3, 0.12, 0.12, 0.1, ar.trim, pivotZ: 1.39, angle: armR),
-      ABox(-0.13, 0, 0.5, 0.125, 0.135, 0.2, ar.color, pivotZ: 0.75, angle: leg),
-      ABox(0.13, 0, 0.5, 0.125, 0.135, 0.2, ar.color, pivotZ: 0.75, angle: -leg),
-      ABox(-0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: leg),
-      ABox(0.13, 0.02, 0.07, 0.13, 0.165, 0.07, ar.trim, pivotZ: 0.75, angle: -leg),
-      // eldivenler
-      ABox(-0.36, 0, 0.8, 0.105, 0.105, 0.08, ar.trim, pivotZ: 1.39, angle: armL),
-      ABox(0.36, 0, 0.8, 0.105, 0.105, 0.08, ar.trim, pivotZ: 1.39, angle: armR),
-      ...armorExtras(ar, armL: armL, armR: armR, leg: leg),
-    ]);
+    out.addAll(knightBoxes(ar, armL: armL, armR: armR, leg: leg));
   }
   if (tool != null) out.addAll(_toolBoxes(tool, armR));
   if (shield) {
@@ -873,4 +853,101 @@ class AvatarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant AvatarPainter old) => true;
+}
+
+/// Resimdeki gibi tam zırh (insan): kubbe miğfer, büyük tüy, yuvarlak omuzluklar,
+/// göğüs zırhı ve taşı, kemer, etek plakaları, kollukler, dizlik ve uzun pelerin.
+List<ABox> knightBoxes(Armor ar, {required double armL, required double armR, required double leg}) {
+  final c = ar.color, t = ar.trim, g = ar.gem;
+  final capeA = -0.08 - leg.abs() * 0.3;
+  final out = <ABox>[
+    // pelerin (omuzdan dize kadar, altı genişler)
+    ABox(0, -0.185, 1.37, 0.3, 0.03, 0.035, t),
+    ABox(0, -0.2, 0.92, 0.29, 0.02, 0.44, ar.cape, pivotZ: 1.37, angle: capeA),
+    ABox(0, -0.2, 0.42, 0.34, 0.02, 0.07, ar.cape, pivotZ: 1.37, angle: capeA),
+    // göğüs zırhı
+    ABox(0, 0.01, 1.1, 0.275, 0.17, 0.315, c),
+    ABox(0, 0, 1.405, 0.2, 0.15, 0.025, t),
+    ABox(0, 0.183, 1.18, 0.26, 0.008, 0.022, t),
+    ABox(-0.12, 0.183, 1.3, 0.1, 0.008, 0.018, t),
+    ABox(0.12, 0.183, 1.3, 0.1, 0.008, 0.018, t),
+    ABox(0, 0.186, 1.28, 0.075, 0.006, 0.075, t),
+    ABox(0, 0.195, 1.28, 0.05, 0.008, 0.055, g),
+    // kemer ve tokası
+    ABox(0, 0.005, 0.83, 0.285, 0.18, 0.045, t),
+    ABox(0, 0.19, 0.83, 0.06, 0.008, 0.05, c),
+    ABox(0, 0.2, 0.83, 0.035, 0.006, 0.03, g),
+    // etek plakaları
+    ABox(-0.16, 0.155, 0.67, 0.085, 0.02, 0.12, c),
+    ABox(0, 0.165, 0.65, 0.07, 0.02, 0.14, c),
+    ABox(0.16, 0.155, 0.67, 0.085, 0.02, 0.12, c),
+    ABox(-0.16, 0.16, 0.55, 0.085, 0.02, 0.02, t),
+    ABox(0, 0.17, 0.51, 0.07, 0.02, 0.02, t),
+    ABox(0.16, 0.16, 0.55, 0.085, 0.02, 0.02, t),
+    // yuvarlak omuzluklar
+    for (final (sx, an) in [(-1.0, armL), (1.0, armR)]) ...[
+      ABox(sx * 0.39, 0, 1.36, 0.17, 0.18, 0.1, c, pivotZ: 1.39, angle: an),
+      ABox(sx * 0.39, 0, 1.47, 0.13, 0.14, 0.035, c, pivotZ: 1.39, angle: an),
+      ABox(sx * 0.41, 0, 1.26, 0.18, 0.19, 0.025, t, pivotZ: 1.39, angle: an),
+      // kol zırhı ve eldiven
+      ABox(sx * 0.36, 0, 1.08, 0.11, 0.11, 0.17, c, pivotZ: 1.39, angle: an),
+      ABox(sx * 0.36, 0, 0.88, 0.115, 0.115, 0.05, t, pivotZ: 1.39, angle: an),
+      ABox(sx * 0.36, 0, 0.77, 0.1, 0.1, 0.06, c, pivotZ: 1.39, angle: an),
+    ],
+    // bacak zırhı, dizlik, çizme
+    for (final (sx, an) in [(-1.0, leg), (1.0, -leg)]) ...[
+      ABox(sx * 0.13, 0, 0.33, 0.125, 0.135, 0.22, c, pivotZ: 0.75, angle: an),
+      ABox(sx * 0.13, 0.14, 0.5, 0.08, 0.015, 0.05, t, pivotZ: 0.75, angle: an),
+      ABox(sx * 0.13, 0.02, 0.06, 0.13, 0.165, 0.06, t, pivotZ: 0.75, angle: an),
+    ],
+  ];
+  if (ar.helm == 0) {
+    out.addAll([
+      // kubbe miğfer, yüz açık
+      ABox(0, 0, 1.9, 0.255, 0.255, 0.04, c),
+      ABox(0, -0.01, 1.965, 0.2, 0.2, 0.03, c),
+      ABox(0, -0.01, 2.01, 0.12, 0.13, 0.02, t),
+      ABox(-0.25, 0, 1.66, 0.03, 0.255, 0.24, c),
+      ABox(0.25, 0, 1.66, 0.03, 0.255, 0.24, c),
+      ABox(0, -0.25, 1.66, 0.255, 0.03, 0.24, c),
+      ABox(0, 0.25, 1.83, 0.26, 0.025, 0.05, t),
+      ABox(-0.185, 0.25, 1.58, 0.065, 0.025, 0.16, c),
+      ABox(0.185, 0.25, 1.58, 0.065, 0.025, 0.16, c),
+      ABox(-0.185, 0.255, 1.43, 0.065, 0.02, 0.015, t),
+      ABox(0.185, 0.255, 1.43, 0.065, 0.02, 0.015, t),
+      ABox(-0.285, 0.06, 1.8, 0.012, 0.05, 0.05, t),
+      ABox(0.285, 0.06, 1.8, 0.012, 0.05, 0.05, t),
+      ABox(0, 0.28, 1.83, 0.035, 0.01, 0.03, g),
+    ]);
+    final pl = ar.plume;
+    if (pl != null) {
+      // kabarık tüy
+      out.addAll([
+        ABox(0, -0.02, 2.06, 0.03, 0.03, 0.04, t),
+        ABox(0, -0.03, 2.18, 0.11, 0.12, 0.09, pl),
+        ABox(0, -0.15, 2.13, 0.09, 0.08, 0.08, pl),
+        ABox(0.05, 0.06, 2.26, 0.07, 0.07, 0.06, pl),
+        ABox(-0.05, -0.07, 2.29, 0.07, 0.07, 0.06, pl),
+        ABox(0, -0.22, 2.03, 0.06, 0.06, 0.07, pl),
+      ]);
+    }
+    if (ar.horns) {
+      out.addAll([
+        ABox(-0.3, 0.03, 1.93, 0.035, 0.035, 0.07, t),
+        ABox(0.3, 0.03, 1.93, 0.035, 0.035, 0.07, t),
+        ABox(-0.33, 0.03, 2.03, 0.03, 0.03, 0.05, t),
+        ABox(0.33, 0.03, 2.03, 0.03, 0.03, 0.05, t),
+        ABox(-0.34, 0.03, 2.1, 0.022, 0.022, 0.03, g),
+        ABox(0.34, 0.03, 2.1, 0.022, 0.022, 0.03, g),
+      ]);
+    }
+  } else {
+    out.addAll(helmBoxes(ar, 1.88));
+    final pl = ar.plume;
+    if (pl != null && ar.helm == 2) {
+      out.add(ABox(0, 0.17, 2.15, 0.03, 0.035, 0.13, pl));
+      out.add(ABox(0, 0.13, 2.28, 0.025, 0.05, 0.05, pl));
+    }
+  }
+  return out;
 }

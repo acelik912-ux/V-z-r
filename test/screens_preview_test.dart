@@ -128,6 +128,11 @@ void main() {
       'zirh_osmanli': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,7')),
       'zirh_yeniceri': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,8')),
       'zirh_selcuklu': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,6')),
+      'zirh_altin_on': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,0,0,3')),
+      'blok_zirh_arka': () {
+        game.avatar = '0,0,1,3,0,1,0,0,3';
+        return const BlokAdasi(startFirstPerson: true, startBehind: true);
+      },
       'zirh_onizleme': () => Scaffold(body: Center(child: ArmorPreview(armors[2]))),
       'zirh_ayi': () => AvatarScreen(friendStart: Avatar.decode('0,0,1,3,0,1,1,2,5')),
       'arkadas_emir': () => Scaffold(
