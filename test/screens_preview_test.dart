@@ -146,6 +146,14 @@ void main() {
             future: buildMapImage(w),
             builder: (_, snap) => WorldMapScreen(img: snap.data, px: 17, py: 17, facing: 0.5, places: w.places, friends: const []));
       },
+      'blok_ada_yakin': () {
+        final w = BlockWorld()..seed();
+        w.ensureLands();
+        game.blockWorld = w.encode();
+        game.blockFriends = '';
+        final p = w.places['İstanbul Adası']!;
+        return BlokAdasi(startFocus: (p.$1, p.$2));
+      },
       'yerler': () => const Scaffold(body: Center(child: PlacesDialog(['Sürgü Adası', 'Malatya Adası', 'Harput Köyü', 'Darende Köyü']))),
       'sifre': () => const Scaffold(body: Center(child: PinDialog())),
       'para_ustu': () => const Scaffold(body: Center(child: ChangeDialog(name: 'süt', emoji: '🥛', price: 4))),
@@ -276,5 +284,6 @@ void main() {
     expect(st.friends.every((f) => f.mode == 0), true);
     expect(st.world.blocks.length - b0 > 80, true);
     await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 15));
   });
 }
