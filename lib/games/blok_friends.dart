@@ -25,15 +25,29 @@ class Friend {
   int jobDir = 0;
   Friend(this.name, this.look, this.x, this.y, this.z, {this.mode = 0});
 
-  String encode() => '$name~${look.encode()}~${x.toStringAsFixed(1)}~${y.toStringAsFixed(1)}~${z.toStringAsFixed(1)}~${mode == 1 ? 1 : 0}';
+  String encode() {
+    final g = goal, j = job;
+    final work = (mode == 2 || mode == 3) && g != null && j != null ? '~${g.$1},${g.$2},${g.$3}~$j~$jobDir' : '';
+    return '$name~${look.encode()}~${x.toStringAsFixed(1)}~${y.toStringAsFixed(1)}~${z.toStringAsFixed(1)}~${mode == 1 ? 1 : 0}$work';
+  }
 
   static Friend? decode(String s) {
     final p = s.split('~');
-    if (p.length != 6) return null;
+    if (p.length != 6 && p.length != 9) return null;
     final a = Avatar.decode(p[1]);
     if (a == null) return null;
-    return Friend(p[0], a, double.tryParse(p[2]) ?? 17, double.tryParse(p[3]) ?? 17, double.tryParse(p[4]) ?? 1,
+    final f = Friend(p[0], a, double.tryParse(p[2]) ?? 17, double.tryParse(p[3]) ?? 17, double.tryParse(p[4]) ?? 1,
         mode: p[5] == '1' ? 1 : 0);
+    if (p.length == 9) {
+      final g = p[6].split(',').map(int.tryParse).toList();
+      if (g.length == 3 && !g.contains(null)) {
+        f.goal = (g[0]!, g[1]!, g[2]!);
+        f.job = p[7];
+        f.jobDir = int.tryParse(p[8]) ?? 0;
+        f.mode = 2; // yarım kalan işine geri döner
+      }
+    }
+    return f;
   }
 }
 
@@ -371,3 +385,45 @@ double friendDist(Friend f, double x, double y) => sqrt(pow(f.x - x, 2) + pow(f.
 
 /// Hazır yapının adı (arkadaş konuşmaları için)
 String jobName(String id) => friendJobs.firstWhere((j) => j.$1 == id, orElse: () => (id, 'yapı', '🏗️')).$2;
+
+// ================= KÖYLÜLER (adalarda ve köylerde yaşayan insanlar) =================
+
+class Villager {
+  final String name, place;
+  final Avatar look;
+  final int hx, hy, baseZ; // evinin önü (meydan) ve zemin yüksekliği
+  double x, y, z, facing = 0, walk = 0, wait = 0;
+  (int, int)? target;
+  Villager(this.name, this.place, this.look, this.hx, this.hy, this.baseZ, this.x, this.y, this.z);
+}
+
+const _menNames = ['Ahmet', 'Mehmet', 'Mustafa', 'Hasan', 'Hüseyin', 'İbrahim', 'Halil', 'Yakup', 'Bilal', 'Osman', 'Salih', 'Veli'];
+const _womenNames = ['Fatma', 'Ayşe', 'Emine', 'Hatice', 'Zehra', 'Hacer', 'Rukiye', 'Havva', 'Saliha', 'Sümeyye', 'Kübra', 'Esma'];
+
+/// Her yere iki-üç köylü: adı, görünüşü yerin adından türetilir (her açılışta aynı).
+List<Villager> makeVillagers(Map<String, (int, int)> places, int Function(int, int) topZ) {
+  final out = <Villager>[];
+  for (final e in places.entries) {
+    final r = Random(e.key.hashCode);
+    final (cx, cy) = e.value;
+    final base = topZ(cx, cy);
+    final n = e.key.endsWith('Köyü') ? 3 : 2;
+    for (var i = 0; i < n; i++) {
+      final woman = r.nextBool();
+      final name = woman ? _womenNames[r.nextInt(_womenNames.length)] : _menNames[r.nextInt(_menNames.length)];
+      final look = Avatar.decode('${r.nextInt(skinColors.length)},${r.nextInt(hairColors.length)},${woman ? 1 : (r.nextBool() ? 4 : 0)},'
+          '${r.nextInt(clothColors.length)},${r.nextInt(clothColors.length)},${r.nextInt(hatColors.length)},0,0,0')!;
+      final x = cx + 0.5 + (i - 1) * 1.2, y = cy + 0.5;
+      out.add(Villager(name, e.key, look, cx, cy, base, x, y, base + 1.0));
+    }
+  }
+  return out;
+}
+
+/// "Darende Köyü" -> "Darende köyüne", "Malatya Adası" -> "Malatya adasına"
+String placeTo(String key) {
+  final base = key.split(' ').first;
+  if (key.endsWith('Köyü')) return '$base köyüne';
+  if (key.endsWith('Adası')) return '$base adasına';
+  return key;
+}

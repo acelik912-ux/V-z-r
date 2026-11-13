@@ -640,7 +640,8 @@ class BlockWorld {
   /// Kameranın baktığı yöne yeni arazi ekler. dir: 0 +y, 1 +x, 2 -y, 3 -x
   void expand(int dir, String biome, {int size = 20}) {
     final r = Random();
-    if (biome == 'adalar' || biome == 'koyler') size = 64;
+    if (biome == 'adalar') size = 90;
+    if (biome == 'koyler') size = 64;
     int x0, x1, y0, y1;
     switch (dir) {
       case 0:
@@ -772,19 +773,20 @@ class BlockWorld {
 
   /// Denizde adlı adalar: kumsal, çimenli tepe, ağaç, ev ya da cami.
   void _islands(int x0, int x1, int y0, int y1, Random r) {
-    final kum = matIndex('kum'), cim = matIndex('cim'), toprak = matIndex('toprak');
+    final kum = matIndex('kum'), cim = matIndex('cim'), toprak = matIndex('toprak'), su = matIndex('su');
+    final tahta = matIndex('tahta'), kutuk = matIndex('kutuk');
     final cells = _grid(x0, x1, y0, y1, placeNames.length, r);
     for (var i = 0; i < cells.length; i++) {
       final (cx, cy, cw, ch) = cells[i];
-      final rad = max(3.0, min(7.0, min(cw, ch) / 2 - 1.5));
+      final rad = max(3.0, min(9.5, min(cw, ch) / 2 - 2));
       final ph = r.nextDouble() * 6;
       for (var x = (cx - rad - 1).floor(); x <= cx + rad + 1; x++) {
         for (var y = (cy - rad - 1).floor(); y <= cy + rad + 1; y++) {
           if (!inside(x, y, 0)) continue;
           final a = atan2(y - cy, x - cx);
-          final d = sqrt(pow(x - cx, 2) + pow(y - cy, 2)) / (rad * (1 + 0.12 * sin(a * 3 + ph)));
+          final d = sqrt(pow(x - cx, 2) + pow(y - cy, 2)) / (rad * (1 + 0.1 * sin(a * 3 + ph)));
           if (d > 1) continue;
-          if (d > 0.72) {
+          if (d > 0.8) {
             blocks[ck(x, y, 0)] = kum;
           } else {
             blocks[ck(x, y, 0)] = toprak;
@@ -793,19 +795,47 @@ class BlockWorld {
         }
       }
       final name = placeNames[i];
-      if (rad >= 4.4) {
-        final big = i % 3 == 1 ? _mosque() : _house();
-        stamp(big, cx, cy - 2, 2, 0);
+      if (rad >= 6.5) {
+        // iki ev, ortada meydan; büyük adalarda cami
+        stamp(_house(), cx - 3, cy - 6, 2, 0);
+        stamp(_house(), cx + 3, cy - 6, 2, 0);
+        if (rad >= 8.5) stamp(i % 2 == 1 ? _mosque() : _house(), cx, cy + 2, 2, 0);
+      } else if (rad >= 4.4) {
+        stamp(i % 3 == 1 ? _mosque() : _house(), cx, cy - 5, 2, 0);
       } else {
-        stamp(_lamp(), cx, cy, 2, 0);
+        stamp(_lamp(), cx + 1, cy, 2, 0);
       }
-      for (var t = 0; t < 2; t++) {
+      stamp(_lamp(), cx - 1, cy + 1, 2, 0);
+      for (var t = 0; t < 4; t++) {
         final a = r.nextDouble() * 2 * pi;
-        final tx = (cx + cos(a) * rad * 0.55).round(), ty = (cy + sin(a) * rad * 0.55).round();
-        if (topZ(tx, ty) == 1) stamp(_tree(), tx, ty, 2, 0);
+        final tx = (cx + cos(a) * rad * 0.62).round(), ty = (cy + sin(a) * rad * 0.62).round();
+        if (topZ(tx, ty) == 1 && (ty - cy).abs() > 1) stamp(_tree(), tx, ty, 2, 0);
+      }
+      // iskele: meydandan doğuya denize uzanan tahta yol
+      for (var x = cx + 2; x <= cx + rad.ceil() + 4; x++) {
+        if (!inside(x, cy, 0)) break;
+        final m = blocks[ck(x, cy, 0)];
+        if (m == su || m == kum) {
+          blocks[ck(x, cy, 0)] = tahta;
+          if (m == su && (x - cx).isEven) blocks[ck(x, cy + 1, 0)] = kutuk;
+        }
       }
       places['$name Adası'] = (cx, cy);
     }
+  }
+
+  /// Deniz, adalar ve köyler yoksa kendisi ekler (dünya kendiliğinden büyük olsun).
+  bool ensureLands() {
+    var added = false;
+    if (!places.keys.any((k) => k.endsWith('Köyü'))) {
+      expand(0, 'koyler');
+      added = true;
+    }
+    if (!places.keys.any((k) => k.endsWith('Adası'))) {
+      expand(1, 'adalar');
+      added = true;
+    }
+    return added;
   }
 
   /// Karada adlı köyler: patika yollar, evler, bazılarında cami, ağaçlar.
@@ -1041,7 +1071,7 @@ class BlokAdasi extends StatefulWidget {
       {super.key, this.startFirstPerson = false, this.startFocus, this.startNight, this.startBehind = false, this.startFlying = false});
 
   @override
-  State<BlokAdasi> createState() => _BlokAdasiState();
+  State<BlokAdasi> createState() => BlokAdasiState();
 }
 
 /// Görünen bir yüz: hücre + yön (0 üst, 1 +x, 2 -x, 3 +y, 4 -y)
@@ -1055,7 +1085,7 @@ class _Face {
 
 const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1)];
 
-class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
+class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
   String sel = 'tahta';
@@ -1125,6 +1155,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   // ================= arkadaşlar =================
   final List<Friend> friends = [];
   (int, String)? pendingOrder; // (arkadaş, hazır yapı) yer seçilmeyi bekliyor
+  int _orderSlot = 0;
 
   void _tickFriends(double dt) {
     var any = false;
@@ -1219,11 +1250,29 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         friends.removeAt(i);
         Voice.say('${f.name} evine gitti. Güle güle ${f.name}!');
       default:
-        setState(() => pendingOrder = (i, r));
-        Voice.say('${f.name}: Nereye ${jobName(r)} yapayım? Ekranda bir yere dokun!');
+        orderFriend(i, r);
     }
     saveFriends(friends);
     setState(() {});
+  }
+
+  /// Arkadaşa iş ver: hemen önündeki boş bir yere gider; istersen ekranda başka yere dokunursun.
+  void orderFriend(int i, String r) {
+    final f = friends[i];
+    final slot = const [0, 9, -9, 18, -18, 27, -27][_orderSlot++ % 7];
+    final dxF = sin(facing), dyF = cos(facing);
+    var gx = (ax + dxF * 8 + dyF * slot).round(), gy = (ay + dyF * 8 - dxF * slot).round();
+    if (!inside(gx, gy, 0)) {
+      gx = ax.round() + 3;
+      gy = ay.round() + 3;
+    }
+    f.goal = (gx, gy, world.topZ(gx, gy) + 1);
+    f.job = r;
+    f.jobDir = forwardDir;
+    f.mode = 2;
+    setState(() => pendingOrder = (i, r));
+    Voice.say('${f.name}: Tamam! ${trCapitalize(jobName(r))} yapmaya gidiyorum. Başka bir yer istersen ekrana dokun.');
+    saveFriends(friends);
   }
 
   /// Seçilen yere arkadaşı gönder.
@@ -1233,6 +1282,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     pendingOrder = null;
     if (o.$1 >= friends.length) return;
     final f = friends[o.$1];
+    if (f.mode == 3) return; // zaten yapmaya başladı
     final (x, y, _) = cxyz(cell);
     f.goal = (x, y, world.topZ(x, y) + 1);
     f.job = o.$2;
@@ -1255,7 +1305,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Flexible(
-          child: Text('📍 ${f?.name ?? ''} nereye ${jobName(o.$2)} yapsın? Bir yere dokun!',
+          child: Text('📍 ${f?.name ?? ''} ${jobName(o.$2)} yapmaya gidiyor. Başka yer istersen dokun!',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
         ),
         IconButton(
@@ -1267,6 +1317,69 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   // ================= yerler =================
+  // ================= köylüler =================
+  List<Villager> npcs = [];
+  int _npcPlaces = -1;
+
+  void _ensureNpcs() {
+    if (_npcPlaces == world.places.length) return;
+    _npcPlaces = world.places.length;
+    npcs = makeVillagers(world.places, world.topZ);
+  }
+
+  void _tickNpcs(double dt) {
+    final r = Random();
+    var any = false;
+    for (final v in npcs) {
+      // yalnızca yakındakiler hareket etsin
+      if ((v.x - ax).abs() > 40 && (v.x - fx).abs() > 40) continue;
+      if ((v.y - ay).abs() > 40 && (v.y - fy).abs() > 40) continue;
+      final t = v.target;
+      if (t == null) {
+        v.wait -= dt;
+        if (v.wait <= 0) {
+          v.wait = 2 + r.nextDouble() * 4;
+          for (var k = 0; k < 6; k++) {
+            final tx = v.hx + r.nextInt(9) - 4, ty = v.hy + r.nextInt(5) - 2;
+            if (inside(tx, ty, 0) && world.topZ(tx, ty) == v.baseZ) {
+              v.target = (tx, ty);
+              break;
+            }
+          }
+        }
+        if (v.walk != 0) {
+          v.walk = 0;
+          any = true;
+        }
+        continue;
+      }
+      final dx = t.$1 + 0.5 - v.x, dy = t.$2 + 0.5 - v.y, d = sqrt(dx * dx + dy * dy);
+      if (d < 0.1) {
+        v.target = null;
+        continue;
+      }
+      final st = min(d, 1.3 * dt);
+      final nx = v.x + dx / d * st, ny = v.y + dy / d * st;
+      if (world.topZ(nx.floor(), ny.floor()) != v.baseZ) {
+        v.target = null; // duvar ya da su: dur
+        continue;
+      }
+      v.x = nx;
+      v.y = ny;
+      v.facing = atan2(dx, dy);
+      v.walk += dt * 8;
+      any = true;
+    }
+    if (any) lifeTick++;
+  }
+
+  void _greet(int i) {
+    if (i < 0 || i >= npcs.length) return;
+    final v = npcs[i];
+    Sfx.play('heart');
+    Say.show(context, Who.teyze, '${v.name}: Selamün aleyküm! Ben ${v.name}. ${placeTo(v.place)} hoş geldin!', mood: 'sevin');
+  }
+
   // ================= harita =================
   ui.Image? mapImg;
   int _mapVer = -1;
@@ -1315,6 +1428,27 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _teleport(int x, int y, String? n) {
+    // denize düşmesin: en yakın karaya
+    final su = matIndex('su');
+    if (world.blocks[ck(x, y, world.topZ(x, y))] == su) {
+      var best = 1e9;
+      var bx = x, by = y;
+      for (var dx = -14; dx <= 14; dx++) {
+        for (var dy = -14; dy <= 14; dy++) {
+          final xx = x + dx, yy = y + dy;
+          if (!inside(xx, yy, 0)) continue;
+          if (world.blocks[ck(xx, yy, world.topZ(xx, yy))] == su) continue;
+          final d = (dx * dx + dy * dy).toDouble();
+          if (d < best) {
+            best = d;
+            bx = xx;
+            by = yy;
+          }
+        }
+      }
+      x = bx;
+      y = by;
+    }
     setState(() {
       flying = false;
       _placeAvatar(x, y);
@@ -1331,7 +1465,20 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     });
     Sfx.play('unlock');
     _burst(ck(x, y, az.floor() + 1), const Color(0xFF80DEEA), 16);
-    Voice.say(n != null ? '$n! Hoş geldin.' : 'Işınlandın!');
+    // en yakın yerin adını söyle
+    var name = n;
+    if (name == null) {
+      var best = 15.0;
+      for (final e in world.places.entries) {
+        final d = sqrt(pow(e.value.$1 - x, 2) + pow(e.value.$2 - y, 2));
+        if (d < best) {
+          best = d;
+          name = e.key;
+        }
+      }
+    }
+    final msg = name != null ? '${placeTo(name)} geldiniz!' : 'Işınlandınız!';
+    Say.show(context, Who.tamirci, '📍 ${msg[0].toUpperCase()}${msg.substring(1)}', mood: 'sevin');
   }
 
   // ================= uçma =================
@@ -1444,6 +1591,8 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
+    if (world.ensureLands()) game.saveBlocks(world.encode());
+    _ensureNpcs();
     _loadLife();
     game.markPlayed('blok');
     Tex.load(texIds).then((_) {
@@ -1452,8 +1601,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _loadSigns();
     friends.addAll(loadFriends());
     for (final f in friends) {
-      f.x = f.mode == 1 ? f.x : ax + 1.2;
-      f.y = f.mode == 1 ? f.y : ay + 0.6;
+      if (f.mode == 0) {
+        f.x = 18.2;
+        f.y = 17.6;
+      }
     }
     Future.delayed(const Duration(milliseconds: 9000), () {
       if (mounted) _surpriseEgg();
@@ -1504,7 +1655,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   static final workerLook = Avatar(skin: 1, hair: 0, style: 2, shirt: 4, pants: 1, hat: 0);
 
   void _startJob(Prefab pf, List<(int, int)> plan, int x, int y, int z, {Friend? friend}) {
-    if (plan.isEmpty) return;
+    if (plan.isEmpty) {
+      if (friend != null) {
+        friend.mode = 0;
+        friend.job = null;
+        friend.goal = null;
+        Voice.say('${friend.name}: Orada yer yok, başka bir yer seç!');
+      }
+      return;
+    }
     final job = _Job(pf.name, plan, x + 0.5, y + 0.5, z.toDouble())..friend = friend;
     jobs.add(job);
     if (friend != null) {
@@ -1705,6 +1864,14 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (withAvatar) {
       for (final b in avatarParts()) {
         out.add((b, ax, ay, az, facing, 1, 0));
+      }
+    }
+    for (var i = 0; i < npcs.length; i++) {
+      final v = npcs[i];
+      final cxp = firstPerson ? ax : fx, cyp = firstPerson ? ay : fy;
+      if ((v.x - cxp).abs() > 30 || (v.y - cyp).abs() > 30) continue;
+      for (final b in avatarBoxes(v.look, walk: v.walk)) {
+        out.add((b, v.x, v.y, v.z, v.facing, 7, i));
       }
     }
     for (var i = 0; i < friends.length; i++) {
@@ -2120,6 +2287,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       _tickFriends(dt);
       if (lifeTick != lt0) changed = true;
     }
+    if (npcs.isNotEmpty) {
+      final lt0 = lifeTick;
+      _tickNpcs(dt);
+      if (lifeTick != lt0) changed = true;
+    }
     // hayvanlar
     final lt = lifeTick;
     _tickAnimals(dt);
@@ -2257,6 +2429,15 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
     (int, int)? best;
     var bt = maxT;
+    for (var i = 0; i < npcs.length; i++) {
+      final v = npcs[i];
+      if ((v.x - ax).abs() > 8 || (v.y - ay).abs() > 8) continue;
+      final t = hitBox(v.x - 0.35, v.y - 0.35, v.z, v.x + 0.35, v.y + 0.35, v.z + 1.9);
+      if (t != null && t < bt) {
+        bt = t;
+        best = (7, i);
+      }
+    }
     for (var i = 0; i < friends.length; i++) {
       final f = friends[i];
       final t = hitBox(f.x - 0.35, f.y - 0.35, f.z, f.x + 0.35, f.y + 0.35, f.z + 1.9);
@@ -2335,6 +2516,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       return;
     }
     if (e != null) {
+      if (e.$1 == 7) _greet(e.$2);
       if (e.$1 == 6) _friendTap(e.$2);
       if (e.$1 == 2) _befriend(e.$2);
       if (e.$1 == 3) _harvest(e.$2);
@@ -2725,7 +2907,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   void _down(Offset p) {
     final fe = _faceAt(p);
-    if (fe != null && (fe.ent == 2 || fe.ent == 3 || fe.ent == 6)) return;
+    if (fe != null && (fe.ent == 2 || fe.ent == 3 || fe.ent == 6 || fe.ent == 7)) return;
     if (mode != 0) {
       final f = _faceAt(p);
       setState(() {
@@ -2753,6 +2935,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (f == null) return;
     if (f.ent == 6) {
       _friendTap(f.cell);
+      return;
+    }
+    if (f.ent == 7) {
+      _greet(f.cell);
       return;
     }
     if (pendingOrder != null && (f.ent == 0 || f.ent == 4)) {
@@ -2810,6 +2996,11 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (fe != null && fe.ent == 6) {
       setState(() => previewCell = null);
       _friendTap(fe.cell);
+      return;
+    }
+    if (fe != null && fe.ent == 7) {
+      setState(() => previewCell = null);
+      _greet(fe.cell);
       return;
     }
     if (pendingOrder != null) {
@@ -2936,6 +3127,7 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final dir = forwardDir;
     final before = (minX, maxX, minY, maxY);
     world.expand(dir, biome);
+    _ensureNpcs();
     if (before == (minX, maxX, minY, maxY)) {
       undo.removeLast();
       Say.show(context, Who.tamirci, 'Bu yönde dünyanın sonu geldi. Şehri çevirip başka yöne büyüt.');
@@ -3553,6 +3745,10 @@ class _BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _fpTap() {
+    if (pendingOrder != null && aimEnt == null && aim != null) {
+      _giveOrder(aim!);
+      return;
+    }
     if (aimEnt != null) {
       _fpAction();
       return;
@@ -3952,7 +4148,7 @@ const _glowColors = {
 };
 
 class _WorldPainter extends CustomPainter {
-  final _BlokAdasiState s;
+  final BlokAdasiState s;
   final Animation<double> anim;
   _WorldPainter(this.s, this.anim) : super(repaint: anim);
 
@@ -4408,6 +4604,11 @@ class _WorldPainter extends CustomPainter {
         final o = pr(s.ax, s.ay, s.az + 2.35);
         if (o != null) paintNameTag(canvas, o, armors[a - 1].hero);
       }
+    }
+    for (final v in s.npcs) {
+      if ((v.x - ox).abs() > 10 || (v.y - oy).abs() > 10) continue;
+      final o = pr(v.x, v.y, v.z + 2.2);
+      if (o != null) paintNameTag(canvas, o, v.name);
     }
     for (final f in s.friends) {
       if ((f.x - ox).abs() > 20 || (f.y - oy).abs() > 20) continue;

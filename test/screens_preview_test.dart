@@ -242,4 +242,39 @@ void main() {
     print('ZIRH_SONUC avatar=${game.avatar} items=${game.blockItems}');
     expect(Avatar.decode(game.avatar)!.armor, 6);
   });
+
+  testWidgets('Arkadaşlar iş yapar, dünya büyük', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Voice.muted = true;
+    await tester.runAsync(() async {
+      await game.load();
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.625;
+    game.blockWorld = '';
+    game.blockFriends = 'Ali~0,0,1,3,0,1,0,0,3~18.0~17.0~1.0~0;Ayşe~1,2,1,5,2,0,0,0,5~16.5~16.0~1.0~0;Can~2,1,0,2,3,1,0,0,0~17.0~18.0~1.0~0';
+    await tester.pumpWidget(const MaterialApp(home: BlokAdasi()));
+    await tester.pump(const Duration(milliseconds: 100));
+    final st = tester.state<BlokAdasiState>(find.byType(BlokAdasi));
+    final adalar = st.world.places.keys.where((k) => k.endsWith('Adası')).length;
+    final koyler = st.world.places.keys.where((k) => k.endsWith('Köyü')).length;
+    // ignore: avoid_print
+    print('DUNYA ${maxX - minX + 1}x${maxY - minY + 1} adalar=$adalar koyler=$koyler koylu=${st.npcs.length}');
+    expect(adalar, 11);
+    expect(koyler, 11);
+    expect(st.npcs.isNotEmpty, true);
+    final b0 = st.world.blocks.length;
+    st.orderFriend(0, 'p_ev');
+    st.orderFriend(1, 'p_cami');
+    st.orderFriend(2, 'p_agac');
+    for (var i = 0; i < 900; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (st.friends.every((f) => f.mode == 0) && st.jobs.isEmpty && i > 10) break;
+    }
+    // ignore: avoid_print
+    print('ARKADAS modlar=${st.friends.map((f) => f.mode).toList()} isler=${st.jobs.length} blok=${st.world.blocks.length - b0}');
+    expect(st.friends.every((f) => f.mode == 0), true);
+    expect(st.world.blocks.length - b0 > 80, true);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
