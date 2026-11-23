@@ -139,9 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       PicCard(pic: 'm_garaj', label: 'Garaj', color: const Color(0xFF546E7A), onTap: () => _go(const GarageScreen(), 'Garaj')),
                       PicCard(
                         pic: 'd_saman',
-                        label: 'Blok Şehri',
+                        label: "Yusuf'un Blok Dünyası",
                         color: const Color(0xFF8D6E63),
-                        onTap: () => _go(blokGame.build(), 'Blok Şehri'),
+                        onTap: () => _go(blokGame.build(), "Yusuf'un Blok Dünyası"),
                         child: const BlockLogo(),
                       ),
                       PicCard(pic: 'm_kitap', label: 'Hikâyeler', color: const Color(0xFF8E24AA), onTap: () => _go(const StoryShelf(), 'Hikâye kitabım')),

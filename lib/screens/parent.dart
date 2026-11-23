@@ -405,7 +405,7 @@ class ParentPanel extends StatelessWidget {
                 ],
               ),
               const Divider(height: 32),
-              _title('Altın (Blok Şehri)'),
+              _title("Altın (Yusuf'un Blok Dünyası)"),
               Row(children: [
                 Text('🪙 ${game.coins}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 12),
@@ -429,7 +429,7 @@ class ParentPanel extends StatelessWidget {
               const SizedBox(height: 8),
               const LetterMap(),
               const SizedBox(height: 10),
-              Text('Blok Şehri: ${game.crafted.values.fold(0, (a, b) => a + b)} kelime yapıldı · '
+              Text('Blok Dünyası: ${game.crafted.values.fold(0, (a, b) => a + b)} kelime yapıldı · '
                   'çantada ${game.sylBag.values.fold(0, (a, b) => a + b)} hece taşı'),
               if (game.weakSyllables().isNotEmpty) ...[
                 const SizedBox(height: 6),

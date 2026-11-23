@@ -101,7 +101,7 @@ class GlobeMapScreen extends StatefulWidget {
 }
 
 class _GlobeMapScreenState extends State<GlobeMapScreen> {
-  static const n = 300; // kürenin piksel boyu
+  int n = 300; // kürenin piksel boyu (çevirirken düşük, durunca yüksek)
   late _Rot rot;
   ui.Image? img;
   bool busy = false, again = false;
@@ -122,7 +122,8 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
     super.dispose();
   }
 
-  void _render() {
+  void _render({bool fast = false}) {
+    n = fast ? 150 : 300;
     if (busy) {
       again = true;
       return;
@@ -130,7 +131,7 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
     busy = true;
     final d = widget.data;
     final out = Uint8List(n * n * 4);
-    const h = n / 2;
+    final h = n / 2;
     for (var j = 0; j < n; j++) {
       final vy = -(j + 0.5 - h) / h;
       for (var i = 0; i < n; i++) {
@@ -168,7 +169,8 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
         out[o + 3] = rr > 0.97 ? ((1 - rr) / 0.03 * 255).round().clamp(0, 255) : 255;
       }
     }
-    imageFromPixels(out, n, n).then((im) {
+    final size = n;
+    imageFromPixels(out, size, size).then((im) {
       busy = false;
       if (!mounted) {
         im.dispose();
@@ -291,9 +293,10 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
                       return;
                     }
                     rot.drag(d.focalPointDelta.dx / r, d.focalPointDelta.dy / r);
-                    _render();
+                    _render(fast: true);
                     setState(() {});
                   },
+                  onScaleEnd: (_) => _render(),
                   onTapUp: (d) => _tap(d.localPosition, r, c),
                   child: Stack(clipBehavior: Clip.hardEdge, children: [
                     Positioned.fill(child: CustomPaint(painter: _StarsPainter())),

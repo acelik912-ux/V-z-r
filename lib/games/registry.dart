@@ -69,7 +69,7 @@ final regions = <Region>[
   ]),
 ];
 
-final blokGame = GameDef('blok', 'Blok Şehri', '🧱', 'İnşa', () => const BlokAdasi(), loop: false);
+final blokGame = GameDef('blok', "Yusuf'un Blok Dünyası", '🧱', 'İnşa', () => const BlokAdasi(), loop: false);
 
 GameDef? gameById(String id) {
   if (id == 'blok') return blokGame;

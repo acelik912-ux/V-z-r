@@ -368,14 +368,18 @@ class TopBar extends StatelessWidget {
           }),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              title,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: textColor,
-                shadows: const [Shadow(color: Colors.black54, offset: Offset(1, 2), blurRadius: 3)],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: textColor,
+                  shadows: const [Shadow(color: Colors.black54, offset: Offset(1, 2), blurRadius: 3)],
+                ),
               ),
             ),
           ),

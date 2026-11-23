@@ -147,7 +147,7 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
         width: 140,
         child: Bouncy(
           onTap: () {
-            Voice.say('Blok Şehri');
+            Voice.say("Yusuf'un Blok Dünyası");
             go(context, blokGame.build());
           },
           child: Center(
@@ -159,7 +159,7 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
                 border: Border.all(color: Colors.white, width: 3),
                 boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 3))],
               ),
-              child: const Text('🧱 Blok Şehri', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
+              child: const Text("🧱 Yusuf'un Blok Dünyası", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
             ),
           ),
         ),

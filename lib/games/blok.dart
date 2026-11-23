@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -116,6 +118,67 @@ const mats = <BlockMat>[
   BlockMat('istiridye', 'istiridye', Color(0xFFD7CCC8), 2),
   BlockMat('miras', 'miras sandığı', Color(0xFF00897B), 9, glow: true),
 ];
+
+/// Blok haritası: geri alma için değişen hücrelerin eski hâlini not eder
+/// (bütün dünyayı kopyalamadan; büyük dünyada donmasın).
+class JournalMap extends MapBase<int, int> {
+  final Map<int, int> _m = {};
+  Map<int, int?>? journal;
+
+  void _note(int k) {
+    final j = journal;
+    if (j != null && !j.containsKey(k)) j[k] = _m[k];
+  }
+
+  @override
+  int? operator [](Object? key) => _m[key];
+
+  @override
+  void operator []=(int key, int value) {
+    _note(key);
+    _m[key] = value;
+  }
+
+  @override
+  int? remove(Object? key) {
+    if (key is int) _note(key);
+    return _m.remove(key);
+  }
+
+  @override
+  void clear() {
+    final j = journal;
+    if (j != null) {
+      for (final e in _m.entries) {
+        j.putIfAbsent(e.key, () => e.value);
+      }
+    }
+    _m.clear();
+  }
+
+  @override
+  bool containsKey(Object? key) => _m.containsKey(key);
+  @override
+  Iterable<int> get keys => _m.keys;
+  @override
+  Iterable<int> get values => _m.values;
+  @override
+  Iterable<MapEntry<int, int>> get entries => _m.entries;
+  @override
+  int get length => _m.length;
+  @override
+  bool get isEmpty => _m.isEmpty;
+}
+
+/// Geri alma adımı: değişen hücreler, dünyanın sınırları, elips ve yerler
+class _Undo {
+  final Map<int, int?> cells = {};
+  final (int, int, int, int) bounds;
+  final (double, double, double, double) ell;
+  final Map<String, (int, int)> places;
+  final Map<int, int> shapes;
+  _Undo(this.bounds, this.ell, this.places, this.shapes);
+}
 
 /// Değerli taş yatakları (kırınca adını heceleyerek çıkarılır)
 const gemOres = {'yakutc': 'yakut', 'firuzec': 'firuze', 'gumusc': 'gumus', 'kehribarc': 'kehribar', 'istiridye': 'inci'};
@@ -445,7 +508,7 @@ const roadX = 19;
 const roadY = 10;
 
 class BlockWorld {
-  final Map<int, int> blocks = {};
+  final JournalMap blocks = JournalMap();
   final Map<int, int> shapeAt = {}; // hücre -> şekil*4 + yön
   int version = 0;
 
@@ -1229,7 +1292,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   bool erase = false;
   int tab = 0;
   bool moveMode = false;
-  final List<String> undo = [];
+  final List<_Undo> undo = [];
   List<_Face> exposed = [];
   int exposedVersion = -1;
   // kamera
@@ -1464,13 +1527,20 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     npcs = makeVillagers(world.places, world.topZ);
   }
 
-  void _tickNpcs(double dt) {
+  double _npcAcc = 0;
+
+  void _tickNpcs(double frameDt) {
+    // köylüler saniyede ~12 kez kıpırdasın; her karede dünya yeniden çizilmesin
+    _npcAcc += frameDt;
+    if (_npcAcc < 0.08) return;
+    final dt = _npcAcc;
+    _npcAcc = 0;
     final r = Random();
     var any = false;
+    final vx = firstPerson ? ax : fx, vy = firstPerson ? ay : fy;
     for (final v in npcs) {
-      // yalnızca yakındakiler hareket etsin
-      if ((v.x - ax).abs() > 40 && (v.x - fx).abs() > 40) continue;
-      if ((v.y - ay).abs() > 40 && (v.y - fy).abs() > 40) continue;
+      // yalnızca görünen yerdekiler hareket etsin
+      if ((v.x - vx).abs() > 22 || (v.y - vy).abs() > 22) continue;
       final t = v.target;
       if (t == null) {
         v.wait -= dt;
@@ -1523,13 +1593,44 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   bool _mapBusy = false;
   double _mapT = 0;
 
+  // harita parça parça hesaplanır: her karede birkaç satır (oyun donmasın)
+  Uint8List? _mapBuf;
+  int _mapRow = 0, _mapW = 0, _mapH = 0, _mapX0 = 0, _mapY0 = 0, _mapBuildVer = 0;
+
   void _refreshMap() {
-    if (_mapBusy || _mapVer == world.version) return;
+    if (_mapBusy || _mapBuf != null || _mapVer == world.version) return;
+    _mapW = maxX - minX + 1;
+    _mapH = maxY - minY + 1;
+    _mapX0 = minX;
+    _mapY0 = minY;
+    _mapBuf = Uint8List(_mapW * _mapH * 4);
+    _mapRow = 0;
+    _mapBuildVer = world.version;
+  }
+
+  void _mapStep() {
+    final buf = _mapBuf;
+    if (buf == null) return;
+    if (_mapW != maxX - minX + 1 || _mapH != maxY - minY + 1) {
+      _mapBuf = null; // dünya büyüdü, baştan
+      return;
+    }
+    final rows = max(1, 3500 ~/ _mapW);
+    final end = min(_mapH, _mapRow + rows);
+    for (var y = _mapRow; y < end; y++) {
+      mapRow(world, buf, _mapW, _mapX0, _mapY0, _mapY0 + y);
+    }
+    _mapRow = end;
+    if (_mapRow < _mapH) return;
+    _mapBuf = null;
     _mapBusy = true;
-    final v = world.version;
-    buildMapImage(world).then((im) {
+    final v = _mapBuildVer;
+    imageFromPixels(buf, _mapW, _mapH).then((im) {
       _mapBusy = false;
-      if (!mounted) return;
+      if (!mounted) {
+        im.dispose();
+        return;
+      }
       setState(() {
         mapImg?.dispose();
         mapImg = im;
@@ -1789,7 +1890,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         setState(() => avatar = myAvatar);
       }
       if (!mounted) return;
-      Say.show(context, Who.tamirci, 'Blok Şehrine hoş geldin! Parmağınla sürükle, şehir dönsün. Aşağıdan Kur, Yürü ya da Kır seç.', mood: 'iyi');
+      Say.show(context, Who.tamirci, "Yusuf'un Blok Dünyası'na hoş geldin!" ' Parmağınla sürükle, şehir dönsün. Aşağıdan Kur, Yürü ya da Kır seç.', mood: 'iyi');
       Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
     });
   }
@@ -2451,10 +2552,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (lt != lifeTick) changed = true;
     if (weather.isNotEmpty) wTime += dt;
     _mapT += dt;
-    if (_mapT > 3) {
+    if (_mapT > 4) {
       _mapT = 0;
       _refreshMap();
     }
+    _mapStep();
     if (!_dusk && game.windDownAt != null) {
       _dusk = true;
       night = true;
@@ -2806,6 +2908,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    if (_saveTimer != null) _saveWorldNow();
     mapImg?.dispose();
     _saveLife();
     saveFriends(friends);
@@ -3230,20 +3333,61 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _push() {
-    undo.add(world.encode());
+    final u = _Undo((minX, maxX, minY, maxY), (world.ecx, world.ecy, world.erx, world.ery), Map.of(world.places), Map.of(world.shapeAt));
+    undo.add(u);
+    world.blocks.journal = u.cells;
     if (undo.length > 30) undo.removeAt(0);
   }
 
-  void _changed() {
-    setState(() {});
+  Timer? _saveTimer;
+
+  /// Dünya büyük: her blokta değil, birkaç saniyede bir kaydet (donmasın).
+  void _saveWorldSoon() {
+    _saveTimer ??= Timer(const Duration(seconds: 5), _saveWorldNow);
+  }
+
+  void _saveWorldNow() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
     game.saveBlocks(world.encode());
+  }
+
+  void _changed() {
+    world.blocks.journal = null; // geri alma adımı bitti
+    setState(() {});
+    _saveWorldSoon();
     _check();
   }
 
   void _undo() {
     if (undo.isEmpty) return;
     Sfx.play('click');
-    world.decode(undo.removeLast());
+    final u = undo.removeLast();
+    world.blocks.journal = null;
+    for (final e in u.cells.entries) {
+      final v = e.value;
+      if (v == null) {
+        world.blocks.remove(e.key);
+      } else {
+        world.blocks[e.key] = v;
+      }
+    }
+    minX = u.bounds.$1;
+    maxX = u.bounds.$2;
+    minY = u.bounds.$3;
+    maxY = u.bounds.$4;
+    world.ecx = u.ell.$1;
+    world.ecy = u.ell.$2;
+    world.erx = u.ell.$3;
+    world.ery = u.ell.$4;
+    world.places
+      ..clear()
+      ..addAll(u.places);
+    world.shapeAt
+      ..clear()
+      ..addAll(u.shapes);
+    world.version++;
+    _ensureNpcs();
     _changed();
   }
 
@@ -3647,7 +3791,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         Positioned.fill(child: CustomPaint(painter: _SkyPainter(night))),
         SafeArea(
           child: Column(children: [
-            TopBar('Blok Şehri', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            TopBar("Yusuf'un Blok Dünyası", trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               Bouncy(
                 onTap: _openBench,
                 child: Container(

@@ -13,24 +13,29 @@ import 'blok.dart';
 
 /// Dünyanın kuşbakışı resmi: her hücre bir piksel, rengi en üstteki blok,
 /// yükseklik arttıkça biraz açılır.
+/// Haritanın bir satırı (parça parça hesaplamak için: oyun donmasın).
+void mapRow(BlockWorld w, Uint8List px, int wd, int x0, int y0, int y) {
+  final su = matIndex('su');
+  for (var x = x0; x < x0 + wd; x++) {
+    final z = w.topZ(x, y);
+    final m = w.blocks[ck(x, y, z)];
+    var c = m == null ? const Color(0xFF7CB342) : mats[m].color;
+    if (m == su) c = const Color(0xFF29B6F6);
+    final k = ((x - x0) + (y - y0) * wd) * 4;
+    final lift = (z * 0.035).clamp(0.0, 0.5);
+    int ch(double v) => (255 * (v + (1 - v) * lift)).round().clamp(0, 255);
+    px[k] = ch(c.r);
+    px[k + 1] = ch(c.g);
+    px[k + 2] = ch(c.b);
+    px[k + 3] = 255;
+  }
+}
+
 Uint8List mapPixels(BlockWorld w) {
   final wd = maxX - minX + 1, hg = maxY - minY + 1;
   final px = Uint8List(wd * hg * 4);
-  final su = matIndex('su');
   for (var y = minY; y <= maxY; y++) {
-    for (var x = minX; x <= maxX; x++) {
-      final z = w.topZ(x, y);
-      final m = w.blocks[ck(x, y, z)];
-      var c = m == null ? const Color(0xFF7CB342) : mats[m].color;
-      if (m == su) c = const Color(0xFF29B6F6);
-      final k = ((x - minX) + (y - minY) * wd) * 4;
-      final lift = (z * 0.035).clamp(0.0, 0.5);
-      int ch(double v) => (255 * (v + (1 - v) * lift)).round().clamp(0, 255);
-      px[k] = ch(c.r);
-      px[k + 1] = ch(c.g);
-      px[k + 2] = ch(c.b);
-      px[k + 3] = 255;
-    }
+    mapRow(w, px, wd, minX, minY, y);
   }
   return px;
 }
