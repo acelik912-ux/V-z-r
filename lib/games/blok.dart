@@ -518,7 +518,12 @@ class BlockWorld {
       ecx = ecy = erx = ery = 0;
       if (parts.length >= 7) {
         final e = parts[6].split(',').map(double.tryParse).toList();
-        if (e.length == 4 && !e.contains(null)) (ecx, ecy, erx, ery) = (e[0]!, e[1]!, e[2]!, e[3]!);
+        if (e.length == 4 && !e.contains(null)) {
+          ecx = e[0]!;
+          ecy = e[1]!;
+          erx = e[2]!;
+          ery = e[3]!;
+        }
       }
       if (parts.length >= 6 && parts[5].isNotEmpty) {
         for (final e in parts[5].split(';')) {
@@ -1570,14 +1575,6 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     final (x, y, name) = r;
     if (!inside(x, y, 0)) return;
     _teleport(x, y, name);
-  }
-
-  Future<void> _goPlaces() async {
-    final names = world.places.keys.toList();
-    final n = await showDialog<String>(context: context, builder: (_) => PlacesDialog(names));
-    if (n == null || !mounted) return;
-    final (x, y) = world.places[n]!;
-    _teleport(x, y, n);
   }
 
   void _teleport(int x, int y, String? n) {
