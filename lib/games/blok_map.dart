@@ -13,7 +13,7 @@ import 'blok.dart';
 
 /// Dünyanın kuşbakışı resmi: her hücre bir piksel, rengi en üstteki blok,
 /// yükseklik arttıkça biraz açılır.
-Future<ui.Image> buildMapImage(BlockWorld w) {
+Uint8List mapPixels(BlockWorld w) {
   final wd = maxX - minX + 1, hg = maxY - minY + 1;
   final px = Uint8List(wd * hg * 4);
   final su = matIndex('su');
@@ -32,10 +32,16 @@ Future<ui.Image> buildMapImage(BlockWorld w) {
       px[k + 3] = 255;
     }
   }
+  return px;
+}
+
+Future<ui.Image> imageFromPixels(Uint8List px, int wd, int hg) {
   final done = Completer<ui.Image>();
   ui.decodeImageFromPixels(px, wd, hg, ui.PixelFormat.rgba8888, done.complete);
   return done.future;
 }
+
+Future<ui.Image> buildMapImage(BlockWorld w) => imageFromPixels(mapPixels(w), maxX - minX + 1, maxY - minY + 1);
 
 /// Köşedeki küçük harita: oyuncunun çevresi, yerler ve yön oku.
 class MiniMap extends StatelessWidget {

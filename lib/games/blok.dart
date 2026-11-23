@@ -16,7 +16,9 @@ import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
 import 'blok_friends.dart';
+import 'blok_globe.dart';
 import 'blok_map.dart';
+import 'blok_treasure.dart';
 import 'blok_village.dart';
 import 'blok_words.dart';
 import 'blok_tex.dart';
@@ -107,7 +109,16 @@ const mats = <BlockMat>[
   BlockMat('tabela', 'tabela', Color(0xFFD7B98E), 9),
   BlockMat('hecekapi', 'hece kapısı', Color(0xFF7E57C2), 7),
   BlockMat('totem', 'hava totemi', Color(0xFF26A69A), 9),
+  BlockMat('yakutc', 'yakut madeni', Color(0xFFC62828), 2, glow: true),
+  BlockMat('firuzec', 'firuze madeni', Color(0xFF26C6DA), 2, glow: true),
+  BlockMat('gumusc', 'gümüş madeni', Color(0xFFCFD8DC), 2),
+  BlockMat('kehribarc', 'kehribar madeni', Color(0xFFFFA000), 2, glow: true),
+  BlockMat('istiridye', 'istiridye', Color(0xFFD7CCC8), 2),
+  BlockMat('miras', 'miras sandığı', Color(0xFF00897B), 9, glow: true),
 ];
+
+/// Değerli taş yatakları (kırınca adını heceleyerek çıkarılır)
+const gemOres = {'yakutc': 'yakut', 'firuzec': 'firuze', 'gumusc': 'gumus', 'kehribarc': 'kehribar', 'istiridye': 'inci'};
 
 /// Doku atlasındaki sıra: bloklar, sonra beyaz ve yüz karoları.
 List<String> get texIds => [...mats.map((m) => m.id), '_beyaz', '_yuz'];
@@ -462,6 +473,9 @@ class BlockWorld {
   /// Adı olan yerler (ada, köy): ad -> (x, y)
   final Map<String, (int, int)> places = {};
 
+  /// Elips (küre gibi) dünya: merkez ve yarıçaplar. 0 ise henüz şişirilmedi.
+  double ecx = 0, ecy = 0, erx = 0, ery = 0;
+
   int topZ(int x, int y) {
     for (var z = H - 1; z >= 0; z--) {
       if (blocks.containsKey(ck(x, y, z))) return z;
@@ -493,7 +507,7 @@ class BlockWorld {
     }
     final sh = shapeAt.entries.map((e) => '${e.key}:${e.value}').join(',');
     final pl = places.entries.map((e) => '${e.key}:${e.value.$1}:${e.value.$2}').join(';');
-    return 'v4|$minX,$maxX,$minY,$maxY|$g|$b|$sh|$pl';
+    return 'v4|$minX,$maxX,$minY,$maxY|$g|$b|$sh|$pl|${ecx.toStringAsFixed(1)},${ecy.toStringAsFixed(1)},${erx.toStringAsFixed(1)},${ery.toStringAsFixed(1)}';
   }
 
   bool decode(String s) {
@@ -501,6 +515,11 @@ class BlockWorld {
     if (parts[0] == 'v4' && parts.length >= 4) {
       shapeAt.clear();
       places.clear();
+      ecx = ecy = erx = ery = 0;
+      if (parts.length >= 7) {
+        final e = parts[6].split(',').map(double.tryParse).toList();
+        if (e.length == 4 && !e.contains(null)) (ecx, ecy, erx, ery) = (e[0]!, e[1]!, e[2]!, e[3]!);
+      }
       if (parts.length >= 6 && parts[5].isNotEmpty) {
         for (final e in parts[5].split(';')) {
           final kv = e.split(':');
@@ -820,8 +839,119 @@ class BlockWorld {
           if (m == su && (x - cx).isEven) blocks[ck(x, cy + 1, 0)] = kutuk;
         }
       }
+      // kıyıda istiridyeler (içinde inci)
+      final ist = matIndex('istiridye');
+      for (var k = 0; k < 3; k++) {
+        final a = r.nextDouble() * 2 * pi;
+        final x = (cx + cos(a) * (rad + 1.5)).round(), y = (cy + sin(a) * (rad + 1.5)).round();
+        if (inside(x, y, 0) && blocks[ck(x, y, 0)] == su) blocks[ck(x, y, 0)] = ist;
+      }
       places['$name Adası'] = (cx, cy);
     }
+  }
+
+  /// Elipsin içinde mi? (1'den küçükse kara)
+  double ellipse(double x, double y) => erx == 0 ? 0 : pow((x - ecx) / erx, 2) + pow((y - ecy) / ery, 2).toDouble();
+
+  /// Dünyayı balon gibi her yana birden şişirir: elipsin yeni halkasına
+  /// arazi (çayır, tepe, orman, göl, maden), dışına okyanus gelir.
+  /// Dönüş: büyüdü mü?
+  bool inflate(double step, Random r) {
+    final oldE = erx, oldRy0 = ery;
+    final ox0 = minX, ox1 = maxX, oy0 = minY, oy1 = maxY;
+    if (erx == 0) {
+      ecx = (minX + maxX) / 2;
+      ecy = (minY + maxY) / 2;
+      erx = (maxX - minX) / 2 * 1.22 + 6;
+      ery = (maxY - minY) / 2 * 1.22 + 6;
+    } else {
+      if (erx > 230) return false;
+      final k = ery / erx;
+      erx += step;
+      ery += step * k;
+    }
+    final nx0 = max(-_o, (ecx - erx - 5).floor()), nx1 = min(_o - 1, (ecx + erx + 5).ceil());
+    final ny0 = max(-_o, (ecy - ery - 5).floor()), ny1 = min(_o - 1, (ecy + ery + 5).ceil());
+    final oldRx = oldE, oldRy = oldRy0;
+    double oldEll(int x, int y) => oldRx == 0 ? 0 : pow((x - ecx) / oldRx, 2) + pow((y - ecy) / oldRy, 2).toDouble();
+    final cim = matIndex('cim'), cicek = matIndex('cicek'), su = matIndex('su'), kum = matIndex('kum');
+    final toprak = matIndex('toprak'), tas = matIndex('tas'), kar = matIndex('kar');
+    final gems = [matIndex('yakutc'), matIndex('firuzec'), matIndex('gumusc'), matIndex('kehribarc')];
+    final ist = matIndex('istiridye');
+    final seedA = r.nextDouble() * 10, seedB = r.nextDouble() * 10;
+    final treeSpots = <(int, int)>[];
+    final hillTop = <int, int>{};
+    minX = min(minX, nx0);
+    maxX = max(maxX, nx1);
+    minY = min(minY, ny0);
+    maxY = max(maxY, ny1);
+    for (var x = nx0; x <= nx1; x++) {
+      for (var y = ny0; y <= ny1; y++) {
+        final inOld = x >= ox0 && x <= ox1 && y >= oy0 && y <= oy1;
+        final e = ellipse(x.toDouble(), y.toDouble());
+        if (inOld) {
+          // eski okyanus/kumsal halkası şimdi karaya dönüşsün
+          if (oldE == 0 || oldEll(x, y) <= 0.9 || e > 0.9) continue;
+          for (var z = 0; z < H; z++) {
+            blocks.remove(ck(x, y, z));
+          }
+        }
+        if (e > 1) {
+          blocks[ck(x, y, 0)] = (e < 1.08 && r.nextInt(30) == 0) ? ist : su;
+          continue;
+        }
+        if (e > 0.9) {
+          blocks[ck(x, y, 0)] = kum;
+          continue;
+        }
+        // arazi: dalgalı tepeler, göller, ormanlar
+        final n = sin(x * 0.09 + seedA) + cos(y * 0.08 + seedB) + sin((x + y) * 0.05 + seedA * 2) * 0.8;
+        if (n < -1.7) {
+          blocks[ck(x, y, 0)] = su; // göl
+          continue;
+        }
+        final h = n > 1.1 ? ((n - 1.1) * 5).round().clamp(0, 9) : 0;
+        blocks[ck(x, y, 0)] = h > 0 ? toprak : (r.nextInt(14) == 0 ? cicek : cim);
+        for (var z = 1; z <= h; z++) {
+          var m = z == h ? (h >= 7 ? kar : (h >= 4 ? tas : cim)) : (z < h - 1 ? tas : toprak);
+          if (z < h && m == tas && r.nextInt(18) == 0) m = gems[r.nextInt(gems.length)];
+          blocks[ck(x, y, z)] = m;
+        }
+        if (h > 0) hillTop[ck(x, y, 0)] = h;
+        if (h == 0 && r.nextInt(38) == 0) treeSpots.add((x, y));
+      }
+    }
+    for (final (x, y) in treeSpots) {
+      stamp(r.nextInt(4) == 0 ? _pine() : _tree(), x, y, 1, 0);
+    }
+    return true;
+  }
+
+  /// Her köyün ve adanın meydanına bir miras sandığı; dağlara ve tepelere birkaç değerli taş.
+  bool ensureTreasures(Random r) {
+    final mi = matIndex('miras');
+    if (blocks.values.contains(mi)) return false;
+    for (final e in places.entries) {
+      final (cx, cy) = e.value;
+      for (final (dx, dy) in const [(2, 1), (-2, 1), (1, 2), (-1, 2), (2, -1), (3, 0), (0, 3)]) {
+        final x = cx + dx, y = cy + dy;
+        if (!inside(x, y, 0)) continue;
+        final z = topZ(x, y);
+        final m = blocks[ck(x, y, z)];
+        if (m == matIndex('su') || z + 1 >= H) continue;
+        if (blocks.containsKey(ck(x, y, z + 1))) continue;
+        blocks[ck(x, y, z + 1)] = mi;
+        break;
+      }
+    }
+    // var olan taş bloklarının bazıları değerli taş olsun
+    final gems = [matIndex('yakutc'), matIndex('firuzec'), matIndex('gumusc'), matIndex('kehribarc')];
+    final tas = matIndex('tas');
+    final stones = blocks.entries.where((e) => e.value == tas).map((e) => e.key).toList()..shuffle(r);
+    for (final k in stones.take(16)) {
+      blocks[k] = gems[r.nextInt(gems.length)];
+    }
+    return true;
   }
 
   /// Deniz, adalar ve köyler yoksa kendisi ekler (dünya kendiliğinden büyük olsun).
@@ -865,6 +995,7 @@ class BlockWorld {
     blocks.clear();
     shapeAt.clear();
     places.clear();
+    ecx = ecy = erx = ery = 0;
     final cim = matIndex('cim'), su = matIndex('su'), kum = matIndex('kum'), cicek = matIndex('cicek');
     final asf = matIndex('asfalt'), yol = matIndex('yol');
     for (var x = 0; x < W; x++) {
@@ -909,7 +1040,8 @@ class BlockWorld {
     if (x1 - x0 < 4 || y1 - y0 < 4) return;
     final tas = matIndex('tas'), toprak = matIndex('toprak'), cim = matIndex('cim'), kar = matIndex('kar');
     final hc = matIndex('heceta');
-    final ores = [matIndex('komur'), matIndex('komur'), matIndex('demirc'), matIndex('demirc'), matIndex('altinc'), matIndex('elmas'), hc, hc, hc, hc];
+    final ores = [matIndex('komur'), matIndex('komur'), matIndex('demirc'), matIndex('demirc'), matIndex('altinc'), matIndex('elmas'), hc, hc, hc, hc,
+      matIndex('yakutc'), matIndex('firuzec'), matIndex('gumusc'), matIndex('kehribarc')];
     final cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     final rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
     final ph = r.nextDouble() * 6;
@@ -1401,18 +1533,39 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     });
   }
 
-  Future<void> _openMap() async {
+  Future<void> _openMap({bool flat = false}) async {
     _refreshMap();
-    final r = await Navigator.push<(int, int, String?)>(
-        context,
-        fadeRoute<(int, int, String?)>(WorldMapScreen(
-          img: mapImg,
-          px: ax,
-          py: ay,
-          facing: facing,
-          places: world.places,
-          friends: [for (final f in friends) (f.x, f.y, f.name)],
-        )));
+    final friendsL = [for (final f in friends) (f.x, f.y, f.name)];
+    (int, int, String?)? r;
+    if (flat) {
+      r = await Navigator.push<(int, int, String?)>(
+          context,
+          fadeRoute<(int, int, String?)>(WorldMapScreen(
+              img: mapImg, px: ax, py: ay, facing: facing, places: world.places, friends: friendsL)));
+    } else {
+      final hw = (maxX - minX) / 2, hh = (maxY - minY) / 2;
+      final data = GlobeData(mapPixels(world), maxX - minX + 1, maxY - minY + 1, minX, minY, (minX + maxX) / 2, (minY + maxY) / 2,
+          hw * 1.42 + 1, hh * 1.42 + 1);
+      var toFlat = false;
+      late BuildContext routeCtx;
+      r = await Navigator.push<(int, int, String?)>(
+          context,
+          fadeRoute<(int, int, String?)>(Builder(builder: (c) {
+            routeCtx = c;
+            return GlobeMapScreen(
+              data: data,
+              px: ax,
+              py: ay,
+              places: world.places,
+              friends: friendsL,
+              onFlat: () {
+                toFlat = true;
+                Navigator.pop(routeCtx);
+              },
+            );
+          })));
+      if (toFlat && mounted) return _openMap(flat: true);
+    }
     if (r == null || !mounted) return;
     final (x, y, name) = r;
     if (!inside(x, y, 0)) return;
@@ -1433,8 +1586,8 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (world.blocks[ck(x, y, world.topZ(x, y))] == su) {
       var best = 1e9;
       var bx = x, by = y;
-      for (var dx = -14; dx <= 14; dx++) {
-        for (var dy = -14; dy <= 14; dy++) {
+      for (var dx = -30; dx <= 30; dx++) {
+        for (var dy = -30; dy <= 30; dy++) {
           final xx = x + dx, yy = y + dy;
           if (!inside(xx, yy, 0)) continue;
           if (world.blocks[ck(xx, yy, world.topZ(xx, yy))] == su) continue;
@@ -1591,7 +1744,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
-    if (world.ensureLands()) game.saveBlocks(world.encode());
+    var grew = world.ensureLands();
+    if (world.erx == 0) grew = world.inflate(0, Random(3)) || grew;
+    if (world.ensureTreasures(Random())) grew = true;
+    if (grew) game.saveBlocks(world.encode());
     _ensureNpcs();
     _loadLife();
     game.markPlayed('blok');
@@ -3003,6 +3159,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       _greet(fe.cell);
       return;
     }
+    if (fe != null && fe.ent == 0 && world.blocks[fe.cell] == matIndex('miras')) {
+      setState(() => previewCell = null);
+      _openMiras(fe.cell);
+      return;
+    }
     if (pendingOrder != null) {
       setState(() => previewCell = null);
       if (fe != null && (fe.ent == 0 || fe.ent == 4)) _giveOrder(fe.cell);
@@ -3112,54 +3273,31 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _changed();
   }
 
+  /// Büyüt: dünya balon gibi her yana birden şişer.
   Future<void> _grow() async {
-    final biome = await showDialog<String>(context: context, builder: (_) => _GrowDialog(world.places.isNotEmpty));
-    if (biome == null || !mounted) return;
-    if (biome == 'goto') {
-      _goPlaces();
-      return;
-    }
-    if (worldW >= 1000 && worldD >= 1000) {
-      Say.show(context, Who.tamirci, 'Şehir dünyanın kenarına ulaştı! Daha büyüyemez.');
+    if (world.erx > 230) {
+      Say.show(context, Who.tamirci, 'Dünya en büyük hâline geldi! Daha fazla şişemez.');
       return;
     }
     _push();
-    final dir = forwardDir;
-    final before = (minX, maxX, minY, maxY);
-    world.expand(dir, biome);
-    _ensureNpcs();
-    if (before == (minX, maxX, minY, maxY)) {
-      undo.removeLast();
-      Say.show(context, Who.tamirci, 'Bu yönde dünyanın sonu geldi. Şehri çevirip başka yöne büyüt.');
-      return;
-    }
-    // yeni araziye hayvanlar
-    switch (dir) {
-      case 0:
-        _spawnAnimals(3, minX, maxX, maxY - 19, maxY);
-      case 1:
-        _spawnAnimals(3, maxX - 19, maxX, minY, maxY);
-      case 2:
-        _spawnAnimals(3, minX, maxX, minY, minY + 19);
-      default:
-        _spawnAnimals(3, minX, minX + 19, minY, maxY);
-    }
-    _saveLife();
-    // kamerayı yeni araziye götür
-    switch (dir) {
-      case 0:
-        fy = maxY - 9.0;
-      case 1:
-        fx = maxX - 9.0;
-      case 2:
-        fy = minY + 10.0;
-      default:
-        fx = minX + 10.0;
-    }
     Sfx.play('unlock');
+    Voice.say('Dünya balon gibi şişiyor!');
+    final r = Random();
+    for (var i = 0; i < 4; i++) {
+      world.inflate(3, r);
+      world.version++;
+      _geoKey = '';
+      setState(() {});
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+    }
+    _ensureNpcs();
+    _spawnAnimals(4, minX, maxX, minY, maxY);
+    _saveLife();
     _changed();
-    final name = biomes.firstWhere((b) => b.$1 == biome).$2;
-    Say.show(context, Who.tamirci, 'Yeni $name arazisi geldi! Şehrin boyu: $worldW çarpı $worldD blok.', mood: 'sevin');
+    Say.show(context, Who.tamirci,
+        'Dünya şişti! Artık $worldW çarpı $worldD blok. Yeni tepeler, göller, ormanlar ve tepelerin içinde değerli taşlar var!',
+        mood: 'sevin');
   }
 
   Future<void> _chest() async {
@@ -3227,6 +3365,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   void _afterBreak(int cell, String id) {
     if (signs.remove(cell) != null) _saveSigns();
+    final gemId = gemOres[id];
+    if (gemId != null) {
+      _mineGem(cell, id, gemId);
+      return;
+    }
     final r = Random();
     var n = 0;
     if (id == 'heceta') {
@@ -3254,10 +3397,83 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
   }
 
+  /// Değerli taş: adını heceleyince müzeye girer; vazgeçerse taş yerinde kalır.
+  Future<void> _mineGem(int cell, String oreId, String gemId) async {
+    final t = treasureById(gemId);
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(
+              parts: t.parts,
+              emoji: t.emoji,
+              title: 'Değerli taş buldun! Adını yaz: ${t.name}',
+              speech: 'Vay! Değerli bir taş buldun. Adını hecelerle yaz, çıkar!',
+            ));
+    if (!mounted) return;
+    if (ok != true) {
+      world.blocks[cell] = matIndex(oreId); // taş kaçmasın
+      world.version++;
+      _changed();
+      return;
+    }
+    final first = !game.treasures.contains(t.id);
+    game.addTreasure(t.id);
+    game.addCoins(t.coins);
+    _burst(cell, mats[matIndex(oreId)].color, 16);
+    Sfx.play('unlock');
+    Say.show(context, Who.baykus,
+        '${trCapitalize(t.name)}! ${t.info} ${t.coins} altın kazandın.${first ? ' Müzene yeni bir hazine girdi!' : ''}',
+        mood: 'sevin');
+  }
+
+  /// Miras sandığı: içindeki eşyanın adını heceleyince açılır.
+  Future<void> _openMiras(int cell) async {
+    final (x, y, _) = cxyz(cell);
+    String? near;
+    var best = 14.0;
+    for (final e in world.places.entries) {
+      final d = sqrt(pow(e.value.$1 - x, 2) + pow(e.value.$2 - y, 2));
+      if (d < best) {
+        best = d;
+        near = e.key.split(' ').first;
+      }
+    }
+    final t = nextHeritage(near);
+    if (t == null) {
+      Say.show(context, Who.baykus, 'Bütün miras hazinelerini buldun! Maşallah, müzen dolu.', mood: 'sevin');
+      return;
+    }
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(
+              parts: t.parts,
+              emoji: t.emoji,
+              title: 'Miras sandığı! İçindekinin adını yaz: ${t.name}',
+              speech: 'Bu bir miras sandığı! İçinde ${t.name} var. Adını hecelerle yaz, sandık açılsın.',
+            ));
+    if (ok != true || !mounted) return;
+    world.blocks.remove(cell);
+    world.version++;
+    game.addTreasure(t.id);
+    game.addCoins(t.coins);
+    _burst(cell, const Color(0xFF64FFDA), 20);
+    _burst(cell, const Color(0xFFFFD54F), 12);
+    Sfx.play('unlock');
+    _changed();
+    Say.show(context, Who.baykus, '${t.emoji} ${trCapitalize(t.name)}! ${t.info} Müzene koydum.', mood: 'sevin');
+  }
+
+  Future<void> _openMuseum() async {
+    await Navigator.push(context, fadeRoute(const MuseumScreen()));
+    if (mounted) setState(() {});
+  }
+
   bool _useSpecial(int cell) {
     final m = world.blocks[cell];
     if (m == null) return false;
     switch (mats[m].id) {
+      case 'miras':
+        _openMiras(cell);
+        return true;
       case 'tezgah':
         _openBench();
         return true;
@@ -3818,7 +4034,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
           ]),
         ),
         const SizedBox(height: 4),
-        Expanded(child: Row(children: [_bagButton(), _benchButton(), _shapeButton(), Expanded(child: _recentList())])),
+        Expanded(child: Row(children: [_bagButton(), _benchButton(), _museumButton(), _shapeButton(), Expanded(child: _recentList())])),
       ]),
     );
   }
@@ -3848,6 +4064,28 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text('🎒', style: TextStyle(fontSize: 28)),
                 Text('Çanta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
+              ]),
+            ),
+          ),
+        ),
+      );
+
+  Widget _museumButton() => Bouncy(
+        onTap: _openMuseum,
+        child: Container(
+          width: 52,
+          margin: const EdgeInsets.only(right: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6D4C41),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFFC107), width: 3),
+          ),
+          child: FittedBox(
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🏛️', style: TextStyle(fontSize: 22)),
+                Text('${game.treasures.length}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white)),
               ]),
             ),
           ),
@@ -3919,7 +4157,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         margin: const EdgeInsets.fromLTRB(10, 4, 10, 8),
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [_bagButton(), _benchButton(), _shapeButton(), Expanded(child: _recentList())]),
+        child: Row(children: [_bagButton(), _benchButton(), _museumButton(), _shapeButton(), Expanded(child: _recentList())]),
       );
 
   Widget _modes() {
@@ -4145,6 +4383,10 @@ const _glowColors = {
   'led_mor': Color(0xFFD500F9),
   'led_sari': Color(0xFFFFEA00),
   'heceta': Color(0xFFB388FF),
+  'yakutc': Color(0xFFFF5252),
+  'firuzec': Color(0xFF18FFFF),
+  'kehribarc': Color(0xFFFFC400),
+  'miras': Color(0xFF64FFDA),
 };
 
 class _WorldPainter extends CustomPainter {
@@ -4866,64 +5108,6 @@ class _MathDialogState extends State<_MathDialog> {
           ]),
         ),
       );
-}
-
-class _GrowDialog extends StatelessWidget {
-  final bool places;
-  const _GrowDialog(this.places);
-
-  @override
-  Widget build(BuildContext context) {
-    Voice.say('Şehri büyütelim! Ekranın yukarısına, yani baktığın yöne yeni arazi eklenecek. Ne tür bir yer olsun?');
-    return Dialog(
-      backgroundColor: const Color(0xFFE8F5E9),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('🗺️ Şehri büyüt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 4),
-          const Text('Baktığın yöne yeni arazi eklenir', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          GridView.count(
-            shrinkWrap: true,
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            children: [
-              for (final b in biomes)
-                Bouncy(
-                  onTap: () {
-                    Sfx.play('click');
-                    Navigator.pop(context, b.$1);
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 3))],
-                    ),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text(b.$3, style: const TextStyle(fontSize: 36)),
-                      FittedBox(child: SylText(trLower(b.$2), size: 18)),
-                    ]),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (places)
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0277BD), minimumSize: const Size(230, 50)),
-              onPressed: () => Navigator.pop(context, 'goto'),
-              icon: const Text('📍', style: TextStyle(fontSize: 22)),
-              label: const Text('Adalara, köylere git', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç', style: TextStyle(fontSize: 16))),
-        ]),
-      ),
-    );
-  }
 }
 
 class _NewItems extends StatelessWidget {

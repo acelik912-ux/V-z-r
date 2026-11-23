@@ -67,7 +67,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   List<String> todayWords = [];
   String surpriseDay = '';
   String trail = ''; // Blok Şehri renkli iz
-  String blockFriends = ''; // Blok Şehri arkadaşları // akşam masalında söz verilen sürpriz yumurta
+  String blockFriends = ''; // Blok Şehri arkadaşları
+  Set<String> treasures = {}; // bulunan değerli taşlar ve miras eşyaları // akşam masalında söz verilen sürpriz yumurta
   DateTime? windDownAt; // süre bitmeden 3 dk önce
 
   int _raceDepth = 0;
@@ -225,6 +226,11 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ---- Öğrenme ve ödüller ----
+  void addTreasure(String id) {
+    treasures.add(id);
+    _changed();
+  }
+
   void saveFriends(String v) {
     blockFriends = v;
     save();
@@ -561,6 +567,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'surpriseDay': surpriseDay,
         'trail': trail,
         'blockFriends': blockFriends,
+        'treasures': treasures.toList(),
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -639,6 +646,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     surpriseDay = j['surpriseDay'] as String? ?? '';
     trail = j['trail'] as String? ?? '';
     blockFriends = j['blockFriends'] as String? ?? '';
+    treasures = ((j['treasures'] as List?) ?? const []).map((e) => e.toString()).toSet();
     final mj = j['mined'];
     if (mj is Map) mined = mj.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
     final st = j['stats'];

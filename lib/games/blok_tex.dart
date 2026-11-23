@@ -594,6 +594,43 @@ class Tex {
             g.set(7, x, 0xFFFFD54F);
           }
         }
+      case 'yakutc':
+      case 'firuzec':
+      case 'gumusc':
+      case 'kehribarc':
+        g.noise(0xFF8E8E8E, 12);
+        final gc = const {'yakutc': 0xFFE53935, 'firuzec': 0xFF26C6DA, 'gumusc': 0xFFECEFF1, 'kehribarc': 0xFFFFA000}[id]!;
+        final hi = const {'yakutc': 0xFFFF8A80, 'firuzec': 0xFFB2FFFF, 'gumusc': 0xFFFFFFFF, 'kehribarc': 0xFFFFE082}[id]!;
+        for (final p in const [(3, 3), (10, 2), (6, 8), (12, 9), (2, 12)]) {
+          g.set(p.$1, p.$2, gc);
+          g.set(p.$1 + 1, p.$2, gc);
+          g.set(p.$1, p.$2 + 1, gc);
+          g.set(p.$1 + 1, p.$2 + 1, gc);
+          g.set(p.$1 + 1, p.$2 - 1, gc);
+          g.set(p.$1, p.$2, hi);
+        }
+      case 'istiridye':
+        g.noise(0xFF4FC3F7, 8);
+        for (var y = 5; y < 12; y++) {
+          for (var x = 3 + (y - 5).abs() ~/ 3; x < 13 - (y - 5).abs() ~/ 3; x++) {
+            g.set(x, y, g.vary((x + y).isEven ? 0xFFBCAAA4 : 0xFFD7CCC8, 6));
+          }
+        }
+        g.set(8, 8, 0xFFFFFFFF);
+        g.set(9, 8, 0xFFF5F5F5);
+      case 'miras':
+        g.planks(0xFF6D4C41);
+        for (var i = 0; i < 16; i++) {
+          g.set(i, side ? 5 : 0, 0xFF00897B);
+          g.set(i, side ? 6 : 15, 0xFF00897B);
+          g.set(0, i, 0xFFFFC107);
+          g.set(15, i, 0xFFFFC107);
+        }
+        // sekiz köşeli yıldız
+        for (final p in const [(7, 9), (8, 9), (6, 10), (9, 10), (7, 11), (8, 11), (7, 10), (8, 10), (5, 10), (10, 10), (7, 8), (8, 12)]) {
+          g.set(p.$1, side ? p.$2 : p.$2 - 3, 0xFF26C6DA);
+        }
+        g.set(7, side ? 10 : 7, 0xFFFFD54F);
       default:
         // yün / renkli bloklar
         g.wool(_woolColors[id] ?? 0xFFFF00FF);

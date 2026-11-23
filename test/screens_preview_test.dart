@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -14,6 +15,8 @@ import 'package:vizir/games/blok_words.dart';
 import 'package:vizir/games/blok_village.dart';
 import 'package:vizir/games/blok_friends.dart';
 import 'package:vizir/games/blok_map.dart';
+import 'package:vizir/games/blok_globe.dart';
+import 'package:vizir/games/blok_treasure.dart';
 import 'package:vizir/games/blok_tex.dart';
 import 'package:vizir/games/hece_kamyonu.dart';
 import 'package:vizir/games/kasaba.dart';
@@ -154,6 +157,30 @@ void main() {
         final p = w.places['İstanbul Adası']!;
         return BlokAdasi(startFocus: (p.$1, p.$2));
       },
+      'kure': () {
+        final w = BlockWorld()..seed();
+        w.ensureLands();
+        w.inflate(0, Random(3));
+        w.inflate(6, Random(4));
+        final hw = (maxX - minX) / 2, hh = (maxY - minY) / 2;
+        final d = GlobeData(mapPixels(w), maxX - minX + 1, maxY - minY + 1, minX, minY, (minX + maxX) / 2, (minY + maxY) / 2,
+            hw * 1.42 + 1, hh * 1.42 + 1);
+        final p = w.places['Malatya Köyü']!;
+        return GlobeMapScreen(data: d, px: p.$1 + 0.5, py: p.$2 + 0.5, places: w.places, friends: const [], onFlat: () {});
+      },
+      'muze': () {
+        game.treasures = {'yakut', 'firuze', 'kayisi', 'usturlap', 'cini', 'tesbih'};
+        return const MuseumScreen();
+      },
+      'blok_sisik': () {
+        final w = BlockWorld()..seed();
+        w.ensureLands();
+        w.inflate(0, Random(3));
+        w.ensureTreasures(Random(2));
+        game.blockWorld = w.encode();
+        game.blockFriends = '';
+        return BlokAdasi(startFocus: ((w.ecx - w.erx * 0.9).round(), w.ecy.round()));
+      },
       'yerler': () => const Scaffold(body: Center(child: PlacesDialog(['Sürgü Adası', 'Malatya Adası', 'Harput Köyü', 'Darende Köyü']))),
       'sifre': () => const Scaffold(body: Center(child: PinDialog())),
       'para_ustu': () => const Scaffold(body: Center(child: ChangeDialog(name: 'süt', emoji: '🥛', price: 4))),
@@ -269,6 +296,11 @@ void main() {
     // ignore: avoid_print
     print('DUNYA ${maxX - minX + 1}x${maxY - minY + 1} adalar=$adalar koyler=$koyler koylu=${st.npcs.length}');
     expect(adalar, 11);
+    final w0 = maxX - minX;
+    final ok = st.world.inflate(6, Random(9));
+    // ignore: avoid_print
+    print('SISME elips=${st.world.erx.toStringAsFixed(1)}x${st.world.ery.toStringAsFixed(1)} genislik $w0 -> ${maxX - minX} ok=$ok miras=${st.world.blocks.values.where((m) => m == matIndex('miras')).length}');
+    expect(maxX - minX > w0, true);
     expect(koyler, 11);
     expect(st.npcs.isNotEmpty, true);
     final b0 = st.world.blocks.length;
