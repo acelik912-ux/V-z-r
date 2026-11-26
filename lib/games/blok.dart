@@ -634,6 +634,7 @@ const roadY = 10;
 
 class BlockWorld {
   final JournalMap blocks = JournalMap();
+  bool space = false; // gezegen: boş yerler uzay
   final Map<int, int> shapeAt = {}; // hücre -> şekil*4 + yön
   int version = 0;
 
@@ -657,6 +658,22 @@ class BlockWorld {
       _histMods = blocks.mods;
     }
     return _hist![i];
+  }
+
+  /// Dünya'da altı boş kalmış (zemin bloğu olmayan) yerleri çim, kum ya da denizle doldurur.
+  bool fillHoles() {
+    final su = matIndex('su'), kum = matIndex('kum'), cim = matIndex('cim');
+    var n = 0;
+    for (var x = minX; x <= maxX; x++) {
+      for (var y = minY; y <= maxY; y++) {
+        if (blocks.containsKey(ck(x, y, 0))) continue;
+        final e = erx == 0 ? 0.0 : ellipse(x.toDouble(), y.toDouble());
+        blocks[ck(x, y, 0)] = e > 1 ? su : (e > 0.9 ? kum : cim);
+        n++;
+      }
+    }
+    if (n > 0) version++;
+    return n > 0;
   }
 
   /// Eski bir hata dünyayı küçük kaydettiyse: elipsin kenarına kadar zemini geri koy.
@@ -1266,6 +1283,7 @@ class BlockWorld {
   /// Başka bir gezegen: yuvarlak, uzayda süzülen bir dünya. Üste bir üs,
   /// iniş pisti, bayrak ve dönüş için bir uzay mekiği konur.
   void seedPlanet(int p, Random r) {
+    space = true;
     blocks.clear();
     shapeAt.clear();
     places.clear();
@@ -2231,8 +2249,9 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   /// 🚀 düğmesi: roket varsa yanına götürür, yoksa roket yapmayı öğretir.
-  void _spaceButton() {
+  Future<void> _spaceButton() async {
     Sfx.play('click');
+    if (riding != null) return;
     final kp = matIndex('kokpit'), motor = matIndex('motor');
     int? best;
     var bd = 1e9;
@@ -2248,25 +2267,38 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
     }
     if (best == null) {
-      setState(() {
-        sel = 'p_roket';
-        mode = 0;
-        firstPerson = false;
-      });
-      Say.show(context, Who.tamirci, "Uzaya çıkmak için önce bir roket yapalım! Roketi koymak istediğin yere dokun. Sonra Yürü'ye geç, kokpite dokun.",
-          mood: 'iyi');
-      return;
+      // roket yok: hecelerle yaz, yanına hemen bir roket kurulsun
+      final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => const SpellDialog(
+                parts: ['ro', 'ket'],
+                emoji: '🚀',
+                title: 'Uzaya gitmek için roket lazım! roket yaz.',
+                speech: 'Uzaya gitmek için roket lazım! Roket kelimesini hecelerle yaz, roketin hemen kurulsun.',
+              ));
+      if (ok != true || !mounted) return;
+      final x = min(maxX - 2, ax.floor() + 3), y = min(maxY - 2, max(minY + 1, ay.floor()));
+      final z = world.topZ(x, y) + 1;
+      if (z + 12 >= H) {
+        Voice.say('Burası çok yüksek, roket sığmaz. Biraz aşağı in, tekrar dene!');
+        return;
+      }
+      _push();
+      world.stamp(_rocket(), x, y, z, 0);
+      _changed();
+      Sfx.play('finish');
+      _burst(ck(x, y, z + 4), const Color(0xFFFF7043), 24);
+      for (var dz = 0; dz < 12 && best == null; dz++) {
+        for (final (dx, dy) in const [(0, 1), (0, 0), (1, 0), (-1, 0), (0, -1)]) {
+          if (world.blocks[ck(x + dx, y + dy, z + dz)] == kp) best = ck(x + dx, y + dy, z + dz);
+        }
+      }
+      if (best == null) return;
+      Say.show(context, Who.tamirci, '🚀 Roketin hazır! Bismillah, uzaya çıkıyoruz!', mood: 'sevin');
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      if (!mounted) return;
     }
-    final (x, y, _) = cxyz(best);
-    setState(() {
-      mode = 1;
-      _placeAvatar(x - 2, y - 2);
-      fx = ax;
-      fy = ay;
-      zoom = max(zoom, 1.3);
-      _geoKey = '';
-    });
-    Say.show(context, Who.tamirci, '🚀 Roketin burada! Mavi kokpite dokun, uzaya çıkalım.', mood: 'sevin');
+    await boardVehicle(best);
   }
 
   // ================= uçma =================
@@ -2400,8 +2432,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       maxY = 39;
     }
     game.planet = planet;
+    world.space = planet != 0;
     if (planet == 0) {
       if (world.repairBounds()) grew = true;
+      if (world.fillHoles()) grew = true;
       grew = world.ensureLands() || grew;
       if (world.erx == 0) grew = world.inflate(0, Random(3)) || grew;
     }
@@ -5165,9 +5199,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 class _HitData {
   List<_Face> faces = [];
   List<Float32List> polys = [];
+  Offset shift = Offset.zero; // çizim bu kadar kaydırıldı
   int get count => min(faces.length, polys.length);
 
-  bool contains(int i, Offset p) {
+  bool contains(int i, Offset p0) {
+    final p = p0 - shift;
     final q = polys[i];
     final n = q.length ~/ 2;
     if (n < 3) return false;
@@ -5186,6 +5222,17 @@ class _HitData {
     }
     return sign != 0;
   }
+}
+
+/// Çizime hazır, sıralı çokgenler (üçgenlere açılmış)
+class _Layer {
+  final Float32List pos, uv;
+  final Int32List col;
+  final Int32List start; // her çokgenin ilk köşesi
+  final Float64List key; // çizim sırası
+  final List<_Face> faces;
+  final List<Float32List> scr;
+  _Layer(this.pos, this.uv, this.col, this.start, this.key, this.faces, this.scr);
 }
 
 /// Dünya uzayında dışbükey bir çokgen
@@ -5233,10 +5280,10 @@ class _WorldPainter extends CustomPainter {
       (0xFF << 24) | ((c.r * 255 * sh).round().clamp(0, 255) << 16) | ((c.g * 255 * sh).round().clamp(0, 255) << 8) | (c.b * 255 * sh).round().clamp(0, 255);
 
   /// Görüş alanındaki bütün çokgenler: bloklar, şekilli bloklar, karakter, hayvanlar, ekinler
-  List<_Poly> _collect(double ox, double oy, double reach, {required bool withAvatar}) {
+  List<_Poly> _collect(double ox, double oy, double reach, {required bool withAvatar, bool statics = true, bool dynamics = true}) {
     final out = <_Poly>[];
     final atlasOk = Tex.atlas != null;
-    for (final f in s.facesNear(ox, oy, reach)) {
+    for (final f in statics ? s.facesNear(ox, oy, reach) : const <_Face>[]) {
       final (x, y, z) = cxyz(f.cell);
       if ((x + 0.5 - ox).abs() > reach || (y + 0.5 - oy).abs() > reach) continue;
       final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
@@ -5257,7 +5304,7 @@ class _WorldPainter extends CustomPainter {
     }
     // şekilli bloklar
     final white = Tex.tile(mats.length * 2);
-    for (final e in s.world.shapeAt.entries) {
+    for (final e in statics ? s.world.shapeAt.entries : const <MapEntry<int, int>>[]) {
       final m = s.world.blocks[e.key];
       if (m == null) continue;
       final (x, y, z) = cxyz(e.key);
@@ -5292,7 +5339,7 @@ class _WorldPainter extends CustomPainter {
     // hareketli parçalar
     final whiteTile = Tex.tile(mats.length * 2), faceTile = Tex.tile((mats.length + 1) * 2);
     final none = _Face(-1, 0, 0, 1);
-    for (final e in s.entityParts(withAvatar: withAvatar)) {
+    for (final e in dynamics ? s.entityParts(withAvatar: withAvatar) : const <(ABox, double, double, double, double, int, int)>[]) {
       if ((e.$2 - ox).abs() > reach || (e.$3 - oy).abs() > reach) continue;
       final b = e.$1;
       final c = boxCorners(b, e.$2, e.$3, e.$4, e.$5);
@@ -5339,7 +5386,10 @@ class _WorldPainter extends CustomPainter {
         s._geoKey = key;
         _build(size);
       }
+      canvas.save();
+      canvas.translate(s._hit.shift.dx, s._hit.shift.dy);
       _drawVerts(canvas);
+      canvas.restore();
       _overlay(canvas);
     }
     _nightAndGlow(canvas, size);
@@ -5367,78 +5417,130 @@ class _WorldPainter extends CustomPainter {
     s._verts.clear();
   }
 
-  /// Ekran koordinatlı çokgenlerden çizim listesi oluşturur.
-  void _emit(List<(List<double>, List<double>, int)> polys) {
-    var pos = <double>[], uv = <double>[];
-    var col = <int>[];
-    var idx = <int>[];
-    void flush() {
-      if (pos.isEmpty) return;
-      s._verts.add(ui.Vertices.raw(ui.VertexMode.triangles, Float32List.fromList(pos),
-          textureCoordinates: Float32List.fromList(uv), colors: Int32List.fromList(col), indices: Uint16List.fromList(idx)));
-      pos = [];
-      uv = [];
-      col = [];
-      idx = [];
+  /// Çizim sırasına dizilmiş çokgenler: üçgenlere açılmış hâlde saklanır.
+  _Layer _layer(List<(Float32List, List<double>, int, double, _Face)> items) {
+    var total = 0;
+    for (final it in items) {
+      total += (it.$1.length ~/ 2 - 2) * 3;
+    }
+    final pos = Float32List(total * 2), uv = Float32List(total * 2), col = Int32List(total);
+    final start = Int32List(items.length + 1);
+    final key = Float64List(items.length);
+    var o = 0;
+    for (var i = 0; i < items.length; i++) {
+      final (scr, tuv, c, k, _) = items[i];
+      start[i] = o;
+      key[i] = k;
+      final n = scr.length ~/ 2;
+      for (var t = 1; t < n - 1; t++) {
+        for (final v in [0, t, t + 1]) {
+          pos[o * 2] = scr[v * 2];
+          pos[o * 2 + 1] = scr[v * 2 + 1];
+          uv[o * 2] = tuv[v * 2];
+          uv[o * 2 + 1] = tuv[v * 2 + 1];
+          col[o] = c;
+          o++;
+        }
+      }
+    }
+    start[items.length] = o;
+    return _Layer(pos, uv, col, start, key, [for (final it in items) it.$5], [for (final it in items) it.$1]);
+  }
+
+  /// Sabit bloklar ile hareketli parçaları sırayla birleştirip çizime hazırlar.
+  void _compose(_Layer st, _Layer dy, {bool hit = false}) {
+    _clearVerts();
+    final nv = st.col.length + dy.col.length;
+    if (nv == 0) return;
+    final pos = Float32List(nv * 2), uv = Float32List(nv * 2), col = Int32List(nv);
+    final faces = <_Face>[], scr = <Float32List>[];
+    var o = 0;
+    void copy(_Layer l, int a, int b) {
+      if (b <= a) return;
+      final vs = l.start[a], ve = l.start[b], n = ve - vs;
+      pos.setRange(o * 2, (o + n) * 2, l.pos, vs * 2);
+      uv.setRange(o * 2, (o + n) * 2, l.uv, vs * 2);
+      col.setRange(o, o + n, l.col, vs);
+      o += n;
+      if (hit) {
+        faces.addAll(l.faces.getRange(a, b));
+        scr.addAll(l.scr.getRange(a, b));
+      }
     }
 
-    for (final p in polys) {
-      final n = p.$1.length ~/ 2;
-      if (pos.length ~/ 2 + n > 60000) flush();
-      final base = pos.length ~/ 2;
-      pos.addAll(p.$1);
-      uv.addAll(p.$2);
-      for (var k = 0; k < n; k++) {
-        col.add(p.$3);
+    final ns = st.key.length, nd = dy.key.length;
+    var i = 0;
+    for (var j = 0; j < nd; j++) {
+      final k = dy.key[j];
+      // k'den önce çizilecek sabitler (ikili arama)
+      var lo = i, hi = ns;
+      while (lo < hi) {
+        final m = (lo + hi) >> 1;
+        if (st.key[m] <= k) {
+          lo = m + 1;
+        } else {
+          hi = m;
+        }
       }
-      for (var k = 1; k < n - 1; k++) {
-        idx
-          ..add(base)
-          ..add(base + k)
-          ..add(base + k + 1);
-      }
+      copy(st, i, lo);
+      i = lo;
+      copy(dy, j, j + 1);
     }
-    flush();
+    copy(st, i, ns);
+    s._verts.add(ui.Vertices.raw(ui.VertexMode.triangles, pos, textureCoordinates: uv, colors: col));
+    if (hit) {
+      s._hit
+        ..faces = faces
+        ..polys = scr;
+    }
   }
 
   // ================= dışarıdan görünüm =================
-  void _build(Size size) {
-    _clearVerts();
+  // Sabit bloklar yalnızca kamera döner, yaklaşır ya da dünya değişirse yeniden hesaplanır;
+  // kamera kayınca çizim yalnızca ötelenir. Her karede yalnızca hareketli parçalar hesaplanır.
+  String _stKey = '';
+  _Layer? _st;
+  double _rx0 = 0, _ry0 = 0, _rz0 = 0;
+  Offset _rScr = Offset.zero;
+
+  List<(Float32List, List<double>, int, double, _Face)> _tpItems(List<_Poly> polys, Size size, Offset shift, double dc, double margin,
+      {double bump = 0}) {
     final sy = s._sy, cy = s._cy, sp = s._sp, cp = s._cp;
-    final reach = max(size.width, size.height / max(0.3, sp)) / s._s * 0.8 + 6;
     final vx = sy * cp, vy = cy * cp, vz = sp;
-    final polys = _collect(s.fx, s.fy, reach, withAvatar: true);
-    final vis = <int>[];
-    final dep = <double>[];
-    for (var i = 0; i < polys.length; i++) {
-      final p = polys[i];
+    final out = <(Float32List, List<double>, int, double, _Face)>[];
+    for (final p in polys) {
       if (p.nx * vx + p.ny * vy + p.nz * vz <= 1e-4) continue;
-      final c = s.proj(p.cx, p.cy, p.cz);
-      if (c.dx < -80 || c.dy < -80 || c.dx > size.width + 80 || c.dy > size.height + 80) continue;
-      vis.add(i);
-      // hareketli parçalar biraz öne
-      dep.add(s.depth(p.cx, p.cy, p.cz) + (p.hit.ent == 0 || p.hit.ent == 4 ? 0 : 0.02));
-    }
-    final order = List<int>.generate(vis.length, (i) => i)..sort((a, b) => dep[a].compareTo(dep[b]));
-    final out = <(List<double>, List<double>, int)>[];
-    final hitPolys = <Float32List>[];
-    final hitFaces = <_Face>[];
-    for (final o in order) {
-      final p = polys[vis[o]];
+      final c = s.proj(p.cx, p.cy, p.cz) - shift;
+      if (c.dx < -margin || c.dy < -margin || c.dx > size.width + margin || c.dy > size.height + margin) continue;
       final scr = Float32List(p.p.length ~/ 3 * 2);
       for (var k = 0; k < p.p.length ~/ 3; k++) {
         final q = s.proj(p.p[k * 3], p.p[k * 3 + 1], p.p[k * 3 + 2]);
-        scr[k * 2] = q.dx;
-        scr[k * 2 + 1] = q.dy;
+        scr[k * 2] = q.dx - shift.dx;
+        scr[k * 2 + 1] = q.dy - shift.dy;
       }
-      out.add((scr, p.uv, p.color));
-      hitPolys.add(scr);
-      hitFaces.add(p.hit);
+      out.add((scr, p.uv, p.color, s.depth(p.cx, p.cy, p.cz) - dc + (p.hit.ent == 0 || p.hit.ent == 4 ? 0 : bump), p.hit));
     }
-    _emit(out);
-    s._hit
-      ..faces = hitFaces
-      ..polys = hitPolys;
+    out.sort((a, b) => a.$4.compareTo(b.$4));
+    return out;
+  }
+
+  void _build(Size size) {
+    final reach = max(size.width, size.height / max(0.3, s._sp)) / s._s * 0.8 + 6;
+    final stKey = '${s.yaw},${s.pitch},${s.zoom},$size,${s.world.version},${Tex.atlas != null},${(s.fx / 6).round()},${(s.fy / 6).round()}';
+    if (stKey != _stKey || _st == null) {
+      _stKey = stKey;
+      _rx0 = s.fx;
+      _ry0 = s.fy;
+      _rz0 = s.fz;
+      _rScr = s.proj(_rx0, _ry0, _rz0);
+      final polys = _collect(s.fx, s.fy, reach + 7, withAvatar: false, dynamics: false);
+      _st = _layer(_tpItems(polys, size, Offset.zero, 0, 80 + 7 * s._s));
+    }
+    final shift = s.proj(_rx0, _ry0, _rz0) - _rScr;
+    final dc = s.depth(_rx0, _ry0, _rz0);
+    final dyn = _layer(_tpItems(_collect(s.fx, s.fy, reach, withAvatar: true, statics: false), size, shift, dc, 80, bump: 0.02));
+    _compose(_st!, dyn, hit: true);
+    s._hit.shift = shift;
   }
 
   // ================= birinci şahıs =================
@@ -5483,25 +5585,16 @@ class _WorldPainter extends CustomPainter {
     _drawVerts(canvas);
   }
 
-  void _buildFP(Size size) {
-    _clearVerts();
-    const range = 24.0;
-    final polys = _collect(_ex, _ey, range, withAvatar: s.behind);
-    final vis = <int>[];
-    final dist = <double>[];
-    for (var i = 0; i < polys.length; i++) {
-      final p = polys[i];
+  String _fpKey = '';
+  _Layer? _fpSt;
+
+  List<(Float32List, List<double>, int, double, _Face)> _fpItems(List<_Poly> polys, {double bump = 0}) {
+    final out = <(Float32List, List<double>, int, double, _Face)>[];
+    const near = 0.06;
+    for (final p in polys) {
       final vx = _ex - p.cx, vy = _ey - p.cy, vz = _ez - p.cz;
       if (p.nx * vx + p.ny * vy + p.nz * vz <= 0) continue;
       if (-(vx * _fx + vy * _fy + vz * _fz) < -1.2) continue;
-      vis.add(i);
-      dist.add(vx * vx + vy * vy + vz * vz - (p.hit.ent == 0 || p.hit.ent == 4 ? 0 : 0.01));
-    }
-    final order = List<int>.generate(vis.length, (i) => i)..sort((a, b) => dist[b].compareTo(dist[a]));
-    final out = <(List<double>, List<double>, int)>[];
-    const near = 0.06;
-    for (final o in order) {
-      final p = polys[vis[o]];
       final n = p.p.length ~/ 3;
       var poly = <List<double>>[];
       for (var k = 0; k < n; k++) {
@@ -5522,18 +5615,32 @@ class _WorldPainter extends CustomPainter {
         poly = cl;
         if (poly.length < 3) continue;
       }
-      final scr = <double>[], uv = <double>[];
-      for (final q in poly) {
-        scr
-          ..add(_c.dx + q[0] / q[2] * _foc)
-          ..add(_c.dy - q[1] / q[2] * _foc);
+      final scr = Float32List(poly.length * 2);
+      final uv = <double>[];
+      for (var k = 0; k < poly.length; k++) {
+        final q = poly[k];
+        scr[k * 2] = _c.dx + q[0] / q[2] * _foc;
+        scr[k * 2 + 1] = _c.dy - q[1] / q[2] * _foc;
         uv
           ..add(q[3])
           ..add(q[4]);
       }
-      out.add((scr, uv, p.color));
+      // uzaktaki önce çizilir
+      out.add((scr, uv, p.color, -(vx * vx + vy * vy + vz * vz) + bump, p.hit));
     }
-    _emit(out);
+    out.sort((a, b) => a.$4.compareTo(b.$4));
+    return out;
+  }
+
+  void _buildFP(Size size) {
+    const range = 24.0;
+    final k = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null}';
+    if (k != _fpKey || _fpSt == null) {
+      _fpKey = k;
+      _fpSt = _layer(_fpItems(_collect(_ex, _ey, range, withAvatar: false, dynamics: false)));
+    }
+    final dyn = _layer(_fpItems(_collect(_ex, _ey, range, withAvatar: s.behind, statics: false), bump: 0.01));
+    _compose(_fpSt!, dyn);
   }
 
   void _fpHud(Canvas canvas, Size size) {

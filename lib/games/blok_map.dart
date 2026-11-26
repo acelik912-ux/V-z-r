@@ -19,7 +19,7 @@ void mapRow(BlockWorld w, Uint8List px, int wd, int x0, int y0, int y) {
   for (var x = x0; x < x0 + wd; x++) {
     final z = w.topZ(x, y);
     final m = w.blocks[ck(x, y, z)];
-    var c = z < 0 ? const Color(0xFF0B0B2A) : (m == null ? const Color(0xFF7CB342) : mats[m].color);
+    var c = z < 0 ? (w.space ? const Color(0xFF0B0B2A) : const Color(0xFF29B6F6)) : (m == null ? const Color(0xFF7CB342) : mats[m].color);
     if (m == su) c = const Color(0xFF29B6F6);
     final k = ((x - x0) + (y - y0) * wd) * 4;
     final lift = (z * 0.035).clamp(0.0, 0.5);

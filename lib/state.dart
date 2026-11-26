@@ -92,6 +92,22 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         _fromJson(jsonDecode(raw) as Map<String, dynamic>);
       } catch (_) {}
     }
+    // Dünyalar büyük: ayrı anahtarlarda durur, yalnızca değişince yazılır (oyun donmasın).
+    // Eski sürümde ana kayıttaydılar: bir kez taşınır.
+    for (var p = 0; p < 4; p++) {
+      final k = 'world_$p';
+      final w = _prefs!.getString(k);
+      if (w != null) {
+        if (p == 0) {
+          blockWorld = w;
+        } else {
+          planetWorlds['$p'] = w;
+        }
+      } else {
+        final old = worldOf(p);
+        if (old.isNotEmpty) _prefs!.setString(k, old);
+      }
+    }
     _checkDay();
   }
 
@@ -389,10 +405,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     _changed();
   }
 
-  void saveBlocks(String w) {
-    blockWorld = w;
-    save();
-  }
+  void saveBlocks(String w) => saveWorld(0, w);
 
   /// Gezegenin kayıtlı dünyası (0 = Dünya)
   String worldOf(int p) => p == 0 ? blockWorld : planetWorlds['$p'] ?? '';
@@ -403,7 +416,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     } else {
       planetWorlds['$p'] = w;
     }
-    save();
+    _prefs?.setString('world_$p', w);
   }
 
   void blockQuestDone(String q, {int stars = 0, int hearts = 0}) {
@@ -562,9 +575,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'musicOn': musicOn,
         'levelStars': levelStars,
         'stickers': stickers.toList(),
-        'blockWorld': blockWorld,
         'planet': planet,
-        'planetWorlds': planetWorlds,
         'blockQuests': blockQuests.toList(),
         'blockItems': blockItems.toList(),
         'todayPlayed': todayPlayed.toList(),
