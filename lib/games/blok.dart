@@ -136,6 +136,23 @@ class JournalMap extends MapBase<int, int> {
   final Map<int, int> _m = {};
   Map<int, int?>? journal;
 
+  /// Her değişiklikte artar (sayımlar bunu görünce yeniden hesaplanır)
+  int mods = 0;
+
+  /// Çizim için: değişen hücreler; çok çok değişince her şey baştan
+  final Set<int> dirty = {};
+  bool allDirty = true;
+
+  void _mark(int k) {
+    mods++;
+    if (allDirty) return;
+    dirty.add(k);
+    if (dirty.length > 20000) {
+      allDirty = true;
+      dirty.clear();
+    }
+  }
+
   void _note(int k) {
     final j = journal;
     if (j != null && !j.containsKey(k)) j[k] = _m[k];
@@ -147,17 +164,24 @@ class JournalMap extends MapBase<int, int> {
   @override
   void operator []=(int key, int value) {
     _note(key);
+    _mark(key);
     _m[key] = value;
   }
 
   @override
   int? remove(Object? key) {
-    if (key is int) _note(key);
+    if (key is int) {
+      _note(key);
+      _mark(key);
+    }
     return _m.remove(key);
   }
 
   @override
   void clear() {
+    mods++;
+    allDirty = true;
+    dirty.clear();
     final j = journal;
     if (j != null) {
       for (final e in _m.entries) {
@@ -618,9 +642,45 @@ class BlockWorld {
     shapeAt.remove(k);
   }
 
+  List<int>? _hist;
+  int _histMods = -1;
+
+  /// Malzeme sayısı; bütün dünya yalnızca bir şey değişince bir kez sayılır.
   int count(String mat) {
     final i = matIndex(mat);
-    return blocks.values.where((v) => v == i).length;
+    if (_hist == null || _histMods != blocks.mods) {
+      final h = List.filled(mats.length, 0);
+      for (final v in blocks.values) {
+        h[v]++;
+      }
+      _hist = h;
+      _histMods = blocks.mods;
+    }
+    return _hist![i];
+  }
+
+  /// Eski bir hata dünyayı küçük kaydettiyse: elipsin kenarına kadar zemini geri koy.
+  bool repairBounds() {
+    if (erx == 0) return false;
+    final nx0 = max(-_o, (ecx - erx - 5).floor()), nx1 = min(_o - 1, (ecx + erx + 5).ceil());
+    final ny0 = max(-_o, (ecy - ery - 5).floor()), ny1 = min(_o - 1, (ecy + ery + 5).ceil());
+    if (minX <= nx0 && maxX >= nx1 && minY <= ny0 && maxY >= ny1) return false;
+    final ox0 = minX, ox1 = maxX, oy0 = minY, oy1 = maxY;
+    minX = min(minX, nx0);
+    maxX = max(maxX, nx1);
+    minY = min(minY, ny0);
+    maxY = max(maxY, ny1);
+    final su = matIndex('su'), kum = matIndex('kum'), cim = matIndex('cim'), toprak = matIndex('toprak');
+    for (var x = minX; x <= maxX; x++) {
+      for (var y = minY; y <= maxY; y++) {
+        if (x >= ox0 && x <= ox1 && y >= oy0 && y <= oy1) continue;
+        if (blocks.containsKey(ck(x, y, 0))) continue;
+        final e = ellipse(x.toDouble(), y.toDouble());
+        blocks[ck(x, y, 0)] = e > 1 ? su : (e > 0.9 ? kum : (blocks.containsKey(ck(x, y, 1)) ? toprak : cim));
+      }
+    }
+    version++;
+    return true;
   }
 
   int treeCount() {
@@ -1514,7 +1574,9 @@ class BlokAdasi extends StatefulWidget {
       this.startBehind = false,
       this.startFlying = false,
       this.startRiding = false,
+      this.planet,
       this.arriving});
+  final int? planet; // boşsa Dünya
   final bool startRiding; // önizleme: uçakta
 
   @override
@@ -1535,14 +1597,17 @@ const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -
 class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
-  final int planet = game.planet; // 0 Dünya, 1 Ay, 2 Mars, 3 Kristal
+  late final int planet = widget.planet ?? 0; // 0 Dünya, 1 Ay, 2 Mars, 3 Kristal
+  bool _gone = false; // roketle başka gezegene geçildi: bu ekran artık kaydetmez
   String sel = 'tahta';
   bool erase = false;
   int tab = 0;
   bool moveMode = false;
   final List<_Undo> undo = [];
-  List<_Face> exposed = [];
-  int exposedVersion = -1;
+  /// Görünen yüzler, 16x16'lık parçalara ayrılmış (yalnızca yakındakiler çizilir,
+  /// bir blok değişince yalnızca onun parçası yeniden hesaplanır)
+  final Map<int, List<_Face>> exposedChunks = {};
+  (int, int, int, int) _exBounds = (0, 0, 0, 0);
   // kamera
   double yaw = 0.78, pitch = 0.62, zoom = 1.0;
   double fx = 19.5, fy = 17, fz = 0;
@@ -2160,7 +2225,9 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     game.planet = to;
     game.save();
     if (!mounted) return;
-    Navigator.pushReplacement(context, fadeRoute(BlokAdasi(arriving: cells, startNight: night)));
+    _gone = true;
+    _saveTimer?.cancel();
+    Navigator.pushReplacement(context, fadeRoute(BlokAdasi(planet: to, arriving: cells, startNight: night)));
   }
 
   /// 🚀 düğmesi: roket varsa yanına götürür, yoksa roket yapmayı öğretir.
@@ -2326,7 +2393,15 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
       grew = true;
     }
+    if (planet != 0) {
+      minX = -45;
+      maxX = 45;
+      minY = -39;
+      maxY = 39;
+    }
+    game.planet = planet;
     if (planet == 0) {
+      if (world.repairBounds()) grew = true;
       grew = world.ensureLands() || grew;
       if (world.erx == 0) grew = world.inflate(0, Random(3)) || grew;
     }
@@ -3425,14 +3500,17 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void dispose() {
     _saveTimer?.cancel();
     mapImg?.dispose();
-    _saveLife();
-    saveFriends(friends);
+    // roketle gidildiyse her şey önceden kaydedildi; dünyanın sınırları artık yeni gezegenin
+    if (!_gone) {
+      _saveLife();
+      saveFriends(friends);
+      game.saveWorld(planet, world.encode());
+    }
     _ticker.dispose();
     pulse.dispose();
     for (final v in _verts) {
       v.dispose();
     }
-    game.saveWorld(planet, world.encode());
     super.dispose();
   }
 
@@ -3622,27 +3700,76 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   // ---------- görünen yüzler ----------
+  static int chunkOf(int x, int y) => ((x >> 4) + 64) * 256 + ((y >> 4) + 64);
+
+  void _facesOf(int k, int v) {
+    if (world.shapeAt.containsKey(k)) return;
+    final (x, y, z) = cxyz(k);
+    final m = mats[v];
+    List<_Face>? list;
+    for (var d = 0; d < 6; d++) {
+      if (d == 5 && z == 0) continue;
+      final (nx, ny, nz) = _dirs[d];
+      final xx = x + nx, yy = y + ny, zz = z + nz;
+      if (inside(xx, yy, zz)) {
+        final nk = ck(xx, yy, zz);
+        final o = world.blocks[nk];
+        if (o != null && !world.shapeAt.containsKey(nk) && (!mats[o].see || (m.see && o == v))) continue;
+      }
+      list ??= exposedChunks.putIfAbsent(chunkOf(x, y), () => <_Face>[]);
+      list.add(_Face(k, d, v));
+    }
+  }
+
   void _rebuildExposed() {
-    if (exposedVersion == world.version) return;
-    exposedVersion = world.version;
-    final out = <_Face>[];
-    for (final e in world.blocks.entries) {
-      if (world.shapeAt.containsKey(e.key)) continue;
-      final (x, y, z) = cxyz(e.key);
-      final m = mats[e.value];
-      for (var d = 0; d < 6; d++) {
-        if (d == 5 && z == 0) continue;
-        final (nx, ny, nz) = _dirs[d];
-        final xx = x + nx, yy = y + ny, zz = z + nz;
-        if (inside(xx, yy, zz)) {
-          final nk = ck(xx, yy, zz);
-          final o = world.blocks[nk];
-          if (o != null && !world.shapeAt.containsKey(nk) && (!mats[o].see || (m.see && o == e.value))) continue;
+    final bl = world.blocks;
+    final b = (minX, maxX, minY, maxY);
+    if (bl.allDirty || b != _exBounds) {
+      exposedChunks.clear();
+      for (final e in bl.entries) {
+        _facesOf(e.key, e.value);
+      }
+      bl.allDirty = false;
+      bl.dirty.clear();
+      _exBounds = b;
+      return;
+    }
+    if (bl.dirty.isEmpty) return;
+    final chunks = <int>{};
+    for (final k in bl.dirty) {
+      final (x, y, _) = cxyz(k);
+      chunks.add(chunkOf(x, y));
+      chunks.add(chunkOf(x + 1, y));
+      chunks.add(chunkOf(x - 1, y));
+      chunks.add(chunkOf(x, y + 1));
+      chunks.add(chunkOf(x, y - 1));
+    }
+    bl.dirty.clear();
+    for (final c in chunks) {
+      exposedChunks.remove(c);
+      final x0 = (c ~/ 256 - 64) * 16, y0 = (c % 256 - 64) * 16;
+      for (var x = max(x0, minX); x < x0 + 16 && x <= maxX; x++) {
+        for (var y = max(y0, minY); y < y0 + 16 && y <= maxY; y++) {
+          for (var z = 0; z < H; z++) {
+            final k = ck(x, y, z);
+            final v = bl[k];
+            if (v != null) _facesOf(k, v);
+          }
         }
-        out.add(_Face(e.key, d, e.value));
       }
     }
-    exposed = out;
+  }
+
+  /// Yakındaki görünen yüzler
+  Iterable<_Face> facesNear(double ox, double oy, double reach) sync* {
+    final cx0 = (ox - reach).floor() >> 4, cx1 = (ox + reach).floor() >> 4;
+    final cy0 = (oy - reach).floor() >> 4, cy1 = (oy + reach).floor() >> 4;
+    for (var cx = cx0; cx <= cx1; cx++) {
+      for (var cy = cy0; cy <= cy1; cy++) {
+        final l = exposedChunks[(cx + 64) * 256 + (cy + 64)];
+        if (l != null) yield* l;
+      }
+    }
   }
 
   // ---------- dokunma ----------
@@ -5109,7 +5236,7 @@ class _WorldPainter extends CustomPainter {
   List<_Poly> _collect(double ox, double oy, double reach, {required bool withAvatar}) {
     final out = <_Poly>[];
     final atlasOk = Tex.atlas != null;
-    for (final f in s.exposed) {
+    for (final f in s.facesNear(ox, oy, reach)) {
       final (x, y, z) = cxyz(f.cell);
       if ((x + 0.5 - ox).abs() > reach || (y + 0.5 - oy).abs() > reach) continue;
       final c = _corners(x.toDouble(), y.toDouble(), z.toDouble(), f.dir);
@@ -5497,19 +5624,11 @@ class _WorldPainter extends CustomPainter {
     final ox = s.firstPerson ? s.ax : s.fx, oy = s.firstPerson ? s.ay : s.fy;
     const reach = 26;
     var n = 0;
-    for (final e in s.world.blocks.entries) {
-      final id = mats[e.value].id;
-      final gc = _glowColors[id];
-      if (gc == null) continue;
-      final (x, y, z) = cxyz(e.key);
-      final b = s.world.blocks;
-      if (b.containsKey(ck(x + 1, y, z)) &&
-          b.containsKey(ck(x - 1, y, z)) &&
-          b.containsKey(ck(x, y + 1, z)) &&
-          b.containsKey(ck(x, y - 1, z)) &&
-          b.containsKey(ck(x, y, z + 1))) {
-        continue;
-      }
+    final seen = <int>{};
+    for (final f in s.facesNear(ox, oy, reach.toDouble())) {
+      final gc = _glowColors[mats[f.mat].id];
+      if (gc == null || !seen.add(f.cell)) continue;
+      final (x, y, z) = cxyz(f.cell);
       if ((x - ox).abs() > reach || (y - oy).abs() > reach) continue;
       Offset? p;
       double r;

@@ -218,21 +218,17 @@ void main() {
       },
       'blok_ucak': () => const BlokAdasi(startFirstPerson: true, startBehind: true, startRiding: true),
       'gezegen_ay': () {
-        game.planet = 1;
         game.planetWorlds = {};
-        return const BlokAdasi();
+        return const BlokAdasi(planet: 1);
       },
       'gezegen_ay_arka': () {
-        game.planet = 1;
-        return const BlokAdasi(startFirstPerson: true, startBehind: true);
+        return const BlokAdasi(planet: 1, startFirstPerson: true, startBehind: true);
       },
       'gezegen_mars': () {
-        game.planet = 2;
-        return const BlokAdasi();
+        return const BlokAdasi(planet: 2);
       },
       'gezegen_kristal': () {
-        game.planet = 3;
-        return const BlokAdasi();
+        return const BlokAdasi(planet: 3);
       },
       'gezegen_mars_kure': () {
         final w = BlockWorld()..seedPlanet(2, Random(1));
@@ -378,6 +374,22 @@ void main() {
       expect(w.places.length, 4);
     }
     expect(placeTo('Ay Üssü'), "Ay Üssü'ne");
+    // eski hata: Dünya gezegen sınırlarıyla kaydedilmişti; açılışta onarılmalı
+    {
+      final e = BlockWorld()..seed();
+      e.ensureLands();
+      e.inflate(0, Random(3));
+      final w0 = maxX - minX;
+      minX = -45;
+      maxX = 45;
+      minY = -39;
+      maxY = 39;
+      final bozuk = BlockWorld()..decode(e.encode());
+      final ok = bozuk.repairBounds();
+      // ignore: avoid_print
+      print('ONARIM ok=$ok genislik $w0 -> ${maxX - minX} yerler=${bozuk.places.length}');
+      expect(maxX - minX >= w0 - 2, true);
+    }
     expect(placeTo('Olimpos Dağı'), "Olimpos Dağı'na");
     expect(placeTo('Darende Köyü'), 'Darende köyüne');
     // Mars'a roketle iniş
@@ -385,7 +397,7 @@ void main() {
     game.planetWorlds = {};
     game.blockFriends = 'Ali~0,0,1,3,0,1,0,0,3~18.0~17.0~1.0~0';
     final rocket = prefabById('p_roket')!.cells().map((c) => (c.$1 + 1, c.$2 + 1, c.$3, c.$4)).toList();
-    await tester.pumpWidget(MaterialApp(home: BlokAdasi(arriving: rocket)));
+    await tester.pumpWidget(MaterialApp(home: BlokAdasi(planet: 2, arriving: rocket)));
     await tester.pump(const Duration(milliseconds: 100));
     var st = tester.state<BlokAdasiState>(find.byType(BlokAdasi));
     final motors = st.world.blocks.values.where((m) => m == matIndex('motor')).length;
