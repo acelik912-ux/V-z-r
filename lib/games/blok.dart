@@ -2046,7 +2046,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   /// Gezegenin üssü ve iniş pistinin köşesi
-  (int, int)? get _pad {
+  (int, int)? get _landing {
     final b = world.places[planet == 0 ? 'Uzay Üssü' : '${planetsInfo[planet].name.split(' ').first} Üssü'];
     return b == null ? null : (b.$1 + 4, b.$2 - 5);
   }
@@ -2054,7 +2054,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   /// Açılışta: uzaydan gelen aracı piste indir; gezegende hiç roket yoksa bir mekik koy.
   /// Karakterin başlayacağı yeri de seçer.
   bool _arrive() {
-    final pad = _pad;
+    final pad = _landing;
     final arr = widget.arriving;
     var changed = false;
     if (pad != null && arr != null) {
