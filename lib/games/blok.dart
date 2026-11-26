@@ -1251,7 +1251,7 @@ class BlockWorld {
         } else if (p == 2) {
           if (y.abs() > ery * 0.82) g = kar; // kutuplarda buz
           final od = sqrt(pow(x + 20, 2) + pow(y + 8, 2)); // Olimpos Dağı
-          if (od < 10) top = max(top, ((10 - od) * 1.3).round().clamp(0, 12));
+          if (od < 10) top = max(top, ((10 - od) * 1.3).round().clamp(0, 12).toInt());
           if (od < 1.6) top = 10; // tepesindeki krater
           final cy = sin(x * 0.09) * 5 + 14;
           if ((y - cy).abs() < 1.6 && x > -8) {
@@ -1259,11 +1259,11 @@ class BlockWorld {
           } else if ((y - cy).abs() < 3.5 && x > -8) {
             top = max(top, 2);
           }
-          if (n > 1.3 && top == 0) top = ((n - 1.3) * 4).round().clamp(0, 5);
+          if (n > 1.3 && top == 0) top = ((n - 1.3) * 4).round().clamp(0, 5).toInt();
         } else {
           final ld = sqrt(pow(x - 14, 2) + pow(y + 10, 2)); // Gökkuşağı Gölü
           if (ld < 6) g = buz;
-          if (n > 1.4) top = ((n - 1.4) * 4).round().clamp(0, 6);
+          if (n > 1.4) top = ((n - 1.4) * 4).round().clamp(0, 6).toInt();
         }
         blocks[ck(x, y, 0)] = g;
         for (var z = 1; z <= top; z++) {
@@ -2125,7 +2125,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       riding = null;
       carried = null;
       flying = false;
-      _placeAvatar(x0 - 1, y0 + d ~/ 2);
+      _placeAvatar(max(minX, x0 - 1), y0 + d ~/ 2);
       _geoKey = '';
     });
     _changed();
@@ -2173,7 +2173,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       final keys = _vehicleAt(e.key);
       if (!keys.any((k) => world.blocks[k] == motor)) continue;
       final (x, y, _) = cxyz(e.key);
-      final dd = pow(x - ax, 2) + pow(y - ay, 2).toDouble();
+      final dd = (pow(x - ax, 2) + pow(y - ay, 2)).toDouble();
       if (dd < bd) {
         bd = dd;
         best = e.key;
