@@ -50,6 +50,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, int> levelStars = {};
   Set<String> stickers = <String>{};
   String blockWorld = '';
+  int planet = 0; // 0 Dünya, 1 Ay, 2 Mars, 3 Kristal Gezegeni
+  Map<String, String> planetWorlds = {}; // diğer gezegenlerin blokları
   Set<String> blockQuests = <String>{};
   Set<String> blockItems = <String>{};
   Set<String> todayPlayed = <String>{};
@@ -392,6 +394,18 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     save();
   }
 
+  /// Gezegenin kayıtlı dünyası (0 = Dünya)
+  String worldOf(int p) => p == 0 ? blockWorld : planetWorlds['$p'] ?? '';
+
+  void saveWorld(int p, String w) {
+    if (p == 0) {
+      blockWorld = w;
+    } else {
+      planetWorlds['$p'] = w;
+    }
+    save();
+  }
+
   void blockQuestDone(String q, {int stars = 0, int hearts = 0}) {
     if (!blockQuests.add(q)) return;
     this.stars += stars;
@@ -549,6 +563,8 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'levelStars': levelStars,
         'stickers': stickers.toList(),
         'blockWorld': blockWorld,
+        'planet': planet,
+        'planetWorlds': planetWorlds,
         'blockQuests': blockQuests.toList(),
         'blockItems': blockItems.toList(),
         'todayPlayed': todayPlayed.toList(),
@@ -628,6 +644,9 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     todayPlayed = ss('todayPlayed');
     taskClaimed = ss('taskClaimed');
     blockWorld = j['blockWorld'] as String? ?? '';
+    planet = gi('planet', 0);
+    final pw = j['planetWorlds'];
+    planetWorlds = pw is Map ? pw.map((k, v) => MapEntry(k.toString(), v.toString())) : {};
     storyRead = gi('storyRead', 0);
     treesPlanted = gi('treesPlanted', 0);
     avatar = j['avatar'] as String? ?? '';

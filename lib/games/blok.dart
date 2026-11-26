@@ -17,6 +17,7 @@ import 'blok_bag.dart';
 import 'blok_char.dart';
 import 'blok_life.dart';
 import 'blok_shapes.dart';
+import 'blok_space.dart';
 import 'blok_friends.dart';
 import 'blok_globe.dart';
 import 'blok_map.dart';
@@ -117,6 +118,16 @@ const mats = <BlockMat>[
   BlockMat('kehribarc', 'kehribar madeni', Color(0xFFFFA000), 2, glow: true),
   BlockMat('istiridye', 'istiridye', Color(0xFFD7CCC8), 2),
   BlockMat('miras', 'miras sandığı', Color(0xFF00897B), 9, glow: true),
+  // araçlar: kokpiti olan yapı binilir araçtır; motoru da varsa uzaya çıkar
+  BlockMat('kokpit', 'kokpit', Color(0xFF4FC3F7), 3, start: true, glow: true),
+  BlockMat('motor', 'roket motoru', Color(0xFFFF7043), 3, start: true, glow: true),
+  // gezegenler
+  BlockMat('aytozu', 'ay tozu', Color(0xFFB0B0B0), 2),
+  BlockMat('aytasi', 'ay taşı', Color(0xFF757575), 2),
+  BlockMat('marskum', 'mars kumu', Color(0xFFD2691E), 2),
+  BlockMat('marstas', 'mars taşı', Color(0xFF8B3A1A), 2),
+  BlockMat('morcim', 'mor çim', Color(0xFF9C6ADE), 2),
+  BlockMat('kristal', 'kristal', Color(0xFFE040FB), 3, glow: true, see: true),
 ];
 
 /// Blok haritası: geri alma için değişen hücrelerin eski hâlini not eder
@@ -449,6 +460,86 @@ List<(int, int, int, int)> _pen() {
   ];
 }
 
+/// Roket: dik gövde, altta motor, tepede kokpit. Kokpite dokununca uzaya çıkar.
+List<(int, int, int, int)> _rocket() {
+  final b = matIndex('beyaz'), r = matIndex('kirmizi'), s = matIndex('siyah'), c = matIndex('cam');
+  final k = matIndex('kokpit'), m = matIndex('motor'), led = matIndex('led_kirmizi');
+  const plus = [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)];
+  return [
+    (0, 0, 0, m),
+    for (final (dx, dy) in plus.skip(1)) (dx, dy, 0, s),
+    for (final (dx, dy) in const [(1, 1), (-1, 1), (1, -1), (-1, -1)])
+      for (var z = 0; z <= 2; z++) (dx, dy, z, r),
+    for (var z = 1; z <= 8; z++)
+      for (final (dx, dy) in plus)
+        if (!(z == 7 && dx == 0 && dy == 1) && !(z == 5 && dy == 1 && dx == 0))
+          (dx, dy, z, z == 3 ? r : b),
+    (0, 1, 7, k),
+    (0, 1, 5, c),
+    for (final (dx, dy) in plus) (dx, dy, 9, r),
+    (0, 0, 10, r),
+    (0, 0, 11, led),
+  ];
+}
+
+/// Uzay mekiği: kanatlı, altı siyah ısı kalkanlı; arkada motorlar, önde kokpit.
+List<(int, int, int, int)> _shuttle() {
+  final b = matIndex('beyaz'), s = matIndex('siyah'), c = matIndex('cam');
+  final k = matIndex('kokpit'), m = matIndex('motor'), r = matIndex('kirmizi');
+  final out = <(int, int, int, int)>[];
+  for (var dy = 0; dy <= 8; dy++) {
+    for (var dx = -1; dx <= 1; dx++) {
+      out.add((dx, dy, 0, s));
+      out.add((dx, dy, 1, b));
+      if (dy < 8) out.add((dx, dy, 2, dx == 0 && dy == 4 ? r : b));
+    }
+  }
+  out.addAll([(0, 9, 0, s), (0, 9, 1, b), (0, 8, 2, k), (-1, 8, 2, c), (1, 8, 2, c)]);
+  // kanatlar
+  for (var dy = 1; dy <= 5; dy++) {
+    for (var dx = 2; dx <= 2 + (5 - dy) ~/ 2 + (dy < 3 ? 1 : 0); dx++) {
+      out.add((dx, dy, 0, dy == 1 ? s : b));
+      out.add((-dx, dy, 0, dy == 1 ? s : b));
+    }
+  }
+  // kuyruk ve motorlar
+  for (var z = 3; z <= 5; z++) {
+    for (var dy = 0; dy <= 2 - (z - 3); dy++) {
+      out.add((0, dy, z, z == 5 ? r : b));
+    }
+  }
+  out.addAll([(0, -1, 1, m), (-1, -1, 1, m), (1, -1, 1, m), (0, -1, 2, s)]);
+  return out;
+}
+
+/// Pervaneli uçak: kokpitine dokununca biner, gökyüzünde uçarsın.
+List<(int, int, int, int)> _plane() {
+  final b = matIndex('beyaz'), r = matIndex('kirmizi'), s = matIndex('siyah'), c = matIndex('cam');
+  final k = matIndex('kokpit');
+  return [
+    (0, 1, 0, s), (1, 4, 0, s), (-1, 4, 0, s), // tekerlekler
+    for (var dy = 0; dy <= 6; dy++) (0, dy, 1, dy == 3 ? r : b),
+    for (var dy = 1; dy <= 5; dy++) (0, dy, 2, dy == 5 ? k : (dy == 4 ? c : b)),
+    (0, 7, 1, r),
+    (0, 8, 1, s), (1, 8, 1, s), (-1, 8, 1, s), (0, 8, 2, s), // pervane
+    for (var dy = 3; dy <= 4; dy++)
+      for (var dx = 1; dx <= 4; dx++) ...[(dx, dy, 1, r), (-dx, dy, 1, r)],
+    (1, 0, 1, r), (-1, 0, 1, r), (2, 0, 1, r), (-2, 0, 1, r),
+    (0, 0, 2, r), (0, 0, 3, r),
+  ];
+}
+
+/// Gezegen bayrağı: direk ve ay yıldızlı kırmızı bayrak
+List<(int, int, int, int)> _flag() {
+  final d = matIndex('demir'), r = matIndex('kirmizi'), w = matIndex('beyaz');
+  const white = {(2, 3), (1, 2), (2, 1), (4, 2)};
+  return [
+    for (var z = 0; z <= 6; z++) (0, 0, z, d),
+    for (var dx = 1; dx <= 7; dx++)
+      for (var z = 0; z <= 4; z++) (dx, 0, z + 3, white.contains((dx, z)) ? w : r),
+  ];
+}
+
 final prefabs = <Prefab>[
   const Prefab('p_agac', 'ağaç', '🌳', _tree),
   const Prefab('p_cam', 'çam ağacı', '🌲', _pine),
@@ -463,7 +554,17 @@ final prefabs = <Prefab>[
   const Prefab('p_agil', 'ağıl', '🐑', _pen),
   const Prefab('p_okul', 'okul', '🏫', _school),
   const Prefab('p_kule', 'kule', '🏰', _tower),
+  const Prefab('p_roket', 'roket', '🚀', _rocket),
+  const Prefab('p_mekik', 'uzay mekiği', '🛸', _shuttle),
+  const Prefab('p_ucak', 'uçak', '✈️', _plane),
 ];
+
+/// Bu yapılar araçtır: yapılınca nasıl kullanılacağı söylenir.
+const vehicleTips = {
+  'roket': "Roket hazır! Yürü'ye geç, roketin kokpitine dokun. Uzaya çıkıp başka gezegenlere gidersin!",
+  'uzay mekiği': "Uzay mekiği hazır! Yürü'ye geç, kokpitine dokun. Ay'a, Mars'a gidebilirsin!",
+  'uçak': "Uçak hazır! Yürü'ye geç, mavi kokpite dokun, uçağa bin ve gökyüzünde uç!",
+};
 
 Prefab? prefabById(String id) {
   for (final p in prefabs) {
@@ -1102,6 +1203,143 @@ class BlockWorld {
     version++;
   }
 
+  /// Başka bir gezegen: yuvarlak, uzayda süzülen bir dünya. Üste bir üs,
+  /// iniş pisti, bayrak ve dönüş için bir uzay mekiği konur.
+  void seedPlanet(int p, Random r) {
+    blocks.clear();
+    shapeAt.clear();
+    places.clear();
+    ecx = 0;
+    ecy = 0;
+    erx = 44;
+    ery = 38;
+    minX = -45;
+    maxX = 45;
+    minY = -39;
+    maxY = 39;
+    final ground = matIndex(const ['cim', 'aytozu', 'marskum', 'morcim'][p]);
+    final rock = matIndex(const ['tas', 'aytasi', 'marstas', 'buz'][p]);
+    final ore = [
+      for (final o in const [
+        ['tas'],
+        ['gumusc', 'firuzec'],
+        ['yakutc', 'kehribarc'],
+        ['firuzec', 'kehribarc', 'yakutc'],
+      ][p])
+        matIndex(o)
+    ];
+    final kar = matIndex('kar'), buz = matIndex('buz'), kristal = matIndex('kristal');
+    final sa = r.nextDouble() * 10, sb = r.nextDouble() * 10;
+    // Ay'da kraterler
+    final craters = <(double, double, double)>[
+      if (p == 1) ...[(-18.0, -8.0, 7.0), (16.0, 12.0, 5.0), (22.0, -14.0, 4.0), (-6.0, 20.0, 4.0), (-28.0, 12.0, 3.0), (8.0, -22.0, 3.5)],
+    ];
+    final h = <int, int>{};
+    for (var x = minX; x <= maxX; x++) {
+      for (var y = minY; y <= maxY; y++) {
+        final e = ellipse(x.toDouble(), y.toDouble());
+        if (e > 1) continue;
+        var g = ground, top = 0;
+        final n = sin(x * 0.11 + sa) + cos(y * 0.1 + sb) + sin((x - y) * 0.06 + sa) * 0.8;
+        if (p == 1) {
+          for (final (cx, cy, cr) in craters) {
+            final d = sqrt(pow(x - cx, 2) + pow(y - cy, 2));
+            if (d < cr - 0.8) g = rock;
+            if (d >= cr - 0.8 && d < cr + 0.7) top = max(top, cr > 5 ? 2 : 1);
+          }
+          if (n > 1.6) top = max(top, ((n - 1.6) * 3).round());
+        } else if (p == 2) {
+          if (y.abs() > ery * 0.82) g = kar; // kutuplarda buz
+          final od = sqrt(pow(x + 20, 2) + pow(y + 8, 2)); // Olimpos Dağı
+          if (od < 10) top = max(top, ((10 - od) * 1.3).round().clamp(0, 12));
+          if (od < 1.6) top = 10; // tepesindeki krater
+          final cy = sin(x * 0.09) * 5 + 14;
+          if ((y - cy).abs() < 1.6 && x > -8) {
+            g = rock; // Marineris Vadisi
+          } else if ((y - cy).abs() < 3.5 && x > -8) {
+            top = max(top, 2);
+          }
+          if (n > 1.3 && top == 0) top = ((n - 1.3) * 4).round().clamp(0, 5);
+        } else {
+          final ld = sqrt(pow(x - 14, 2) + pow(y + 10, 2)); // Gökkuşağı Gölü
+          if (ld < 6) g = buz;
+          if (n > 1.4) top = ((n - 1.4) * 4).round().clamp(0, 6);
+        }
+        blocks[ck(x, y, 0)] = g;
+        for (var z = 1; z <= top; z++) {
+          var m = z == top ? (p == 2 && y.abs() > ery * 0.75 ? kar : rock) : rock;
+          if (z < top && r.nextInt(10) == 0) m = ore[r.nextInt(ore.length)];
+          blocks[ck(x, y, z)] = m;
+        }
+        if (top > 0) h[ck(x, y, 0)] = top;
+      }
+    }
+    // Kristal gezegeninde ışıl ışıl kristal kuleler ve mor ağaçlar
+    if (p == 3) {
+      final pembe = matIndex('pembe'), kutuk = matIndex('kutuk');
+      for (var i = 0; i < 70; i++) {
+        final x = minX + r.nextInt(maxX - minX), y = minY + r.nextInt(maxY - minY);
+        if (ellipse(x.toDouble(), y.toDouble()) > 0.85 || (x - 0).abs() < 9 && (y - 8).abs() < 9) continue;
+        final z = topZ(x, y) + 1;
+        if (blocks[ck(x, y, z - 1)] == buz) continue;
+        if (i.isEven) {
+          final t = 2 + r.nextInt(5);
+          for (var k = 0; k < t && z + k < H; k++) {
+            blocks[ck(x, y, z + k)] = kristal;
+          }
+        } else {
+          stamp([
+            for (var k = 0; k < 3; k++) (0, 0, k, kutuk),
+            for (var dx = -1; dx <= 1; dx++)
+              for (var dy = -1; dy <= 1; dy++) (dx, dy, 3, pembe),
+            (0, 0, 4, pembe),
+          ], x, y, z, 0);
+        }
+      }
+    }
+    if (p == 2) {
+      // Mars'ın kutbunda biraz buz
+      for (var x = -12; x <= 12; x++) {
+        final y = minY + 3;
+        if (ellipse(x.toDouble(), y.toDouble()) < 1) blocks[ck(x, y, topZ(x, y) + 1)] = buz;
+      }
+    }
+    // üs: düz pist, cam kubbe, lamba ve bayrak
+    const bx = 0, by = 8;
+    final pist = matIndex('demir'), cam = matIndex('cam'), kapi = matIndex('kapi'), lamba = matIndex('lamba');
+    for (var x = bx - 9; x <= bx + 9; x++) {
+      for (var y = by - 7; y <= by + 7; y++) {
+        for (var z = 1; z < H; z++) {
+          blocks.remove(ck(x, y, z));
+        }
+        blocks[ck(x, y, 0)] = (x >= bx + 1 && y >= by - 5 && y <= by + 5) ? pist : ground;
+      }
+    }
+    for (var dx = -3; dx <= 3; dx++) {
+      for (var dy = -3; dy <= 3; dy++) {
+        for (var z = 1; z <= 3; z++) {
+          final d = sqrt(dx * dx + dy * dy + (z - 0.5) * (z - 0.5));
+          if (d > 2.6 && d < 3.6) blocks[ck(bx - 5 + dx, by + dy, z)] = cam;
+        }
+      }
+    }
+    blocks[ck(bx - 2, by, 1)] = kapi;
+    blocks[ck(bx - 2, by, 2)] = kapi;
+    blocks[ck(bx - 5, by, 1)] = lamba;
+    stamp(_flag(), bx - 8, by - 6, 1, 0);
+    final nm = const ['Dünya', 'Ay', 'Mars', 'Kristal'][p];
+    places['$nm Üssü'] = (bx - 3, by);
+    for (final e in const [
+      <(String, int, int)>[],
+      [('Sükûnet Denizi', -18, -8), ('Kopernik Krateri', 16, 12), ('Tycho Krateri', 22, -14)],
+      [('Olimpos Dağı', -20, -8), ('Marineris Vadisi', 18, 14), ('Kuzey Buzulu', 0, -33)],
+      [('Kristal Mağarası', -22, -12), ('Gökkuşağı Gölü', 14, -10), ('Işık Ormanı', -18, 18)],
+    ][p]) {
+      places[e.$1] = (e.$2, e.$3);
+    }
+    version++;
+  }
+
   /// Taş dağ: içi taş ve cevher dolu, içinden geçen bir mağara tüneli,
   /// tünelde meşaleler ve bir hazine sandığı. Çocuk dağı oyup ev yapabilir.
   void mountain(int x0, int x1, int y0, int y1, Random r) {
@@ -1267,8 +1505,17 @@ class BlokAdasi extends StatefulWidget {
   final bool? startNight;
   final bool startBehind;
   final bool startFlying;
+  final List<(int, int, int, int)>? arriving; // uzaydan gelen araç: (dx, dy, dz, malzeme)
   const BlokAdasi(
-      {super.key, this.startFirstPerson = false, this.startFocus, this.startNight, this.startBehind = false, this.startFlying = false});
+      {super.key,
+      this.startFirstPerson = false,
+      this.startFocus,
+      this.startNight,
+      this.startBehind = false,
+      this.startFlying = false,
+      this.startRiding = false,
+      this.arriving});
+  final bool startRiding; // önizleme: uçakta
 
   @override
   State<BlokAdasi> createState() => BlokAdasiState();
@@ -1288,6 +1535,7 @@ const _dirs = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -
 class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
+  final int planet = game.planet; // 0 Dünya, 1 Ay, 2 Mars, 3 Kristal
   String sel = 'tahta';
   bool erase = false;
   int tab = 0;
@@ -1339,6 +1587,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   List<ABox> avatarParts() {
     final b = avatarBoxes(avatar, walk: flying ? 0 : walk, swing: swing, tool: hand, shield: game.blockTools.contains('kalkan'));
+    if (riding != null) return [...b, ...planeBoxes(flyT)];
     if (!flying) return b;
     // kanatlar: sırtta, çırparken aşağı yukarı oynar
     final f = sin(flyT * 9) * 0.07;
@@ -1732,12 +1981,236 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     Say.show(context, Who.tamirci, '📍 ${msg[0].toUpperCase()}${msg.substring(1)}', mood: 'sevin');
   }
 
+  // ================= araçlar ve uzay =================
+  String? riding; // 'ucak'
+  List<(int, int, int, int)>? carried; // binilen uçağın blokları
+  (int, int) _start = (17, 17);
+
+  static const _vehicleMats = {
+    'beyaz', 'demir', 'kirmizi', 'mavi', 'siyah', 'cam', 'pencere', 'turuncu', 'sari', 'yesil', 'mor', 'pembe', 'acikmavi', //
+    'altin', 'kokpit', 'motor', 'lamba', 'led_kirmizi', 'led_mavi', 'led_yesil', 'led_mor', 'led_sari',
+  };
+
+  /// Kokpite bağlı araç blokları (yerdeki zemin hariç)
+  List<int> _vehicleAt(int cell) {
+    final (sx, sy, _) = cxyz(cell);
+    final seen = <int>{cell};
+    final queue = [cell];
+    for (var i = 0; i < queue.length && seen.length < 600; i++) {
+      final (x, y, z) = cxyz(queue[i]);
+      for (final (dx, dy, dz) in _dirs) {
+        final nx = x + dx, ny = y + dy, nz = z + dz;
+        if (nz < 1 || (nx - sx).abs() > 9 || (ny - sy).abs() > 12 || !inside(nx, ny, nz)) continue;
+        final k = ck(nx, ny, nz);
+        if (seen.contains(k)) continue;
+        final m = world.blocks[k];
+        if (m == null || !_vehicleMats.contains(mats[m].id)) continue;
+        seen.add(k);
+        queue.add(k);
+      }
+    }
+    return queue;
+  }
+
+  /// Blokları en küçük köşeye göre (dx, dy, dz, malzeme) yapar.
+  (List<(int, int, int, int)>, int, int, int) _relCells(List<int> keys) {
+    var x0 = 1 << 20, y0 = 1 << 20, z0 = 1 << 20;
+    for (final k in keys) {
+      final (x, y, z) = cxyz(k);
+      x0 = min(x0, x);
+      y0 = min(y0, y);
+      z0 = min(z0, z);
+    }
+    return (
+      [
+        for (final k in keys)
+          if (world.blocks[k] != null) (cxyz(k).$1 - x0, cxyz(k).$2 - y0, cxyz(k).$3 - z0, world.blocks[k]!)
+      ],
+      x0,
+      y0,
+      z0
+    );
+  }
+
+  /// Aracı (x0, y0) köşesine, zeminin üstüne koyar.
+  void _putVehicle(List<(int, int, int, int)> cells, int x0, int y0) {
+    var base = 1;
+    for (final (dx, dy, _, _) in cells) {
+      if (inside(x0 + dx, y0 + dy, 0)) base = max(base, world.topZ(x0 + dx, y0 + dy) + 1);
+    }
+    for (final (dx, dy, dz, m) in cells) {
+      final x = x0 + dx, y = y0 + dy, z = base + dz;
+      if (inside(x, y, z) && !world.blocks.containsKey(ck(x, y, z))) world.blocks[ck(x, y, z)] = m;
+    }
+    world.version++;
+  }
+
+  /// Gezegenin üssü ve iniş pistinin köşesi
+  (int, int)? get _pad {
+    final b = world.places[planet == 0 ? 'Uzay Üssü' : '${planetsInfo[planet].name.split(' ').first} Üssü'];
+    return b == null ? null : (b.$1 + 4, b.$2 - 5);
+  }
+
+  /// Açılışta: uzaydan gelen aracı piste indir; gezegende hiç roket yoksa bir mekik koy.
+  /// Karakterin başlayacağı yeri de seçer.
+  bool _arrive() {
+    final pad = _pad;
+    final arr = widget.arriving;
+    var changed = false;
+    if (pad != null && arr != null) {
+      _putVehicle(arr, pad.$1, pad.$2);
+      changed = true;
+    } else if (pad != null && planet != 0 && !world.blocks.values.contains(matIndex('motor'))) {
+      world.stamp(_shuttle(), pad.$1 + 4, pad.$2 + 1, 1, 0);
+      changed = true;
+    }
+    if (pad != null && (planet != 0 || arr != null)) _start = (pad.$1 - 1, pad.$2 + 5);
+    return changed;
+  }
+
+  Future<void> boardVehicle(int cell) async {
+    if (riding != null) return;
+    final keys = _vehicleAt(cell);
+    final motor = matIndex('motor');
+    if (keys.any((k) => world.blocks[k] == motor)) {
+      await _launch(keys);
+      return;
+    }
+    // uçak: bloklarını alıp biner
+    _push();
+    final (cells, _, _, _) = _relCells(keys);
+    for (final k in keys) {
+      world.removeAt(k);
+    }
+    world.version++;
+    setState(() {
+      carried = cells;
+      riding = 'ucak';
+      flying = true;
+      flyUp = 0;
+      walkTo = null;
+      grounded = false;
+      vz = 0;
+      for (var i = 0; i < 3 && bodyFree(ax, ay, az + 1); i++) {
+        az += 1;
+      }
+      _geoKey = '';
+    });
+    _changed();
+    Sfx.play('uc');
+    if (!game.treasures.contains('hezarfen')) {
+      Say.show(context, Who.tamirci,
+          "✈️ Uçağa bindin! Yüksel tuşuyla yukarı çık. Hezarfen Ahmed Çelebi'nin de yıllar önce kanatlarla Galata Kulesi'nden uçtuğu anlatılır!",
+          mood: 'sevin');
+    } else {
+      Voice.say('Uçağa bindin! Yüksel tuşuyla yukarı, inmek için Uçaktan in.');
+    }
+  }
+
+  void landPlane() {
+    final c = carried;
+    if (c == null) return;
+    var w = 0, d = 0;
+    for (final (dx, dy, _, _) in c) {
+      w = max(w, dx);
+      d = max(d, dy);
+    }
+    final x0 = ax.floor() - w ~/ 2, y0 = ay.floor() - d ~/ 2;
+    if (!inside(x0, y0, 0) || !inside(x0 + w, y0 + d, 0)) {
+      Voice.say('Burada inemezsin, biraz daha içeri uç!');
+      return;
+    }
+    _putVehicle(c, x0, y0);
+    setState(() {
+      riding = null;
+      carried = null;
+      flying = false;
+      _placeAvatar(x0 - 1, y0 + d ~/ 2);
+      _geoKey = '';
+    });
+    _changed();
+    Sfx.play('finish');
+    Voice.say('Uçak indi! Tekrar binmek için kokpite dokun.');
+    if (game.treasures.add('hezarfen')) {
+      game.addCoins(5);
+      game.save();
+      Say.show(context, Who.baykus, '🪶 İlk uçuşun! Müzene Hezarfen\'in kanadı eklendi.', mood: 'sevin');
+    }
+  }
+
+  Future<void> _launch(List<int> keys) async {
+    final to = await Navigator.push<int>(context, fadeRoute<int>(SpaceScreen(from: planet)));
+    if (to == null || !mounted || to == planet) return;
+    final (cells, x0, y0, _) = _relCells(keys);
+    for (final k in keys) {
+      world.removeAt(k);
+    }
+    if (planet == 0) world.places['Uzay Üssü'] = (x0 - 4, y0 + 5); // dönüşte roket buraya iner
+    world.version++;
+    _saveWorldNow();
+    _saveLife();
+    for (final f in friends) {
+      f.mode = 0;
+      f.goal = null;
+      f.job = null;
+    }
+    saveFriends(friends);
+    if (planet == 0 && game.treasures.add('lagari')) game.addCoins(5);
+    game.planet = to;
+    game.save();
+    if (!mounted) return;
+    Navigator.pushReplacement(context, fadeRoute(BlokAdasi(arriving: cells, startNight: night)));
+  }
+
+  /// 🚀 düğmesi: roket varsa yanına götürür, yoksa roket yapmayı öğretir.
+  void _spaceButton() {
+    Sfx.play('click');
+    final kp = matIndex('kokpit'), motor = matIndex('motor');
+    int? best;
+    var bd = 1e9;
+    for (final e in world.blocks.entries) {
+      if (e.value != kp) continue;
+      final keys = _vehicleAt(e.key);
+      if (!keys.any((k) => world.blocks[k] == motor)) continue;
+      final (x, y, _) = cxyz(e.key);
+      final dd = pow(x - ax, 2) + pow(y - ay, 2).toDouble();
+      if (dd < bd) {
+        bd = dd;
+        best = e.key;
+      }
+    }
+    if (best == null) {
+      setState(() {
+        sel = 'p_roket';
+        mode = 0;
+        firstPerson = false;
+      });
+      Say.show(context, Who.tamirci, "Uzaya çıkmak için önce bir roket yapalım! Roketi koymak istediğin yere dokun. Sonra Yürü'ye geç, kokpite dokun.",
+          mood: 'iyi');
+      return;
+    }
+    final (x, y, _) = cxyz(best);
+    setState(() {
+      mode = 1;
+      _placeAvatar(x - 2, y - 2);
+      fx = ax;
+      fy = ay;
+      zoom = max(zoom, 1.3);
+      _geoKey = '';
+    });
+    Say.show(context, Who.tamirci, '🚀 Roketin burada! Mavi kokpite dokun, uzaya çıkalım.', mood: 'sevin');
+  }
+
   // ================= uçma =================
   bool flying = false;
   double flyT = 0;
   int flyUp = 0; // 1 yüksel, -1 in
 
   Future<void> _toggleFly() async {
+    if (riding != null) {
+      landPlane();
+      return;
+    }
     if (!flying && !game.blockItems.contains('kanat')) {
       final ok = await showDialog<bool>(
           context: context,
@@ -1780,7 +2253,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
             border: Border.all(color: Colors.white, width: 3),
             boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))],
           ),
-          child: Text(flying ? '🦶 Kon' : '🪽 Uç', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+          child: Text(riding != null ? '🛬 Uçaktan in' : (flying ? '🦶 Kon' : '🪽 Uç'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
         ),
       );
 
@@ -1791,6 +2264,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   Widget _downBtn() => _ActionBtn('⬇️', 'İn', const Color(0xFF7986CB), down: () => flyUp = -1, up: () => flyUp = 0);
 
   Quest? get quest {
+    if (planet != 0) return null; // görevler Dünya'da
     for (final q in quests) {
       if (!game.blockQuests.contains(q.id)) return q;
     }
@@ -1841,11 +2315,23 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    if (game.blockWorld.isEmpty || !world.decode(game.blockWorld)) world.seed();
-    var grew = world.ensureLands();
-    if (world.erx == 0) grew = world.inflate(0, Random(3)) || grew;
+    final saved = game.worldOf(planet);
+    var grew = false;
+    if (saved.isEmpty || !world.decode(saved)) {
+      if (planet == 0) {
+        world.seed();
+      } else {
+        world.seedPlanet(planet, Random());
+      }
+      grew = true;
+    }
+    if (planet == 0) {
+      grew = world.ensureLands() || grew;
+      if (world.erx == 0) grew = world.inflate(0, Random(3)) || grew;
+    }
     if (world.ensureTreasures(Random())) grew = true;
-    if (grew) game.saveBlocks(world.encode());
+    if (_arrive()) grew = true;
+    if (grew) game.saveWorld(planet, world.encode());
     _ensureNpcs();
     _loadLife();
     game.markPlayed('blok');
@@ -1861,14 +2347,33 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
     }
     Future.delayed(const Duration(milliseconds: 9000), () {
-      if (mounted) _surpriseEgg();
+      if (mounted && planet == 0) _surpriseEgg();
     });
     final q = quest;
     if (q != null) _lookAt(q.focus.$1, q.focus.$2);
     final sf = widget.startFocus;
     if (sf != null) _lookAt(sf.$1, sf.$2);
     if (widget.startNight != null) night = widget.startNight!;
-    _placeAvatar(17, 17);
+    _placeAvatar(_start.$1, _start.$2);
+    if (_start != (17, 17)) _lookAt(_start.$1, _start.$2);
+    for (final f in friends) {
+      if (widget.arriving != null) {
+        f.mode = 0; // arkadaşlar da roketle geldi
+        f.goal = null;
+        f.job = null;
+      }
+      if (f.mode == 0) {
+        f.x = ax + 0.7;
+        f.y = ay + 0.6;
+        f.z = az;
+      }
+    }
+    if (widget.startRiding) {
+      riding = 'ucak';
+      carried = [];
+      flying = true;
+      az += 4;
+    }
     if (widget.startFirstPerson) {
       firstPerson = true;
       behind = widget.startBehind;
@@ -1890,6 +2395,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         setState(() => avatar = myAvatar);
       }
       if (!mounted) return;
+      if (planet != 0 || widget.arriving != null) {
+        Sfx.play('finish');
+        Say.show(context, Who.tamirci, '🚀 ${planetsInfo[planet].fact}', mood: 'sevin');
+        return;
+      }
       Say.show(context, Who.tamirci, "Yusuf'un Blok Dünyası'na hoş geldin!" ' Parmağınla sürükle, şehir dönsün. Aşağıdan Kur, Yürü ya da Kır seç.', mood: 'iyi');
       Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
     });
@@ -1975,9 +2485,9 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         fr.goal = null;
         fr.z = world.topZ(fr.x.floor(), fr.y.floor()) + 1.0;
         saveFriends(friends);
-        Say.show(context, Who.tamirci, '${fr.name} ${j.name} işini bitirdi! ${j.cells.length} blok kullandı. Eline sağlık ${fr.name}!', mood: 'sevin');
+        Say.show(context, Who.tamirci, '${fr.name} ${j.name} işini bitirdi! ${j.cells.length} blok kullandı. Eline sağlık ${fr.name}! ${vehicleTips[j.name] ?? ''}', mood: 'sevin');
       } else {
-        Say.show(context, Who.tamirci, 'İşçiler ${j.name} işini bitirdi! ${j.cells.length} blok kullandılar. Elinize sağlık!', mood: 'sevin');
+        Say.show(context, Who.tamirci, 'İşçiler ${j.name} işini bitirdi! ${vehicleTips[j.name] ?? 'Elinize sağlık!'}', mood: 'sevin');
       }
       _changed();
     }
@@ -2002,6 +2512,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _loadLife() {
     animals.clear();
     cropsAt.clear();
+    if (planet != 0) return; // uzayda hayvan ve tarla yok
     final parts = game.blockLife.split('|');
     if (game.blockLife.isEmpty || parts.length != 2) {
       _spawnAnimals(9, minX, maxX, minY, maxY);
@@ -2024,7 +2535,9 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
   }
 
-  void _saveLife() => game.saveLife(_encodeLife());
+  void _saveLife() {
+    if (planet == 0) game.saveLife(_encodeLife());
+  }
 
   void _spawnAnimals(int n, int x0, int x1, int y0, int y1) {
     final r = Random();
@@ -2304,6 +2817,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       for (final oy in const [-0.28, 0.28]) {
         final cx = (px + ox).floor(), cy = (py + oy).floor();
         if (!inside(cx, cy, 0)) return false;
+        if (planet != 0 && world.ellipse(cx + 0.5, cy + 0.5) > 1) return false; // gezegenin kenarı
         for (final hz in const [0.02, 0.9, 1.72]) {
           if (solid(cx, cy, (pz + hz).floor())) return false;
         }
@@ -2416,7 +2930,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     }
     final ml = sqrt(mx * mx + my * my);
     if (ml > 0) {
-      final speed = (flying ? 5.6 : 3.8) * dt / max(1, ml);
+      final speed = (riding != null ? 10.0 : (flying ? 5.6 : 3.8)) * dt / max(1, ml);
       if (!firstPerson) facing = atan2(mx, my);
       final moved = _move(mx * speed, my * speed);
       if (moved) {
@@ -2441,7 +2955,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       grounded = false;
       vz = 0;
       if (flyUp != 0) {
-        final nz = (az + flyUp * 4.5 * dt).clamp(-1.0, H + 10.0);
+        final nz = (az + flyUp * (riding != null ? 6.5 : 4.5) * dt).clamp(-1.0, H + 10.0);
         if (bodyFree(ax, ay, nz)) az = nz;
       }
       changed = true;
@@ -2449,7 +2963,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     // yerçekimi
     if (!flying && grounded && bodyFree(ax, ay, az - 0.06)) grounded = false;
     if (!flying && !grounded) {
-      vz -= 24 * dt;
+      vz -= planetsInfo[planet].gravity * dt;
       final nz = az + vz * dt;
       if (vz < 0 && !bodyFree(ax, ay, nz)) {
         az = (nz).floor() + 1.0;
@@ -2908,7 +3422,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    if (_saveTimer != null) _saveWorldNow();
+    _saveTimer?.cancel();
     mapImg?.dispose();
     _saveLife();
     saveFriends(friends);
@@ -2917,7 +3431,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     for (final v in _verts) {
       v.dispose();
     }
-    game.saveBlocks(world.encode());
+    game.saveWorld(planet, world.encode());
     super.dispose();
   }
 
@@ -3320,6 +3834,19 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   Future<bool> _prefabQuestion(Prefab pf) async {
+    if (vehicleTips.containsKey(pf.name)) {
+      final parts = const {'roket': ['ro', 'ket'], 'uzay mekiği': ['me', 'kik'], 'uçak': ['u', 'çak']}[pf.name]!;
+      final w = parts.join();
+      final ok = await showDialog<bool>(
+          context: context,
+          builder: (_) => SpellDialog(
+                parts: parts,
+                emoji: pf.emoji,
+                title: '${trCapitalize(pf.name)} yapalım! $w yaz.',
+                speech: '${trCapitalize(pf.name)} yapalım! ${trCapitalize(w)} kelimesini hecelerle yaz, işçiler gelsin.',
+              ));
+      return ok == true;
+    }
     final r = Random();
     final add = r.nextBool();
     final a = 2 + r.nextInt(6);
@@ -3349,7 +3876,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _saveWorldNow() {
     _saveTimer?.cancel();
     _saveTimer = null;
-    game.saveBlocks(world.encode());
+    game.saveWorld(planet, world.encode());
   }
 
   void _changed() {
@@ -3405,7 +3932,11 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     );
     if (ok != true) return;
     _push();
-    world.seed();
+    if (planet == 0) {
+      world.seed();
+    } else {
+      world.seedPlanet(planet, Random());
+    }
     task = null;
     animals.clear();
     cropsAt.clear();
@@ -3633,6 +4164,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       case 'totem':
         _castWeather();
         return true;
+      case 'kokpit':
+      case 'motor':
+        boardVehicle(cell);
+        return true;
     }
     return false;
   }
@@ -3788,10 +4323,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _rebuildExposed();
     return Scaffold(
       body: Stack(children: [
-        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night))),
+        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet))),
         SafeArea(
           child: Column(children: [
-            TopBar("Yusuf'un Blok Dünyası", trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            TopBar(planet == 0 ? "Yusuf'un Blok Dünyası" : '${planetsInfo[planet].name} 🚀', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               Bouncy(
                 onTap: _openBench,
                 child: Container(
@@ -3801,6 +4336,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                   child: Text('🪙${game.coins}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
                 ),
               ),
+              if (planet == 0)
               Bouncy(
                 onTap: _grow,
                 child: Container(
@@ -3896,6 +4432,17 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                           });
                         }),
                       ],
+                      Bouncy(
+                        onTap: _spaceButton,
+                        child: Container(
+                          margin: const EdgeInsets.all(2),
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(color: const Color(0xFF1A237E), borderRadius: BorderRadius.circular(12)),
+                          child: const Text('🚀', style: TextStyle(fontSize: 24)),
+                        ),
+                      ),
                       Bouncy(
                         onTap: _friendsMenu,
                         child: Container(
@@ -4528,6 +5075,9 @@ const _glowColors = {
   'firuzec': Color(0xFF18FFFF),
   'kehribarc': Color(0xFFFFC400),
   'miras': Color(0xFF64FFDA),
+  'kokpit': Color(0xFF80D8FF),
+  'motor': Color(0xFFFF9E40),
+  'kristal': Color(0xFFEA80FC),
 };
 
 class _WorldPainter extends CustomPainter {
@@ -5368,13 +5918,58 @@ void drawTexCube(Canvas canvas, BlockMat m, Offset Function(double, double, doub
   if (top) face(p(uu, vv, zz + 1), p(uu + 1, vv, zz + 1), p(uu, vv + 1, zz + 1), topI, 1.0);
 }
 
+/// Uçağa binince karakterin altındaki uçak
+List<ABox> planeBoxes(double t) {
+  const w = Color(0xFFF5F5F5), red = Color(0xFFE53935), dark = Color(0xFF37373F), glass = Color(0xFF81D4FA);
+  final a = t * 28;
+  return [
+    const ABox(0, 0.1, 0.35, 0.38, 1.7, 0.3, w),
+    const ABox(0, 1.95, 0.35, 0.3, 0.18, 0.24, red),
+    const ABox(0, 0.95, 0.85, 0.3, 0.06, 0.22, glass),
+    const ABox(0, 0.3, 0.42, 2.3, 0.42, 0.05, red),
+    const ABox(0, -1.45, 0.45, 0.9, 0.24, 0.04, red),
+    const ABox(0, -1.45, 0.85, 0.04, 0.24, 0.42, red),
+    ABox(0, 2.17, 0.35, 0.06 + 0.8 * cos(a).abs(), 0.03, 0.07, dark),
+    ABox(0, 2.17, 0.35, 0.07, 0.03, 0.06 + 0.8 * sin(a).abs(), dark),
+  ];
+}
+
 class _SkyPainter extends CustomPainter {
   final bool night;
-  _SkyPainter(this.night);
+  final int planet;
+  _SkyPainter(this.night, [this.planet = 0]);
 
   @override
   void paint(Canvas canvas, Size s) {
     final r = Offset.zero & s;
+    if (planet != 0) {
+      // uzay: koyu gök, yıldızlar; Ay'dan Dünya görünür
+      final cols = const [
+        [Color(0xFF000000), Color(0xFF000000), Color(0xFF000000)],
+        [Color(0xFF02020C), Color(0xFF0B0B22), Color(0xFF1A1A33)],
+        [Color(0xFF3E2723), Color(0xFFBF7A4A), Color(0xFFE0A070)],
+        [Color(0xFF1A0033), Color(0xFF4A148C), Color(0xFF7B1FA2)],
+      ][planet];
+      canvas.drawRect(r, Paint()..shader = ui.Gradient.linear(Offset.zero, Offset(0, s.height), cols, const [0, 0.6, 1]));
+      final rnd = Random(5);
+      for (var i = 0; i < (planet == 2 ? 20 : 90); i++) {
+        canvas.drawCircle(Offset(rnd.nextDouble() * s.width, rnd.nextDouble() * s.height * 0.6), rnd.nextDouble() * 1.5 + 0.4,
+            Paint()..color = Colors.white.withAlpha(120 + rnd.nextInt(130)));
+      }
+      final o = Offset(s.width * 0.8, s.height * 0.13);
+      if (planet == 1) {
+        canvas.drawCircle(o, 30, Paint()..color = const Color(0xFF1E88E5));
+        canvas.drawOval(Rect.fromCenter(center: o + const Offset(-8, -4), width: 26, height: 16), Paint()..color = const Color(0xFF43A047));
+        canvas.drawOval(Rect.fromCenter(center: o + const Offset(10, 10), width: 18, height: 10), Paint()..color = const Color(0xFF43A047));
+        canvas.drawCircle(o, 30, Paint()..color = Colors.white.withAlpha(40));
+      } else if (planet == 2) {
+        canvas.drawCircle(o, 12, Paint()..color = const Color(0xFFFFF3E0)); // uzak güneş
+      } else {
+        canvas.drawCircle(o, 22, Paint()..color = const Color(0xFFF8BBD0));
+        canvas.drawCircle(o + const Offset(-70, 30), 12, Paint()..color = const Color(0xFF80DEEA));
+      }
+      return;
+    }
     canvas.drawRect(
         r,
         Paint()
@@ -5406,7 +6001,7 @@ class _SkyPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SkyPainter oldDelegate) => oldDelegate.night != night;
+  bool shouldRepaint(covariant _SkyPainter oldDelegate) => oldDelegate.night != night || oldDelegate.planet != planet;
 }
 
 // ======================= HECE SANDIĞI =======================

@@ -631,6 +631,60 @@ class Tex {
           g.set(p.$1, side ? p.$2 : p.$2 - 3, 0xFF26C6DA);
         }
         g.set(7, side ? 10 : 7, 0xFFFFD54F);
+      case 'kokpit':
+        g.noise(0xFFECEFF1, 4);
+        for (var y = 3; y < 12; y++) {
+          for (var x = 2; x < 14; x++) {
+            g.set(x, y, g.vary(y < 6 ? 0xFFB3E5FC : 0xFF29B6F6, 8));
+          }
+        }
+        g.set(4, 4, 0xFFFFFFFF);
+        g.set(5, 4, 0xFFFFFFFF);
+        g.set(4, 5, 0xFFFFFFFF);
+      case 'motor':
+        g.noise(0xFF546E7A, 8);
+        for (var i = 0; i < 16; i++) {
+          g.set(i, 0, 0xFF37474F);
+          g.set(i, 15, 0xFF37474F);
+        }
+        for (var y = 4; y < 12; y++) {
+          for (var x = 4; x < 12; x++) {
+            final d = (x - 7.5).abs() + (y - 7.5).abs();
+            if (d < 5) g.set(x, y, d < 2.5 ? 0xFFFFEB3B : 0xFFFF7043);
+          }
+        }
+      case 'aytozu':
+        g.noise(0xFFB0B0B0, 12);
+        g.specks(0xFF8E8E8E, 14);
+        g.specks(0xFFD0D0D0, 8);
+      case 'aytasi':
+        g.noise(0xFF757575, 12);
+        g.specks(0xFF5A5A5A, 16);
+      case 'marskum':
+        g.noise(0xFFD2691E, 14);
+        g.specks(0xFFB5541A, 16);
+        g.specks(0xFFE8874A, 8);
+      case 'marstas':
+        g.noise(0xFF8B3A1A, 12);
+        g.specks(0xFF6B2A12, 16);
+      case 'morcim':
+        if (side) {
+          g.noise(0xFF5E4A7A, 12);
+          for (var x = 0; x < 16; x++) {
+            for (var y = 0; y < 3 + g.r.nextInt(3); y++) {
+              g.set(x, y, g.vary(0xFF9C6ADE, 14));
+            }
+          }
+        } else {
+          g.noise(0xFF9C6ADE, 16);
+          g.specks(0xFFE1BEE7, 10);
+        }
+      case 'kristal':
+        g.noise(0xFFCE93D8, 10);
+        for (var i = 0; i < 16; i++) {
+          g.set(i, i, 0xFFFFFFFF);
+          g.set(15 - i, (i + 5) % 16, 0xFFF3E5F5);
+        }
       default:
         // yün / renkli bloklar
         g.wool(_woolColors[id] ?? 0xFFFF00FF);

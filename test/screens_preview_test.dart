@@ -15,6 +15,7 @@ import 'package:vizir/games/blok_words.dart';
 import 'package:vizir/games/blok_village.dart';
 import 'package:vizir/games/blok_friends.dart';
 import 'package:vizir/games/blok_map.dart';
+import 'package:vizir/games/blok_space.dart';
 import 'package:vizir/games/blok_globe.dart';
 import 'package:vizir/games/blok_treasure.dart';
 import 'package:vizir/games/blok_tex.dart';
@@ -201,6 +202,46 @@ void main() {
       'kilit_gece': () => const LockScreen(reason: 'night'),
       'kilit_benzin': () => const LockScreen(reason: 'fuel'),
       'garaj': () => const GarageScreen(),
+      'uzay_kalkis': () => const SpaceScreen(from: 0),
+      'uzay_secim': () => const SpaceScreen(from: 0, startPhase: 1),
+      'blok_roket': () {
+        game.planet = 0;
+        final w = BlockWorld()..seed();
+        w.ensureLands();
+        w.inflate(0, Random(3));
+        w.stamp(prefabById('p_roket')!.cells(), 21, 15, 1, 0);
+        w.stamp(prefabById('p_ucak')!.cells(), 13, 24, 1, 0);
+        w.stamp(prefabById('p_mekik')!.cells(), 27, 26, 1, 0);
+        game.blockWorld = w.encode();
+        game.blockFriends = '';
+        return const BlokAdasi(startFocus: (20, 20));
+      },
+      'blok_ucak': () => const BlokAdasi(startFirstPerson: true, startBehind: true, startRiding: true),
+      'gezegen_ay': () {
+        game.planet = 1;
+        game.planetWorlds = {};
+        return const BlokAdasi();
+      },
+      'gezegen_ay_arka': () {
+        game.planet = 1;
+        return const BlokAdasi(startFirstPerson: true, startBehind: true);
+      },
+      'gezegen_mars': () {
+        game.planet = 2;
+        return const BlokAdasi();
+      },
+      'gezegen_kristal': () {
+        game.planet = 3;
+        return const BlokAdasi();
+      },
+      'gezegen_mars_kure': () {
+        final w = BlockWorld()..seedPlanet(2, Random(1));
+        final hw = (maxX - minX) / 2, hh = (maxY - minY) / 2;
+        final d = GlobeData(mapPixels(w), maxX - minX + 1, maxY - minY + 1, minX, minY, (minX + maxX) / 2, (minY + maxY) / 2,
+            hw * 1.42 + 1, hh * 1.42 + 1);
+        game.planet = 0;
+        return GlobeMapScreen(data: d, px: 0.5, py: 8.5, places: w.places, friends: const [], onFlat: () {});
+      },
     };
 
     final key = GlobalKey();
@@ -317,5 +358,73 @@ void main() {
     expect(st.world.blocks.length - b0 > 80, true);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 15));
+  });
+
+  testWidgets('Uzay: gezegenler, roketle iniş, uçağa binme', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Voice.muted = true;
+    await tester.runAsync(() async {
+      await game.load();
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.625;
+    for (var p = 1; p <= 3; p++) {
+      final w = BlockWorld()..seedPlanet(p, Random(p));
+      final w2 = BlockWorld();
+      expect(w2.decode(w.encode()), true);
+      // ignore: avoid_print
+      print('GEZEGEN $p blok=${w.blocks.length} yerler=${w.places.keys.toList()} kayit=${w2.blocks.length}');
+      expect(w2.blocks.length, w.blocks.length);
+      expect(w.places.length, 4);
+    }
+    expect(placeTo('Ay Üssü'), "Ay Üssü'ne");
+    expect(placeTo('Olimpos Dağı'), "Olimpos Dağı'na");
+    expect(placeTo('Darende Köyü'), 'Darende köyüne');
+    // Mars'a roketle iniş
+    game.planet = 2;
+    game.planetWorlds = {};
+    game.blockFriends = 'Ali~0,0,1,3,0,1,0,0,3~18.0~17.0~1.0~0';
+    final rocket = prefabById('p_roket')!.cells().map((c) => (c.$1 + 1, c.$2 + 1, c.$3, c.$4)).toList();
+    await tester.pumpWidget(MaterialApp(home: BlokAdasi(arriving: rocket)));
+    await tester.pump(const Duration(milliseconds: 100));
+    var st = tester.state<BlokAdasiState>(find.byType(BlokAdasi));
+    final motors = st.world.blocks.values.where((m) => m == matIndex('motor')).length;
+    final kp = st.world.blocks.entries.firstWhere((e) => e.value == matIndex('kokpit')).key;
+    // ignore: avoid_print
+    print('MARS motor=$motors yer=${st.ax.toStringAsFixed(1)},${st.ay.toStringAsFixed(1)} arkadas=${st.friends.map((f) => '${f.mode}@${f.x.toStringAsFixed(1)}').toList()} koylu=${st.npcs.length}');
+    expect(motors, 1); // yalnızca gelen roket, yedek mekik yok
+    expect((st.friends.first.x - st.ax).abs() < 3, true);
+    expect(game.planetWorlds['2']?.isNotEmpty, true);
+    expect(kp > 0, true);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 15));
+    // Dünya'da uçağa binip başka yere inme
+    game.planet = 0;
+    final w = BlockWorld()..seed();
+    w.stamp(prefabById('p_ucak')!.cells(), 12, 24, 1, 0);
+    game.blockWorld = w.encode();
+    game.blockFriends = '';
+    await tester.pumpWidget(const MaterialApp(home: BlokAdasi(startFocus: (12, 24))));
+    await tester.pump(const Duration(milliseconds: 100));
+    st = tester.state<BlokAdasiState>(find.byType(BlokAdasi));
+    final b0 = st.world.blocks.length;
+    final cell = st.world.blocks.entries.firstWhere((e) => e.value == matIndex('kokpit')).key;
+    await st.boardVehicle(cell);
+    await tester.pump(const Duration(milliseconds: 100));
+    final b1 = st.world.blocks.length;
+    expect(st.riding, 'ucak');
+    st.ax = 30.5;
+    st.ay = 8.5;
+    st.landPlane();
+    await tester.pump(const Duration(milliseconds: 100));
+    final kp2 = st.world.blocks.entries.firstWhere((e) => e.value == matIndex('kokpit')).key;
+    // ignore: avoid_print
+    print('UCAK binince ${b0 - b1} blok kalktı, indi: ${st.world.blocks.length - b1} blok, kokpit ${cxyz(cell)} -> ${cxyz(kp2)}');
+    expect(st.riding, null);
+    expect(st.world.blocks.length, b0);
+    expect(cxyz(kp2).$1 > 25, true);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 15));
+    game.planet = 0;
   });
 }

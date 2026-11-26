@@ -26,7 +26,7 @@ bool bagUnlocked(String id) {
     return n <= 1 || game.blockItems.contains('shape_${shapes[n].key}');
   }
   if (id.startsWith('seed_')) return const {'seed_havuc', 'seed_marul'}.contains(id) || game.blockItems.contains(id);
-  if (id.startsWith('p_')) return const {'p_agac', 'p_ev', 'p_yol', 'p_kopru'}.contains(id) || game.blockItems.contains(id);
+  if (id.startsWith('p_')) return const {'p_agac', 'p_ev', 'p_yol', 'p_kopru', 'p_roket', 'p_mekik', 'p_ucak'}.contains(id) || game.blockItems.contains(id);
   if (id.startsWith('zirh_')) return game.blockItems.contains(id);
   final m = matIndex(id);
   if (m >= 0 && mats[m].start) return true;
@@ -51,6 +51,12 @@ List<(String, List<BagItem>)> bagSections() {
       mat(mats[matIndex('tarla')]),
       for (final c in crops)
         BagItem('seed_${c.id}', c.name, Center(child: Text(c.emoji, style: const TextStyle(fontSize: 30))), !bagUnlocked('seed_${c.id}')),
+    ]),
+    ('🚀 Uzay araçları', [
+      for (final id in const ['p_roket', 'p_mekik', 'p_ucak'])
+        BagItem(id, prefabById(id)!.name, Center(child: Text(prefabById(id)!.emoji, style: const TextStyle(fontSize: 30))), false),
+      mat(mats[matIndex('kokpit')]),
+      mat(mats[matIndex('motor')]),
     ]),
     ('🏠 Hazır yapılar', [
       for (final p in prefabs)

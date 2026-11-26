@@ -62,6 +62,8 @@ const friendNames = [
 
 /// Arkadaşa buyrulabilecek işler: (hazır yapı, ad, emoji)
 const friendJobs = [
+  ('p_roket', 'roket', '🚀'),
+  ('p_ucak', 'uçak', '✈️'),
   ('p_cami', 'cami', '🕌'),
   ('p_okul', 'okul', '🏫'),
   ('p_ev', 'ev', '🏠'),
@@ -408,11 +410,15 @@ List<Villager> makeVillagers(Map<String, (int, int)> places, int Function(int, i
     final (cx, cy) = e.value;
     final base = topZ(cx, cy);
     final n = e.key.endsWith('Köyü') ? 3 : 2;
+    // köy ve ada dışındaki yerler (üsler, kraterler) astronotlarla dolu
+    final space = !e.key.endsWith('Köyü') && !e.key.endsWith('Adası');
     for (var i = 0; i < n; i++) {
       final woman = r.nextBool();
       final name = woman ? _womenNames[r.nextInt(_womenNames.length)] : _menNames[r.nextInt(_menNames.length)];
-      final look = Avatar.decode('${r.nextInt(skinColors.length)},${r.nextInt(hairColors.length)},${woman ? 1 : (r.nextBool() ? 4 : 0)},'
-          '${r.nextInt(clothColors.length)},${r.nextInt(clothColors.length)},${r.nextInt(hatColors.length)},0,0,0')!;
+      final look = space
+          ? Avatar.decode('${r.nextInt(skinColors.length)},${r.nextInt(hairColors.length)},2,7,7,4,0,0,0')!
+          : Avatar.decode('${r.nextInt(skinColors.length)},${r.nextInt(hairColors.length)},${woman ? 1 : (r.nextBool() ? 4 : 0)},'
+              '${r.nextInt(clothColors.length)},${r.nextInt(clothColors.length)},${r.nextInt(hatColors.length)},0,0,0')!;
       final x = cx + 0.5 + (i - 1) * 1.2, y = cy + 0.5;
       out.add(Villager(name, e.key, look, cx, cy, base, x, y, base + 1.0));
     }
@@ -425,5 +431,17 @@ String placeTo(String key) {
   final base = key.split(' ').first;
   if (key.endsWith('Köyü')) return '$base köyüne';
   if (key.endsWith('Adası')) return '$base adasına';
-  return key;
+  // "Ay Üssü'ne", "Olimpos Dağı'na", "Ay'a", "Mars'a"
+  const back = 'aıou', vowels = 'aıoueiöü';
+  final low = key.toLowerCase();
+  String? last;
+  for (var i = low.length - 1; i >= 0; i--) {
+    if (vowels.contains(low[i])) {
+      last = low[i];
+      break;
+    }
+  }
+  final b = last == null || back.contains(last);
+  final endsVowel = vowels.contains(low[low.length - 1]);
+  return "$key'${endsVowel ? 'n' : ''}${b ? 'a' : 'e'}";
 }

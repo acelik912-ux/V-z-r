@@ -58,6 +58,17 @@ const heritage = [
   Treasure('ibrik', 'ibrik', ['ib', 'rik'], '🫖', 'İbrik, abdest alırken su dökmek için kullanılan güzel bir kaptır.'),
   Treasure('mehter', 'davul', ['da', 'vul'], '🥁', 'Mehter, Osmanlının bandosudur. Davulu uzaklardan duyulur.'),
   Treasure('cezve', 'cezve', ['cez', 've'], '☕', 'Cezve, Türk kahvesinin piştiği küçük kaptır. Misafire ikram edilir.'),
+  // uzay: gezegenlerin üslerindeki sandıklardan ve ilk yolculuklardan
+  Treasure('aytasi', 'ay taşı', ['ay', 'ta', 'şı'], '🌑', "Astronotlar Ay'dan taş getirip incelediler. Ay taşı gri ve tozludur.",
+      place: 'Ay'),
+  Treasure('marstasi', 'kızıl taş', ['kı', 'zıl'], '🔴', "Mars'ın taşları demir tozu yüzünden kırmızıdır.", place: 'Mars'),
+  Treasure('kristaltasi', 'kristal', ['kris', 'tal'], '💎', 'Kristal Gezegeninden ışıl ışıl bir hatıra.', place: 'Kristal'),
+  Treasure('lagari', 'roket', ['ro', 'ket'], '🚀',
+      "Lagâri Hasan Çelebi'nin yüzyıllar önce İstanbul'da barutlu bir roketle göğe yükseldiği anlatılır. Türkiye'nin ilk astronotu Alper Gezeravcı da 2024'te uzaya çıktı.",
+      place: 'uzay'),
+  Treasure('hezarfen', 'kanat', ['ka', 'nat'], '🪶',
+      "Hezarfen Ahmed Çelebi'nin kanatlarla Galata Kulesi'nden uçup Üsküdar'a indiği anlatılır.",
+      place: 'uzay'),
 ];
 
 final allTreasures = [...gems, ...heritage];
