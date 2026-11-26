@@ -140,15 +140,18 @@ class _HeceKamyonuState extends State<HeceKamyonu> {
                     left: w * 0.04,
                     right: w * 0.32,
                     top: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (var k = 0; k < word.length; k++)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: _Crate(k < placed ? word[k] : '?', filled: k < placed, size: min(76, w * 0.5 / word.length)),
-                          ),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var k = 0; k < word.length; k++)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: _Crate(k < placed ? word[k] : '?', filled: k < placed, size: min(76, w * 0.5 / word.length)),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
