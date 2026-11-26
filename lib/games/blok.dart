@@ -1840,7 +1840,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   ui.Image? mapImg;
   int _mapVer = -1;
   bool _mapBusy = false;
-  double _mapT = 0;
+  double _mapT = 4; // açılışta harita hemen çizilsin
 
   // harita parça parça hesaplanır: her karede birkaç satır (oyun donmasın)
   Uint8List? _mapBuf;
@@ -1908,6 +1908,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
           fadeRoute<(int, int, String?)>(Builder(builder: (c) {
             routeCtx = c;
             return GlobeMapScreen(
+              title: planet == 0 ? '🌍 Dünya' : '🪐 ${planetsInfo[planet].name}',
               data: data,
               px: ax,
               py: ay,
@@ -4565,6 +4566,15 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         text = 'Önce 🎁 hece sandığını aç!';
         showBar = false;
       }
+    } else if (planet != 0) {
+      who = Who.robot;
+      text = const [
+        '',
+        "🌑 Ay'dasın! Yer çekimi az, zıpla bak! Dönmek için mekiğin kokpitine dokun.",
+        "🔴 Mars'tasın! Olimpos Dağı'na tırman, kızıl taş bul. Dönmek için kokpite dokun.",
+        '💎 Kristal Gezegenindesin! Kristalleri topla. Dönmek için kokpite dokun.',
+      ][planet];
+      showBar = false;
     } else {
       who = Who.robot;
       text = 'Görevler bitti! 🤖 tuşuyla matematik görevi al.';

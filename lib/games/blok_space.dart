@@ -118,7 +118,8 @@ class _SpaceScreenState extends State<SpaceScreen> with SingleTickerProviderStat
       body: LayoutBuilder(builder: (_, box) {
         final s = box.biggest;
         final r = min(s.width, s.height);
-        return Stack(children: [
+        return SizedBox.expand(
+            child: Stack(children: [
           Positioned.fill(
             child: AnimatedBuilder(
               animation: c,
@@ -183,7 +184,7 @@ class _SpaceScreenState extends State<SpaceScreen> with SingleTickerProviderStat
               ]),
             ),
           ),
-        ]);
+        ]));
       }),
     );
   }

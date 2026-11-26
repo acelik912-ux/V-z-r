@@ -240,7 +240,7 @@ void main() {
         final d = GlobeData(mapPixels(w), maxX - minX + 1, maxY - minY + 1, minX, minY, (minX + maxX) / 2, (minY + maxY) / 2,
             hw * 1.42 + 1, hh * 1.42 + 1);
         game.planet = 0;
-        return GlobeMapScreen(data: d, px: 0.5, py: 8.5, places: w.places, friends: const [], onFlat: () {});
+        return GlobeMapScreen(title: '🪐 Mars', data: d, px: 0.5, py: 8.5, places: w.places, friends: const [], onFlat: () {});
       },
     };
 

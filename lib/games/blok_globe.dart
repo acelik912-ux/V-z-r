@@ -93,8 +93,16 @@ class GlobeMapScreen extends StatefulWidget {
   final Map<String, (int, int)> places;
   final List<(double, double, String)> friends;
   final VoidCallback? onFlat;
+  final String title;
   const GlobeMapScreen(
-      {super.key, required this.data, required this.px, required this.py, required this.places, required this.friends, this.onFlat});
+      {super.key,
+      required this.data,
+      required this.px,
+      required this.py,
+      required this.places,
+      required this.friends,
+      this.onFlat,
+      this.title = '🌍 Dünya'});
 
   @override
   State<GlobeMapScreen> createState() => _GlobeMapScreenState();
@@ -113,7 +121,7 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
     final (x, y, z) = widget.data.toSphere(widget.px, widget.py);
     rot = _Rot.facing(x, y, z);
     _render();
-    Voice.say('Dünya küresi! Parmağınla çevir. Gitmek istediğin yere dokun, oraya ışınlan.');
+    Voice.say(widget.title.contains('Dünya') ? 'Dünya küresi! Parmağınla çevir. Gitmek istediğin yere dokun, oraya ışınlan.' : 'Gezegeni parmağınla çevir. Gitmek istediğin yere dokun, oraya ışınlan.');
   }
 
   @override
@@ -213,7 +221,7 @@ class _GlobeMapScreenState extends State<GlobeMapScreen> {
         backgroundColor: const Color(0xFF0B1033),
         body: SafeArea(
           child: Column(children: [
-            TopBar('🌍 Dünya',
+            TopBar(widget.title,
                 trailing: widget.onFlat == null
                     ? null
                     : TextButton.icon(
