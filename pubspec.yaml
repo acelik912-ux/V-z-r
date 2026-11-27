@@ -25,4 +25,5 @@ flutter:
   assets:
     - assets/sfx/
     - assets/img/
+    - assets/img/sky/
     - assets/tts/

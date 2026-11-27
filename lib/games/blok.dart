@@ -1619,6 +1619,21 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   late final AnimationController pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
   final world = BlockWorld();
   late final int planet = widget.planet ?? 0; // 0 Dünya, 1 Ay, 2 Mars, 3 Kristal
+  ui.Image? skyImg;
+
+  Future<void> _loadSky() async {
+    try {
+      final name = const ['dunya', 'ay', 'mars', 'kristal'][planet];
+      final data = await rootBundle.load('assets/img/sky/$name.jpg');
+      final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: 1600);
+      final f = await codec.getNextFrame();
+      if (!mounted) {
+        f.image.dispose();
+        return;
+      }
+      setState(() => skyImg = f.image);
+    } catch (_) {}
+  }
   bool _gone = false; // roketle başka gezegene geçildi: bu ekran artık kaydetmez
   String sel = 'tahta';
   bool erase = false;
@@ -2711,6 +2726,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         f.z = az;
       }
     }
+    _loadSky();
     if (widget.startTour >= 0) {
       tourStep = widget.startTour;
       game.tips.add('rehber');
@@ -3777,6 +3793,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    skyImg?.dispose();
     mapImg?.dispose();
     // roketle gidildiyse her şey önceden kaydedildi; dünyanın sınırları artık yeni gezegenin
     if (!_gone) {
@@ -4769,7 +4786,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _rebuildExposed();
     return Scaffold(
       body: Stack(key: _kRoot, children: [
-        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet))),
+        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet, skyImg, firstPerson, look, lookUp, yaw))),
         SafeArea(
           child: Column(children: [
             TopBar(planet == 0 ? "Yusuf'un Blok Dünyası" : '${planetsInfo[planet].name} 🚀', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -6667,11 +6684,49 @@ List<ABox> planeBoxes(double t) {
 class _SkyPainter extends CustomPainter {
   final bool night;
   final int planet;
-  _SkyPainter(this.night, [this.planet = 0]);
+  final ui.Image? img; // Gemini'nin çizdiği gökyüzü
+  final bool fp;
+  final double look, lookUp, yaw;
+  _SkyPainter(this.night, [this.planet = 0, this.img, this.fp = false, this.look = 0, this.lookUp = 0, this.yaw = 0]);
+
+  /// Geniş gökyüzü resmi: bakılan yöne göre kayar, ufku ekrandaki ufka oturur.
+  void _panorama(Canvas canvas, Size s, ui.Image im) {
+    final double h, top, x0;
+    if (fp) {
+      h = s.height * 1.35;
+      final horizon = s.height / 2 + tan(lookUp) * (s.height * 0.5 / tan(0.62));
+      top = horizon - h * 0.80;
+      x0 = -(look / (2 * pi)) * 2;
+    } else {
+      h = s.height * 0.75;
+      top = 0;
+      x0 = -(yaw / (2 * pi)) * 2;
+    }
+    final w = h * im.width / im.height;
+    var x = (x0 * w) % w;
+    if (x > 0) x -= w;
+    final src = Rect.fromLTWH(0, 0, im.width.toDouble(), im.height.toDouble());
+    final paint = Paint()..filterQuality = FilterQuality.medium;
+    // resmin üstünden yukarısı ve altı resmin kenar rengiyle doldurulur
+    final tl = Paint()..color = planet == 0 ? const Color(0xFF7FC4F5) : (planet == 1 ? Colors.black : (planet == 2 ? const Color(0xFFE29A5C) : const Color(0xFF7458C4)));
+    if (top > 0) canvas.drawRect(Rect.fromLTWH(0, 0, s.width, top + 1), tl);
+    for (; x < s.width; x += w) {
+      canvas.drawImageRect(im, src, Rect.fromLTWH(x, top, w + 1, h), paint);
+    }
+    if (top + h < s.height) {
+      final b = Paint()..color = planet == 0 ? const Color(0xFF5FA8D8) : (planet == 1 ? const Color(0xFFBDBDC8) : (planet == 2 ? const Color(0xFFD9805A) : const Color(0xFFE6C8F5)));
+      canvas.drawRect(Rect.fromLTWH(0, top + h - 1, s.width, s.height - top - h + 1), b);
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size s) {
     final r = Offset.zero & s;
+    final im = img;
+    if (im != null && !(night && planet == 0)) {
+      _panorama(canvas, s, im);
+      return;
+    }
     if (planet != 0) {
       // uzay: koyu gök, yıldızlar; Ay'dan Dünya görünür
       final cols = const [
@@ -6731,7 +6786,8 @@ class _SkyPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SkyPainter oldDelegate) => oldDelegate.night != night || oldDelegate.planet != planet;
+  bool shouldRepaint(covariant _SkyPainter o) =>
+      o.night != night || o.planet != planet || o.img != img || o.fp != fp || (img != null && (o.look != look || o.lookUp != lookUp || o.yaw != yaw));
 }
 
 // ======================= HECE SANDIĞI =======================
