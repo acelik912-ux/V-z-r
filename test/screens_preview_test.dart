@@ -202,6 +202,8 @@ void main() {
       'kilit_gece': () => const LockScreen(reason: 'night'),
       'kilit_benzin': () => const LockScreen(reason: 'fuel'),
       'garaj': () => const GarageScreen(),
+      'rehber_1': () => const BlokAdasi(startTour: 0),
+      'rehber_4': () => const BlokAdasi(startTour: 3),
       'uzay_kalkis': () => const SpaceScreen(from: 0),
       'uzay_secim': () => const SpaceScreen(from: 0, startPhase: 1),
       'blok_roket': () {

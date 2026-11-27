@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../art.dart';
@@ -1593,7 +1594,9 @@ class BlokAdasi extends StatefulWidget {
       this.startFlying = false,
       this.startRiding = false,
       this.planet,
+      this.startTour = -1,
       this.arriving});
+  final int startTour; // önizleme: rehberin şu adımı
   final int? planet; // boşsa Dünya
   final bool startRiding; // önizleme: uçakta
 
@@ -2301,6 +2304,162 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     await boardVehicle(best);
   }
 
+  // ================= kolay kullanım: menü ve rehber =================
+  final _kView = GlobalKey(), _kRocket = GlobalKey(), _kMore = GlobalKey(), _kModes = GlobalKey(), _kHotbar = GlobalKey();
+  final _kRoot = GlobalKey();
+  int tourStep = -1; // -1: rehber kapalı
+
+  Future<void> _moreMenu() async {
+    Sfx.play('click');
+    _tip('menu', 'Daha fazlası! Gece, yakınlaştır, döndür ve başka şeyler burada.');
+    final items = <(String, String, VoidCallback)>[
+      (night ? '☀️' : '🌙', night ? 'Gündüz' : 'Gece', () {
+        setState(() {
+          night = !night;
+          _geoKey = '';
+        });
+        Voice.say(night ? 'Gece oldu. Işıklarını yak!' : 'Günaydın!');
+      }),
+      ('🔍', 'Yakınlaş', () => setState(() => zoom = min(3.0, zoom + 0.4))),
+      ('🔭', 'Uzaklaş', () => setState(() => zoom = max(0.5, zoom - 0.4))),
+      (moveMode ? '🔄' : '✋', moveMode ? 'Döndür' : 'Kaydır', () {
+        setState(() => moveMode = !moveMode);
+        Voice.say(moveMode ? 'Parmağınla sürükle, harita kaysın.' : 'Parmağınla sürükle, dünya dönsün.');
+      }),
+      ('📍', 'Beni bul', () {
+        setState(() {
+          fx = ax;
+          fy = ay;
+          zoom = max(zoom, 1.4);
+        });
+      }),
+      ('🗺️', 'Harita', _openMap),
+      ('👵', 'Köy teyzesi', _openVillage),
+      ('🏛️', 'Müze', _openMuseum),
+      ('❓', 'Nasıl oynanır?', () => _startTour(force: true)),
+    ];
+    final pick = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: const Color(0xFFFFF8E1),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.05,
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Bouncy(
+                  onTap: () => Navigator.pop(c, i),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text(items[i].$1, style: const TextStyle(fontSize: 36)),
+                      const SizedBox(height: 4),
+                      FittedBox(child: Text(items[i].$2, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    Sfx.play('click');
+    items[pick].$3();
+  }
+
+  static const _tour = [
+    ('modes', 'Burada üç düğme var. Kur ile blok koyarsın, Yürü ile gezersin, Kır ile kırarsın.'),
+    ('hotbar', 'Buradan blok seç. Sonra dünyaya dokun, blok oraya konsun. Bir bloğu kırmak için üstüne basılı tut.'),
+    ('view', 'Bu düğme bakışı değiştirir: dışarıdan, içeriden ya da arkadan.'),
+    ('rocket', 'Roket düğmesi! Uzaya çıkıp Ay\'a ve Mars\'a gidebilirsin.'),
+    ('more', 'Gece, yakınlaştırma, müze ve daha fazlası bu menüde.'),
+  ];
+
+  void _startTour({bool force = false}) {
+    if (!force && game.tips.contains('rehber')) return;
+    game.tips.add('rehber');
+    game.save();
+    setState(() {
+      firstPerson = false;
+      mode = 0;
+      tourStep = 0;
+    });
+    Voice.say(_tour[0].$2);
+  }
+
+  void _nextTour() {
+    Sfx.play('click');
+    setState(() => tourStep++);
+    if (tourStep >= _tour.length) {
+      setState(() => tourStep = -1);
+      Voice.say('Hadi oynayalım!');
+      return;
+    }
+    Voice.say(_tour[tourStep].$2);
+  }
+
+  Rect? _rectOf(GlobalKey k) {
+    final b = k.currentContext?.findRenderObject() as RenderBox?;
+    final root = _kRoot.currentContext?.findRenderObject() as RenderBox?;
+    if (b == null || root == null || !b.attached) return null;
+    final o = b.localToGlobal(Offset.zero, ancestor: root);
+    return o & b.size;
+  }
+
+  Widget _tourOverlay() {
+    final (id, text) = _tour[tourStep];
+    final k = switch (id) { 'modes' => _kModes, 'hotbar' => _kHotbar, 'view' => _kView, 'rocket' => _kRocket, _ => _kMore };
+    final r = _rectOf(k);
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _nextTour,
+        child: LayoutBuilder(builder: (_, c) {
+          final below = r == null || r.center.dy < c.maxHeight / 2;
+          return Stack(children: [
+            Positioned.fill(child: CustomPaint(painter: _HolePainter(r, pulse))),
+            if (r != null)
+              AnimatedBuilder(
+                animation: pulse,
+                builder: (_, __) => Positioned(
+                  left: (r.center.dx - 24).clamp(0.0, c.maxWidth - 48),
+                  top: below ? r.bottom + 4 + pulse.value * 10 : r.top - 52 - pulse.value * 10,
+                  child: Text(below ? '👆' : '👇', style: const TextStyle(fontSize: 40)),
+                ),
+              ),
+            Positioned(
+              left: 16,
+              right: 16,
+              top: below ? min(c.maxHeight - 170, (r?.bottom ?? 120) + 60) : null,
+              bottom: below ? null : c.maxHeight - (r?.top ?? c.maxHeight) + 64,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Text('${tourStep + 1} / ${_tour.length} · Devam için dokun 👆',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ]);
+        }),
+      ),
+    );
+  }
+
   // ================= uçma =================
   bool flying = false;
   double flyT = 0;
@@ -2478,6 +2637,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         f.z = az;
       }
     }
+    if (widget.startTour >= 0) {
+      tourStep = widget.startTour;
+      game.tips.add('rehber');
+    }
     if (widget.startRiding) {
       riding = 'ucak';
       carried = [];
@@ -2511,7 +2674,13 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         return;
       }
       Say.show(context, Who.tamirci, "Yusuf'un Blok Dünyası'na hoş geldin!" ' Parmağınla sürükle, şehir dönsün. Aşağıdan Kur, Yürü ya da Kır seç.', mood: 'iyi');
-      Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
+      if (!game.tips.contains('rehber') && !widget.startFirstPerson && widget.startFocus == null) {
+        Future.delayed(const Duration(milliseconds: 5000), () {
+          if (mounted) _startTour();
+        });
+      } else {
+        Future.delayed(const Duration(milliseconds: 6500), _sayQuest);
+      }
     });
   }
 
@@ -3855,6 +4024,39 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     });
   }
 
+  /// Basılı tutunca kır: hangi modda olursa olsun (Kır'a geçmeye gerek yok).
+  void _longBreak(Offset p) {
+    final f = _faceAt(p);
+    setState(() => previewCell = null);
+    if (f == null || (f.ent != 0 && f.ent != 4)) return;
+    final (x, y, z) = cxyz(f.cell);
+    if (z == 0 && world.blocks.length < 2) return;
+    HapticFeedback.mediumImpact();
+    if (world.blocks[f.cell] == matIndex('hazine')) {
+      _avatarTap(p);
+      return;
+    }
+    _tip('uzunbas', 'Basılı tuttun, blok kırılıyor! Dokununca koyarsın, basılı tutunca kırarsın.');
+    setState(() {
+      chestCell = null;
+      breakCell = f.cell;
+      hits = 0;
+      if (_inReach(f.cell)) {
+        swing = 0.001;
+      } else {
+        walkTo = (x, y);
+      }
+    });
+  }
+
+  /// Bir düğmenin ne işe yaradığını yalnızca ilk basışta sesli söyler.
+  void _tip(String id, String text) {
+    if (game.tips.add(id)) {
+      Voice.say(text);
+      game.save();
+    }
+  }
+
   int _walkCell(_Face f) {
     final (x, y, z) = cxyz(f.cell);
     final (nx, ny, nz) = _dirs[f.dir];
@@ -4484,7 +4686,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     _rebuildExposed();
     return Scaffold(
-      body: Stack(children: [
+      body: Stack(key: _kRoot, children: [
         Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet))),
         SafeArea(
           child: Column(children: [
@@ -4529,6 +4731,9 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                       onTapDown: (d) => firstPerson ? null : _down(d.localPosition),
                       onTapUp: (d) => firstPerson ? _fpTap() : _up(d.localPosition),
                       onTapCancel: () => setState(() => previewCell = null),
+                      onLongPressStart: (d) {
+                        if (!firstPerson) _longBreak(d.localPosition);
+                      },
                       onScaleStart: (d) {
                         _y0 = yaw;
                         _p0 = pitch;
@@ -4571,63 +4776,18 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                     right: 6,
                     top: 6,
                     child: Column(children: [
-                      _ViewSwitch(!firstPerson ? 0 : (behind ? 2 : 1), _toggleView),
-                      _Tool(night ? Icons.wb_sunny : Icons.nightlight_round, () {
-                        setState(() {
-                          night = !night;
-                          _geoKey = '';
-                        });
-                        Voice.say(night ? 'Gece oldu. Işıklarını yak!' : 'Günaydın!');
-                      }, color: night ? const Color(0xFF3949AB) : const Color(0xFFFFF59D)),
-                      if (!firstPerson) ...[
-                        _Tool(Icons.zoom_in, () => setState(() => zoom = min(3.0, zoom + 0.35))),
-                        _Tool(Icons.zoom_out, () => setState(() => zoom = max(0.5, zoom - 0.35))),
-                        _Tool(moveMode ? Icons.open_with : Icons.threesixty, () {
-                          setState(() => moveMode = !moveMode);
-                          Voice.say(moveMode ? 'Kaydır' : 'Döndür');
-                        }, color: moveMode ? const Color(0xFFFFF59D) : Colors.white),
-                        _Tool(Icons.person_pin_circle, () {
-                          setState(() {
-                            fx = ax;
-                            fy = ay;
-                            zoom = max(zoom, 1.4);
-                          });
-                        }),
-                      ],
-                      Bouncy(
-                        onTap: _spaceButton,
-                        child: Container(
-                          margin: const EdgeInsets.all(2),
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: const Color(0xFF1A237E), borderRadius: BorderRadius.circular(12)),
-                          child: const Text('🚀', style: TextStyle(fontSize: 24)),
-                        ),
-                      ),
-                      Bouncy(
-                        onTap: _friendsMenu,
-                        child: Container(
-                          margin: const EdgeInsets.all(2),
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: const Color(0xFFE1BEE7), borderRadius: BorderRadius.circular(12)),
-                          child: const Text('👥', style: TextStyle(fontSize: 24)),
-                        ),
-                      ),
-                      Bouncy(
-                        onTap: _openVillage,
-                        child: Container(
-                          margin: const EdgeInsets.all(2),
-                          width: 42,
-                          height: 54,
-                          decoration: BoxDecoration(color: const Color(0xFFFFE0B2), borderRadius: BorderRadius.circular(12)),
-                          child: const Pic('k_teyze', height: 52),
-                        ),
-                      ),
+                      KeyedSubtree(key: _kView, child: _ViewSwitch(!firstPerson ? 0 : (behind ? 2 : 1), _toggleView)),
+                      _SideBtn('🚀', const Color(0xFF1A237E), () {
+                        _tip('roket', 'Roket! Uzaya çıkıp Ay\'a, Mars\'a gidersin.');
+                        _spaceButton();
+                      }, key: _kRocket),
+                      _SideBtn('👥', const Color(0xFFE1BEE7), () {
+                        _tip('arkadas', 'Arkadaşların! Yeni arkadaş yap, onlara iş ver.');
+                        _friendsMenu();
+                      }),
                       Bouncy(
                         onTap: () async {
+                          _tip('karakter', 'Karakterin! Kıyafet ve zırh seç.');
                           final before = avatar.armor;
                           await Navigator.push(context, fadeRoute(const AvatarScreen()));
                           if (mounted) {
@@ -4636,13 +4796,14 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                           }
                         },
                         child: Container(
-                          margin: const EdgeInsets.all(2),
-                          width: 42,
-                          height: 54,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                          child: CustomPaint(painter: AvatarPainter(avatar, 0.5)),
+                          margin: const EdgeInsets.all(3),
+                          width: 50,
+                          height: 60,
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                          child: CustomPaint(painter: AvatarPainter(avatar, 0.55)),
                         ),
                       ),
+                      _SideBtn('☰', Colors.white, _moreMenu, key: _kMore),
                     ]),
                   ),
                   if (firstPerson || mode != 0) Positioned(left: 8, bottom: 8, child: _pad()),
@@ -4695,11 +4856,12 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
               }),
             ),
             if (firstPerson) _fpBar() else ...[
-              _modes(),
-              if (mode == 0) ...[_controls(), _hotbar()] else _toolBar(),
+              KeyedSubtree(key: _kModes, child: _modes()),
+              if (mode == 0) ...[_controls(), KeyedSubtree(key: _kHotbar, child: _hotbar())] else _toolBar(),
             ],
           ]),
         ),
+        if (tourStep >= 0) _tourOverlay(),
       ]),
     );
   }
@@ -5041,8 +5203,8 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                   }
                 });
                 Voice.say(const [
-                  'Kurma. Blok seç ve dokun.',
-                  'Yürü. Gitmek istediğin yere dokun.',
+                  'Kurma. Aşağıdan blok seç, koymak istediğin yere dokun. Kırmak için bloğa basılı tut.',
+                  'Yürü. Gitmek istediğin yere dokun. Kırmak için bloğa basılı tut.',
                   'Kır. Kırmak istediğin bloğa dokun.'
                 ][i]);
               },
@@ -6065,6 +6227,60 @@ class _NewItems extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Sağdaki büyük yuvarlak köşeli düğme
+class _SideBtn extends StatelessWidget {
+  final String emoji;
+  final Color color;
+  final VoidCallback onTap;
+  const _SideBtn(this.emoji, this.color, this.onTap, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Bouncy(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          width: 50,
+          height: 50,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
+          ),
+          child: Text(emoji, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        ),
+      );
+}
+
+/// Rehber: ekranı karartır, gösterilen düğmenin çevresini aydınlık bırakır
+class _HolePainter extends CustomPainter {
+  final Rect? r;
+  final Animation<double> a;
+  _HolePainter(this.r, this.a) : super(repaint: a);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..addRect(Offset.zero & size);
+    final h = r;
+    if (h != null) {
+      path.addRRect(RRect.fromRectAndRadius(h.inflate(6), const Radius.circular(16)));
+      path.fillType = PathFillType.evenOdd;
+    }
+    canvas.drawPath(path, Paint()..color = Colors.black.withAlpha(150));
+    if (h != null) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(h.inflate(6 + a.value * 4), const Radius.circular(16)),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4
+            ..color = const Color(0xFFFFD54F));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HolePainter old) => old.r != r;
 }
 
 class _Tool extends StatelessWidget {

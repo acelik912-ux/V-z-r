@@ -54,6 +54,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, String> planetWorlds = {}; // diğer gezegenlerin blokları
   Set<String> blockQuests = <String>{};
   Set<String> blockItems = <String>{};
+  Set<String> tips = <String>{}; // sesli anlatımı bir kez söylenen düğmeler
   Set<String> todayPlayed = <String>{};
   Set<String> taskClaimed = <String>{};
   int storyRead = 0;
@@ -578,6 +579,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
         'planet': planet,
         'blockQuests': blockQuests.toList(),
         'blockItems': blockItems.toList(),
+        'tips': tips.toList(),
         'todayPlayed': todayPlayed.toList(),
         'taskClaimed': taskClaimed.toList(),
         'storyRead': storyRead,
@@ -652,6 +654,7 @@ class GameState extends ChangeNotifier with WidgetsBindingObserver {
     stickers = ss('stickers');
     blockQuests = ss('blockQuests');
     blockItems = ss('blockItems');
+    tips = ss('tips');
     todayPlayed = ss('todayPlayed');
     taskClaimed = ss('taskClaimed');
     blockWorld = j['blockWorld'] as String? ?? '';
