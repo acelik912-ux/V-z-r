@@ -252,7 +252,7 @@ void main() {
       // resimleri yükle
       await tester.runAsync(() async {
         final ctx = key.currentContext!;
-        final names = Directory('assets/img').listSync().map((f) => f.path.split('/').last.replaceAll('.webp', ''));
+        final names = Directory('assets/img').listSync().where((f) => f.path.endsWith('.webp')).map((f) => f.path.split('/').last.replaceAll('.webp', ''));
         for (final n in names) {
           await precacheImage(AssetImage('assets/img/$n.webp'), ctx);
         }
