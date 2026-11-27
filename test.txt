@@ -1,0 +1,19 @@
+
+::group::✅ Passing tests
+✅ Ekran önizlemeleri
+✅ Zırh giyme
+ZIRH_SONUC avatar=0,0,1,3,0,1,0,0,6 items={zirh_selcuklu}
+✅ Arkadaşlar iş yapar, dünya büyük
+DUNYA 182x150 adalar=11 koyler=11 koylu=55
+SISME elips=90.7x73.7 genislik 181 -> 193 ok=true miras=22
+ARKADAS modlar=[0, 0, 0] isler=0 blok=195
+✅ Uzay: gezegenler, roketle iniş, uçağa binme
+GEZEGEN 1 blok=6533 yerler=[Ay Üssü, Sükûnet Denizi, Kopernik Krateri, Tycho Krateri] kayit=6533
+GEZEGEN 2 blok=9050 yerler=[Mars Üssü, Olimpos Dağı, Marineris Vadisi, Kuzey Buzulu] kayit=9050
+GEZEGEN 3 blok=7021 yerler=[Kristal Üssü, Kristal Mağarası, Gökkuşağı Gölü, Işık Ormanı] kayit=7021
+ONARIM ok=true genislik 181 -> 200 yerler=22
+MARS motor=1 yer=0.5,8.5 arkadas=[0@1.2] koylu=8
+UCAK binince 42 blok kalktı, indi: 42 blok, kokpit (12, 29, 3) -> (30, 9, 8)
+::endgroup::
+
+🎉 4 tests passed.
