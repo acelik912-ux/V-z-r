@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deneme:
+        description: 'Anahtar yoksa geçici anahtarla dene (yayınlamaz)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -18,7 +23,14 @@ jobs:
       - name: Yükleme anahtarı var mı?
         id: key
         run: |
-          if [ -z "$KS_B64" ] || [ -z "$PLAY_PASSWORD" ]; then
+          if [ "${{ inputs.deneme }}" = "true" ] && [ -z "$KS_B64" ]; then
+            keytool -genkeypair -keystore /tmp/t.jks -storetype PKCS12 -alias vizir -keyalg RSA -keysize 2048 -validity 100 \
+              -storepass deneme123 -keypass deneme123 -dname "CN=Vizir Upload Deneme, C=TR"
+            echo "KS_B64=$(base64 -w0 /tmp/t.jks)" >> "$GITHUB_ENV"
+            echo "PLAY_PASSWORD=deneme123" >> "$GITHUB_ENV"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "test=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$KS_B64" ] || [ -z "$PLAY_PASSWORD" ]; then
             echo "::warning::PLAY_KEYSTORE_B64 ve PLAY_PASSWORD gizli ayarları eklenmemiş; Google Play paketi atlandı."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
@@ -85,7 +97,7 @@ jobs:
           cp $AAB vizir-play-1.0.${{ github.run_number }}.aab
 
       - name: Sürüm sayfasına koy
-        if: steps.key.outputs.ok == 'true'
+        if: steps.key.outputs.ok == 'true' && steps.key.outputs.test != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: play-1.0.${{ github.run_number }}
