@@ -2304,6 +2304,80 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     await boardVehicle(best);
   }
 
+  // ================= gezegen görevleri =================
+  /// (yer, kelime heceleri, emoji, varınca söylenen, ödül, görev yazısı)
+  static const _missions = [
+    null,
+    (
+      'Kopernik Krateri',
+      ['yıl', 'dız'],
+      '⭐',
+      "Kayıp astronot Ali'yi buldun! Gemisinin ışığı sönmüş. Yıldız kelimesini yaz, ışığı yansın, eve dönsün!",
+      'aytasi',
+      "Kopernik Krateri'nde kaybolan astronotu bul!"
+    ),
+    (
+      'Olimpos Dağı',
+      ['bay', 'rak'],
+      '🚩',
+      "Olimpos Dağı'nın tepesindesin! Güneş Sistemi'nin en büyük volkanı bu. Bayrağımızı dikmek için bayrak yaz!",
+      'marstasi',
+      "Olimpos Dağı'nın tepesine tırman, bayrak dik!"
+    ),
+    (
+      'Gökkuşağı Gölü',
+      ['ı', 'şık'],
+      '💡',
+      "Gökkuşağı Gölü'ne geldin! Kristaller sönük kalmış. Işık yaz, her yer ışıl ışıl olsun!",
+      'kristaltasi',
+      "Gökkuşağı Gölü'ne git, kristalleri yak!"
+    ),
+  ];
+
+  (String, List<String>, String, String, String, String)? get _mission {
+    if (planet == 0 || game.tips.contains('gorev_$planet')) return null;
+    return _missions[planet];
+  }
+
+  double _missionT = 0;
+  bool _missionBusy = false;
+
+  Future<void> _checkMission(double dt) async {
+    _missionT += dt;
+    if (_missionT < 0.5 || _missionBusy) return;
+    _missionT = 0;
+    final m = _mission;
+    if (m == null) return;
+    final p = world.places[m.$1];
+    if (p == null) return;
+    final d = sqrt(pow(ax - p.$1, 2) + pow(ay - p.$2, 2));
+    if (d > (planet == 2 ? 5 : 4) || (planet == 2 && az < 7)) return;
+    _missionBusy = true;
+    Sfx.play('unlock');
+    final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => SpellDialog(parts: m.$2, emoji: m.$3, title: '${m.$2.join()} yaz!', speech: m.$4));
+    if (!mounted) return;
+    if (ok == true) {
+      game.tips.add('gorev_$planet');
+      game.addCoins(10);
+      game.treasures.add(m.$5);
+      game.save();
+      _burst(ck(ax.floor(), ay.floor(), level + 1), const Color(0xFFFFD54F), 30);
+      if (planet == 2) {
+        world.stamp(_flag(), ax.floor() + 1, ay.floor(), world.topZ(ax.floor() + 1, ay.floor()) + 1, 0);
+        _changed();
+      }
+      Sfx.play('finish');
+      Say.show(context, Who.baykus, '🎉 Görev tamam! 10 altın ve müzene yeni bir hatıra: ${treasureById(m.$5).name}!', mood: 'sevin');
+      setState(() {});
+      _missionBusy = false;
+    } else {
+      // biraz uzaklaşıp gelince tekrar sorar
+      Future.delayed(const Duration(seconds: 8), () => _missionBusy = false);
+    }
+  }
+
   // ================= kolay kullanım: menü ve rehber =================
   final _kView = GlobalKey(), _kRocket = GlobalKey(), _kMore = GlobalKey(), _kModes = GlobalKey(), _kHotbar = GlobalKey();
   final _kRoot = GlobalKey();
@@ -3337,6 +3411,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     if (npcs.isNotEmpty) {
       final lt0 = lifeTick;
       _tickNpcs(dt);
+      _checkMission(dt);
       if (lifeTick != lt0) changed = true;
     }
     // hayvanlar
@@ -3748,6 +3823,12 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   }
 
   void _goQuest() {
+    final m = _mission;
+    if (m != null) {
+      final p = world.places[m.$1];
+      if (p != null) _teleport(p.$1, p.$2, m.$1);
+      return;
+    }
     final t = task;
     setState(() {
       if (t != null) {
@@ -4890,6 +4971,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         text = 'Önce 🎁 hece sandığını aç!';
         showBar = false;
       }
+    } else if (_mission != null) {
+      who = Who.robot;
+      text = '🧑‍🚀 Görev: ${_mission!.$6} Dokun, oraya ışınlan!';
+      showBar = false;
     } else if (planet != 0) {
       who = Who.robot;
       text = const [
@@ -5532,7 +5617,9 @@ class _WorldPainter extends CustomPainter {
         final (_, m, z) = c;
         final hit = _Face(ck(x, y, z), 0, m, 0);
         final a = cz(x, y), b = cz(x + 1, y), d = cz(x + 1, y + 1), e = cz(x, y + 1);
-        final base = mats[m].color;
+        // alçak çokgen yama görünümü: komşu üçgenler biraz farklı renkte
+        final tintTo = const [Color(0xFFFFFFFF), Color(0xFFD6D6D6), Color(0xFF6D2A10), Color(0xFFF8BBD0)][s.planet];
+        final base = Color.lerp(mats[m].color, tintTo, hash2(x >> 2, y >> 2, 3) * 0.35)!;
         final v1 = (hash2(x, y, 1) - 0.5) * 0.12, v2 = (hash2(x, y, 2) - 0.5) * 0.12;
         final xx = x.toDouble(), yy = y.toDouble();
         if ((x + y).isEven) {
@@ -5558,7 +5645,7 @@ class _WorldPainter extends CustomPainter {
     final pl = s.planet;
     if (pl == 3) {
       // kristal: eğik, sivri altıgen
-      final hgt = 1.0 + r * 2.2, rad = 0.18 + r * 0.14;
+      final hgt = 1.2 + r * 2.6, rad = 0.26 + r * 0.22;
       final tx = (r - 0.5) * 0.6, ty = (hash2(x.floor(), y.floor(), 9) - 0.5) * 0.6;
       final col = [const Color(0xFFEA80FC), const Color(0xFF80DEEA), const Color(0xFFF48FB1)][(r * 30).floor() % 3];
       final ring = [for (var i = 0; i < 6; i++) (x + cos(i * pi / 3) * rad, y + sin(i * pi / 3) * rad)];
@@ -5645,6 +5732,23 @@ class _WorldPainter extends CustomPainter {
         }
         final dir = sp.nz > 0.7 ? 0 : (sp.nz < -0.7 ? 5 : (sp.nx.abs() > sp.ny.abs() ? (sp.nx > 0 ? 1 : 2) : (sp.ny > 0 ? 3 : 4)));
         out.add(_Poly(sp.p, uv, col, _Face(e.key, dir, m, 4), sp.nx, sp.ny, sp.nz, cx / n, cy / n, cz / n));
+      }
+    }
+    // karakter ve arkadaşların altında yumuşak gölge
+    if (dynamics) {
+      final wt = Tex.tile(mats.length * 2);
+      final suv = <double>[for (var i = 0; i < 8; i++) ...[wt.left + 0.05, wt.top + 0.05]];
+      void shadowAt(double x, double y, double z, double r) {
+        final gz = s.world.topZ(x.floor(), y.floor()) + 1.03;
+        if (z - gz > 6 || gz < 0) return;
+        final k = (1 - (z - gz) / 7).clamp(0.3, 1.0);
+        out.add(_Poly([for (var i = 0; i < 8; i++) ...[x + cos(i * pi / 4) * r * k, y + sin(i * pi / 4) * r * k, gz]], suv, 0x40000000,
+            _Face(-1, 0, 0, 1), 0, 0, 1, x, y, gz));
+      }
+
+      if (withAvatar && s.riding == null) shadowAt(s.ax, s.ay, s.az, 0.42);
+      for (final f in s.friends) {
+        if ((f.x - ox).abs() < reach && (f.y - oy).abs() < reach) shadowAt(f.x, f.y, f.z, 0.4);
       }
     }
     // hareketli parçalar
@@ -6150,6 +6254,7 @@ class _WorldPainter extends CustomPainter {
 
   void _overlay(Canvas canvas) {
     final t = anim.value;
+    if (!s.world.space && !s.night) _clouds(canvas);
     _labels(canvas, (x, y, z) => s.proj(x, y, z), s.fx, s.fy);
     for (final a in s.animals) {
       if (!a.friend) continue;
@@ -6183,6 +6288,28 @@ class _WorldPainter extends CustomPainter {
     }
   }
 
+  /// Gökyüzünde yavaşça kayan yarı saydam bulutlar ve yerdeki gölgeleri
+  void _clouds(Canvas canvas) {
+    final sec = DateTime.now().millisecondsSinceEpoch / 1000.0;
+    final shadow = Paint()..color = Colors.black.withAlpha(22);
+    final white = Paint()..color = Colors.white.withAlpha(185);
+    for (var i = 0; i < 6; i++) {
+      final span = (maxX - minX + 40).toDouble();
+      final cx = minX - 20 + ((hash2(i, 1) * span + sec * (0.5 + hash2(i, 2) * 0.5)) % span);
+      final cy = minY + hash2(i, 3) * (maxY - minY);
+      if ((cx - s.fx).abs() > 40 || (cy - s.fy).abs() > 40) continue;
+      const cz = 16.0;
+      final g = s.proj(cx + 3, cy + 3, 0.5), c = s.proj(cx, cy, cz);
+      final r = s._s * (2.2 + hash2(i, 4) * 1.6);
+      for (final (dx, dy, k) in const [(0.0, 0.0, 1.0), (0.9, 0.2, 0.75), (-0.9, 0.25, 0.7), (0.35, -0.45, 0.65)]) {
+        canvas.drawOval(Rect.fromCenter(center: g + Offset(dx * r, dy * r * 0.5), width: r * 1.6 * k, height: r * 0.8 * k), shadow);
+      }
+      for (final (dx, dy, k) in const [(0.0, 0.0, 1.0), (0.9, 0.2, 0.75), (-0.9, 0.25, 0.7), (0.35, -0.45, 0.65)]) {
+        canvas.drawCircle(c + Offset(dx * r, dy * r * 0.6), r * 0.75 * k, white);
+      }
+    }
+  }
+
   /// Bir yüzün dört köşesi (sol üst, sağ üst, sağ alt, sol alt) dünya koordinatında.
   static List<double> _corners(double x, double y, double z, int dir) {
     switch (dir) {
@@ -6202,6 +6329,7 @@ class _WorldPainter extends CustomPainter {
   }
 
   void _sea(Canvas canvas) {
+    if (s.world.space) return; // uzayda deniz yok
     const m = 4.0;
     final x0 = minX.toDouble(), x1 = maxX + 1.0, y0 = minY.toDouble(), y1 = maxY + 1.0;
     final a = s.proj(x0 - m, y0 - m, 0), b = s.proj(x1 + m, y0 - m, 0), c = s.proj(x1 + m, y1 + m, 0), d = s.proj(x0 - m, y1 + m, 0);
