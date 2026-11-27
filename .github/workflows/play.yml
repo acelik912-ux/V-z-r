@@ -1,0 +1,97 @@
+name: Google Play paketi (AAB)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KS_B64: ${{ secrets.PLAY_KEYSTORE_B64 }}
+      PLAY_PASSWORD: ${{ secrets.PLAY_PASSWORD }}
+    steps:
+      - name: Yükleme anahtarı var mı?
+        id: key
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$PLAY_PASSWORD" ]; then
+            echo "::warning::PLAY_KEYSTORE_B64 ve PLAY_PASSWORD gizli ayarları eklenmemiş; Google Play paketi atlandı."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == 'true'
+
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.ok == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        if: steps.key.outputs.ok == 'true'
+        with:
+          channel: stable
+          cache: true
+
+      - name: Anahtarı çöz
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "PLAY_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - name: Android dosyalarını oluştur
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          flutter create --platforms=android --project-name vizir --org com.acelik912 .
+          python3 tool/patch_android.py > /dev/null
+          grep -n 'create("play")' android/app/build.gradle.kts
+
+      - name: Doğal ses modelini indir (Piper, Türkçe erkek sesi)
+        if: steps.key.outputs.ok == 'true'
+        env:
+          VOICE: fettah
+        run: |
+          curl -sL "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-tr_TR-${VOICE}-medium-int8.tar.bz2" | tar xj -C /tmp
+          D=/tmp/vits-piper-tr_TR-${VOICE}-medium-int8
+          cp $D/*.onnx assets/tts/model.onnx
+          cp $D/tokens.txt assets/tts/tokens.txt
+          cp $D/MODEL_CARD assets/tts/MODEL_CARD.txt || true
+          cat $D/MODEL_CARD || true
+          cd $D/espeak-ng-data && find . -name '*_dict' ! -name 'tr_dict' -delete && zip -qr "$GITHUB_WORKSPACE/assets/tts/espeak.zip" *
+
+      - run: flutter pub get
+        if: steps.key.outputs.ok == 'true'
+
+      - name: AAB derle
+        if: steps.key.outputs.ok == 'true'
+        run: flutter build appbundle --release --build-name=1.0.${{ github.run_number }} --build-number=$((1000 + ${{ github.run_number }}))
+
+      - name: Kontrol (imza, izinler, hedef SDK)
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          ls -la $AAB
+          jarsigner -verify -verbose:summary -certs $AAB | grep -E "CN=|verified" | head -5
+          jarsigner -verify -certs $AAB | grep -q "Vizir Upload" || (echo "HATA: yükleme anahtarıyla imzalanmadı" && exit 1)
+          unzip -p $AAB base/manifest/AndroidManifest.xml > /tmp/m.pb || true
+          strings /tmp/m.pb | grep -iE "permission|targetSdk|minSdk" | sort -u || true
+          cp $AAB vizir-play-1.0.${{ github.run_number }}.aab
+
+      - name: Sürüm sayfasına koy
+        if: steps.key.outputs.ok == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: play-1.0.${{ github.run_number }}
+          name: Google Play paketi 1.0.${{ github.run_number }}
+          prerelease: true
+          body: |
+            Google Play Console'a yüklenecek paket (AAB). Telefona kurmak için değildir;
+            telefona kurmak için en son "Vızır 0.1.x" sürümündeki APK'yı kullanın.
+          files: vizir-play-1.0.${{ github.run_number }}.aab

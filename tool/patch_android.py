@@ -1,6 +1,10 @@
 """flutter create sonrası Android ayarlarını düzenler: uygulama adı, dikey ekran, TTS izni."""
+import os
 import pathlib
 import re
+
+# Google Play derlemesi mi? (gizli yükleme anahtarıyla imzalanır, 32 bit cihazlar da desteklenir)
+PLAY = bool(os.environ.get("PLAY_KEYSTORE"))
 
 manifest = pathlib.Path('android/app/src/main/AndroidManifest.xml')
 s = manifest.read_text(encoding='utf-8')
@@ -82,7 +86,8 @@ if src.exists():
 if kts.exists():
     g = kts.read_text(encoding='utf-8')
     if 'abiFilters' not in g:
-        g = g.replace('    defaultConfig {', '    defaultConfig {\n        ndk { abiFilters += listOf("arm64-v8a") }', 1)
+        abis = '"arm64-v8a", "armeabi-v7a"' if PLAY else '"arm64-v8a"'
+        g = g.replace('    defaultConfig {', '    defaultConfig {\n        ndk { abiFilters += listOf(' + abis + ') }', 1)
         kts.write_text(g, encoding='utf-8')
 elif groovy.exists():
     g = groovy.read_text(encoding='utf-8')
@@ -94,7 +99,8 @@ elif groovy.exists():
 if kts.exists():
     g = kts.read_text(encoding='utf-8')
     if 'lib/x86_64/**' not in g:
-        g = g.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            excludes += listOf("lib/armeabi-v7a/**", "lib/x86_64/**", "lib/x86/**")\n        }\n    }\n', 1)
+        ex = '"lib/x86_64/**", "lib/x86/**"' if PLAY else '"lib/armeabi-v7a/**", "lib/x86_64/**", "lib/x86/**"'
+        g = g.replace('android {', 'android {\n    packaging {\n        jniLibs {\n            excludes += listOf(' + ex + ')\n        }\n    }\n', 1)
         kts.write_text(g, encoding='utf-8')
 elif groovy.exists():
     g = groovy.read_text(encoding='utf-8')
@@ -102,3 +108,18 @@ elif groovy.exists():
         g = g.replace('android {', "android {\n    packagingOptions {\n        jniLibs {\n            excludes += ['lib/armeabi-v7a/**', 'lib/x86_64/**', 'lib/x86/**']\n        }\n    }\n", 1)
         groovy.write_text(g, encoding='utf-8')
 print(kts.read_text(encoding='utf-8')[:600] if kts.exists() else '')
+
+# ---- Google Play: yükleme anahtarıyla imzala (şifreler ortam değişkeninden, dosyaya yazılmaz) ----
+if PLAY and kts.exists():
+    g = kts.read_text(encoding='utf-8')
+    if 'create("play")' not in g:
+        g = g.replace('        create("vizir") {', """        create("play") {
+            storeFile = file(System.getenv("PLAY_KEYSTORE"))
+            storePassword = System.getenv("PLAY_PASSWORD")
+            keyAlias = "vizir"
+            keyPassword = System.getenv("PLAY_PASSWORD")
+        }
+        create("vizir") {""", 1)
+        g = g.replace('signingConfig = signingConfigs.getByName("vizir")', 'signingConfig = signingConfigs.getByName("play")')
+        kts.write_text(g, encoding='utf-8')
+    print('Play imzası ayarlandı')
