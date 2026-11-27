@@ -3907,6 +3907,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   void _facesOf(int k, int v) {
     if (world.shapeAt.containsKey(k)) return;
+    if (world.space && smoothMat[v]) return; // gezegen zemini yumuşak çizilir
     final (x, y, z) = cxyz(k);
     final m = mats[v];
     List<_Face>? list;
@@ -5386,6 +5387,20 @@ class _HitData {
   }
 }
 
+/// Gezegenlerde bu bloklar küp değil, yumuşak tepeler olarak çizilir.
+final List<bool> smoothMat = [
+  for (final m in mats)
+    const {'aytozu', 'aytasi', 'marskum', 'marstas', 'morcim', 'kar', 'buz', 'gumusc', 'firuzec', 'yakutc', 'kehribarc'}.contains(m.id)
+];
+
+/// Koordinattan sabit, rastgele görünen sayı (0..1)
+double hash2(int x, int y, [int k = 0]) {
+  var h = x * 374761393 + y * 668265263 + k * 2246822519;
+  h = (h ^ (h >> 13)) * 1274126177;
+  h = h ^ (h >> 16);
+  return (h & 0xFFFF) / 65535.0;
+}
+
 /// Çizime hazır, sıralı çokgenler (üçgenlere açılmış)
 class _Layer {
   final Float32List pos, uv;
@@ -5442,6 +5457,139 @@ class _WorldPainter extends CustomPainter {
       (0xFF << 24) | ((c.r * 255 * sh).round().clamp(0, 255) << 16) | ((c.g * 255 * sh).round().clamp(0, 255) << 8) | (c.b * 255 * sh).round().clamp(0, 255);
 
   /// Görüş alanındaki bütün çokgenler: bloklar, şekilli bloklar, karakter, hayvanlar, ekinler
+  // ================= gezegenlerde yumuşak, alçak çokgenli zemin =================
+  /// Sütunun yumuşak zemin yüksekliği (üstteki zemin bloğunun üstü); yoksa null
+  (double, int, int)? _surf(int x, int y) {
+    final w = s.world;
+    for (var z = H - 1; z >= 0; z--) {
+      final m = w.blocks[ck(x, y, z)];
+      if (m != null && smoothMat[m]) return (z + 1.0, m, z);
+    }
+    return null;
+  }
+
+  void _smooth(double ox, double oy, double reach, List<_Poly> out) {
+    final x0 = max(minX, (ox - reach).floor()), x1 = min(maxX, (ox + reach).ceil());
+    final y0 = max(minY, (oy - reach).floor()), y1 = min(maxY, (oy + reach).ceil());
+    final wd = x1 - x0 + 3, hg = y1 - y0 + 3;
+    // sütun yükseklikleri (kenarda bir sütun fazlası)
+    final hs = List<(double, int, int)?>.filled(wd * hg, null);
+    for (var x = x0 - 1; x <= x1 + 1; x++) {
+      for (var y = y0 - 1; y <= y1 + 1; y++) {
+        if (inside(x, y, 0)) hs[(x - x0 + 1) + (y - y0 + 1) * wd] = _surf(x, y);
+      }
+    }
+    (double, int, int)? col(int x, int y) => hs[(x - x0 + 1) + (y - y0 + 1) * wd];
+    // köşe yüksekliği: çevresindeki dört sütunun ortalaması; gezegenin dışı aşağı iner
+    double corner(int x, int y) {
+      var sum = 0.0;
+      for (final (dx, dy) in const [(0, 0), (-1, 0), (0, -1), (-1, -1)]) {
+        final c = (x + dx >= x0 - 1 && x + dx <= x1 + 1 && y + dy >= y0 - 1 && y + dy <= y1 + 1) ? col(x + dx, y + dy) : null;
+        sum += c?.$1 ?? (s.world.ellipse(x + dx + 0.5, y + dy + 0.5) > 1 ? -1.5 : 0.6);
+      }
+      return sum / 4 + (hash2(x, y) - 0.5) * 0.22;
+    }
+
+    final cw = x1 - x0 + 2;
+    final ch = List<double>.filled(cw * (y1 - y0 + 2), 0);
+    for (var x = x0; x <= x1 + 1; x++) {
+      for (var y = y0; y <= y1 + 1; y++) {
+        ch[(x - x0) + (y - y0) * cw] = corner(x, y);
+      }
+    }
+    double cz(int x, int y) => ch[(x - x0) + (y - y0) * cw];
+    final white = Tex.tile(mats.length * 2);
+    final uv = [white.left + 0.05, white.top + 0.05, white.right - 0.05, white.top + 0.05, white.right - 0.05, white.bottom - 0.05];
+    final sun = (-0.45, -0.35, 0.82);
+
+    void tri(List<double> p, Color base, _Face hit, double vary, [(double, double, double)? from]) {
+      final ux = p[3] - p[0], uy = p[4] - p[1], uz = p[5] - p[2];
+      final vx = p[6] - p[0], vy = p[7] - p[1], vz = p[8] - p[2];
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      // yüzün dışa bakan yönü: zeminde yukarı, süslerde merkezden dışarı
+      final o = from == null
+          ? nz
+          : nx * ((p[0] + p[3] + p[6]) / 3 - from.$1) + ny * ((p[1] + p[4] + p[7]) / 3 - from.$2) + nz * ((p[2] + p[5] + p[8]) / 3 - from.$3);
+      if (o < 0) {
+        nx = -nx;
+        ny = -ny;
+        nz = -nz;
+      }
+      final len = sqrt(nx * nx + ny * ny + nz * nz) + 1e-9;
+      nx /= len;
+      ny /= len;
+      nz /= len;
+      final l = (nx * sun.$1 + ny * sun.$2 + nz * sun.$3).clamp(0.0, 1.0);
+      final sh = (0.5 + 0.55 * l + vary).clamp(0.35, 1.15);
+      out.add(_Poly(p, uv, _tint(base, sh), hit, nx, ny, nz, (p[0] + p[3] + p[6]) / 3, (p[1] + p[4] + p[7]) / 3, (p[2] + p[5] + p[8]) / 3));
+    }
+
+    for (var x = x0; x <= x1; x++) {
+      for (var y = y0; y <= y1; y++) {
+        final c = col(x, y);
+        if (c == null) continue;
+        if ((x + 0.5 - ox).abs() > reach || (y + 0.5 - oy).abs() > reach) continue;
+        final (_, m, z) = c;
+        final hit = _Face(ck(x, y, z), 0, m, 0);
+        final a = cz(x, y), b = cz(x + 1, y), d = cz(x + 1, y + 1), e = cz(x, y + 1);
+        final base = mats[m].color;
+        final v1 = (hash2(x, y, 1) - 0.5) * 0.12, v2 = (hash2(x, y, 2) - 0.5) * 0.12;
+        final xx = x.toDouble(), yy = y.toDouble();
+        if ((x + y).isEven) {
+          tri([xx, yy, a, xx + 1, yy, b, xx + 1, yy + 1, d], base, hit, v1);
+          tri([xx, yy, a, xx + 1, yy + 1, d, xx, yy + 1, e], base, hit, v2);
+        } else {
+          tri([xx, yy, a, xx + 1, yy, b, xx, yy + 1, e], base, hit, v1);
+          tri([xx + 1, yy, b, xx + 1, yy + 1, d, xx, yy + 1, e], base, hit, v2);
+        }
+        // süs: kayalar, kristaller (yalnızca üstü boş zeminde)
+        final r = hash2(x, y, 7);
+        if (r < (s.planet == 3 ? 0.035 : 0.022) && !s.world.blocks.containsKey(ck(x, y, z + 1))) {
+          final mid = (a + b + d + e) / 4;
+          final ctr = (x + 0.5, y + 0.5, mid + 0.3);
+          _prop(x + 0.5, y + 0.5, mid, hash2(x, y, 8), hit, (p, cl, v) => tri(p, cl, hit, v, ctr));
+        }
+      }
+    }
+  }
+
+  /// Alçak çokgenli kaya ya da kristal
+  void _prop(double x, double y, double z, double r, _Face hit, void Function(List<double>, Color, double) tri) {
+    final pl = s.planet;
+    if (pl == 3) {
+      // kristal: eğik, sivri altıgen
+      final hgt = 1.0 + r * 2.2, rad = 0.18 + r * 0.14;
+      final tx = (r - 0.5) * 0.6, ty = (hash2(x.floor(), y.floor(), 9) - 0.5) * 0.6;
+      final col = [const Color(0xFFEA80FC), const Color(0xFF80DEEA), const Color(0xFFF48FB1)][(r * 30).floor() % 3];
+      final ring = [for (var i = 0; i < 6; i++) (x + cos(i * pi / 3) * rad, y + sin(i * pi / 3) * rad)];
+      final topRing = [for (final q in ring) (q.$1 + tx * 0.8, q.$2 + ty * 0.8)];
+      final tip = (x + tx, y + ty, z + hgt);
+      for (var i = 0; i < 6; i++) {
+        final j = (i + 1) % 6;
+        final hz = z + hgt * 0.75;
+        tri([ring[i].$1, ring[i].$2, z - 0.1, ring[j].$1, ring[j].$2, z - 0.1, topRing[j].$1, topRing[j].$2, hz], col, 0.1 * (i % 2));
+        tri([ring[i].$1, ring[i].$2, z - 0.1, topRing[j].$1, topRing[j].$2, hz, topRing[i].$1, topRing[i].$2, hz], col, 0.1 * (i % 2));
+        tri([topRing[i].$1, topRing[i].$2, hz, topRing[j].$1, topRing[j].$2, hz, tip.$1, tip.$2, tip.$3], col, 0.25);
+      }
+      return;
+    }
+    // kaya: basık, yamuk sekizgen
+    final rad = 0.3 + r * 0.55, hgt = rad * (0.6 + r * 0.5);
+    final col = pl == 1 ? const Color(0xFF8A8A8A) : const Color(0xFF9A4A28);
+    final ring = [
+      for (var i = 0; i < 7; i++)
+        (x + cos(i * 2 * pi / 7 + r) * rad * (0.8 + hash2(i, (r * 99).floor()) * 0.4), y + sin(i * 2 * pi / 7 + r) * rad * (0.8 + hash2((r * 99).floor(), i) * 0.4))
+    ];
+    final top = (x + (r - 0.5) * 0.2, y, z + hgt);
+    final mz = z + hgt * 0.45;
+    for (var i = 0; i < 7; i++) {
+      final j = (i + 1) % 7;
+      tri([ring[i].$1, ring[i].$2, mz, ring[j].$1, ring[j].$2, mz, top.$1, top.$2, top.$3], col, 0.05 * (i % 3));
+      tri([ring[i].$1, ring[i].$2, z - 0.15, ring[j].$1, ring[j].$2, z - 0.15, ring[j].$1, ring[j].$2, mz], col, -0.08);
+      tri([ring[i].$1, ring[i].$2, z - 0.15, ring[j].$1, ring[j].$2, mz, ring[i].$1, ring[i].$2, mz], col, -0.08);
+    }
+  }
+
   List<_Poly> _collect(double ox, double oy, double reach, {required bool withAvatar, bool statics = true, bool dynamics = true}) {
     final out = <_Poly>[];
     final atlasOk = Tex.atlas != null;
@@ -5464,6 +5612,7 @@ class _WorldPainter extends CustomPainter {
           y + 0.5 + ny * 0.5,
           z + 0.5 + nz * 0.5));
     }
+    if (statics && s.world.space) _smooth(ox, oy, reach, out);
     // şekilli bloklar
     final white = Tex.tile(mats.length * 2);
     for (final e in statics ? s.world.shapeAt.entries : const <MapEntry<int, int>>[]) {
