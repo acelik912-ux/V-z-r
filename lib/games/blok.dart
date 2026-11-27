@@ -2442,7 +2442,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
               left: 16,
               right: 16,
               top: below ? min(c.maxHeight - 170, (r?.bottom ?? 120) + 60) : null,
-              bottom: below ? null : c.maxHeight - (r?.top ?? c.maxHeight) + 64,
+              bottom: below ? null : c.maxHeight - r.top + 64,
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
@@ -4803,7 +4803,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
                           child: CustomPaint(painter: AvatarPainter(avatar, 0.55)),
                         ),
                       ),
-                      _SideBtn('☰', Colors.white, _moreMenu, key: _kMore),
+                      _SideBtn('', Colors.white, _moreMenu, icon: Icons.menu_rounded, key: _kMore),
                     ]),
                   ),
                   if (firstPerson || mode != 0) Positioned(left: 8, bottom: 8, child: _pad()),
@@ -6234,7 +6234,8 @@ class _SideBtn extends StatelessWidget {
   final String emoji;
   final Color color;
   final VoidCallback onTap;
-  const _SideBtn(this.emoji, this.color, this.onTap, {super.key});
+  final IconData? icon;
+  const _SideBtn(this.emoji, this.color, this.onTap, {this.icon, super.key});
 
   @override
   Widget build(BuildContext context) => Bouncy(
@@ -6249,7 +6250,7 @@ class _SideBtn extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 2))],
           ),
-          child: Text(emoji, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+          child: icon != null ? Icon(icon, size: 32) : Text(emoji, style: const TextStyle(fontSize: 28)),
         ),
       );
 }
