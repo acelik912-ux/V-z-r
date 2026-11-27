@@ -91,7 +91,7 @@ jobs:
           AAB=build/app/outputs/bundle/release/app-release.aab
           ls -la $AAB
           jarsigner -verify -verbose:summary -certs $AAB | grep -E "CN=|verified" | head -5
-          jarsigner -verify -certs $AAB | grep -q "Vizir Upload" || (echo "HATA: yükleme anahtarıyla imzalanmadı" && exit 1)
+          jarsigner -verify -verbose -certs $AAB | grep -q "Vizir Upload" || (echo "HATA: yükleme anahtarıyla imzalanmadı" && exit 1)
           unzip -p $AAB base/manifest/AndroidManifest.xml > /tmp/m.pb || true
           strings /tmp/m.pb | grep -iE "permission|targetSdk|minSdk" | sort -u || true
           cp $AAB vizir-play-1.0.${{ github.run_number }}.aab
