@@ -1595,7 +1595,9 @@ class BlokAdasi extends StatefulWidget {
       this.startRiding = false,
       this.planet,
       this.startTour = -1,
+      this.startSunset = false,
       this.arriving});
+  final bool startSunset;
   final int startTour; // önizleme: rehberin şu adımı
   final int? planet; // boşsa Dünya
   final bool startRiding; // önizleme: uçakta
@@ -1658,6 +1660,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   bool previewErase = false;
   MathTask? task;
   bool night = DateTime.now().hour >= 19 || DateTime.now().hour < 6;
+  bool sunset = DateTime.now().hour >= 17 && DateTime.now().hour < 19; // gün batımı
   int selShape = 0;
   final List<String> recent = ['tahta', 'tugla', 'cam', 'kapi', 'kiremit', 'mesale'];
   // son çizimin dokunma bilgisi
@@ -2409,6 +2412,14 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
         });
         Voice.say(night ? 'Gece oldu. Işıklarını yak!' : 'Günaydın!');
       }),
+      ('🌅', sunset ? 'Öğle vakti' : 'Gün batımı', () {
+        setState(() {
+          sunset = !sunset;
+          night = false;
+          _geoKey = '';
+        });
+        Voice.say(sunset ? 'Güneş batıyor, gökyüzü turuncu oldu!' : 'Güneş tepede!');
+      }),
       ('🔍', 'Yakınlaş', () => setState(() => zoom = min(3.0, zoom + 0.4))),
       ('🔭', 'Uzaklaş', () => setState(() => zoom = max(0.5, zoom - 0.4))),
       (moveMode ? '🔄' : '✋', moveMode ? 'Döndür' : 'Kaydır', () {
@@ -2727,6 +2738,10 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
       }
     }
     _loadSky();
+    if (widget.startSunset) {
+      sunset = true;
+      night = false;
+    }
     if (widget.startTour >= 0) {
       tourStep = widget.startTour;
       game.tips.add('rehber');
@@ -3990,6 +4005,13 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
 
   // çizim önbelleği
   String _geoKey = '';
+  // çizim önbelleği (ressam her karede yeniden kurulduğu için burada durur)
+  String _stKey = '', _fpKey = '';
+  _Layer? _st, _fpSt;
+  double _rx0 = 0, _ry0 = 0, _rz0 = 0;
+  Offset _rScr = Offset.zero;
+  List<int> _water = []; // yakındaki su yüzeyleri (parıltı için)
+  final List<(int, double, Color)> pops = []; // yeni konan bloklar (zıplama efekti)
   final List<ui.Vertices> _verts = [];
 
   /// Kameranın "ileri" yönüne en yakın eksen (0 +y, 1 +x, 2 -y, 3 -x): ekranın yukarısı.
@@ -4752,6 +4774,8 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
   void _putBlock(int k, int dir) {
     final mi = matIndex(sel);
     world.blocks[k] = mi;
+    pops.add((k, DateTime.now().millisecondsSinceEpoch / 1000, mats[mi].color));
+    if (pops.length > 12) pops.removeAt(0);
     if (sel == 'mesale') {
       world.shapeAt[k] = 20 * 4;
     } else if (selShape > 0) {
@@ -4786,7 +4810,7 @@ class BlokAdasiState extends State<BlokAdasi> with TickerProviderStateMixin {
     _rebuildExposed();
     return Scaffold(
       body: Stack(key: _kRoot, children: [
-        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet, skyImg, firstPerson, look, lookUp, yaw))),
+        Positioned.fill(child: CustomPaint(painter: _SkyPainter(night, planet, skyImg, firstPerson, look, lookUp, yaw, sunset && planet == 0))),
         SafeArea(
           child: Column(children: [
             TopBar(planet == 0 ? "Yusuf'un Blok Dünyası" : '${planetsInfo[planet].name} 🚀', trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -5824,6 +5848,13 @@ class _WorldPainter extends CustomPainter {
       canvas.restore();
       _overlay(canvas);
     }
+    if (s.sunset && !s.night && !s.world.space) {
+      // gün batımında her şey sıcak turuncu bir ışık alır
+      canvas.drawRect(
+          Offset.zero & size,
+          Paint()
+            ..shader = ui.Gradient.linear(Offset.zero, Offset(0, size.height), const [Color(0x40FF6E40), Color(0x18FFB74D)]));
+    }
     _nightAndGlow(canvas, size);
     _weatherFx(canvas, size);
     if (s.firstPerson) _fpHud(canvas, size);
@@ -5930,10 +5961,6 @@ class _WorldPainter extends CustomPainter {
   // ================= dışarıdan görünüm =================
   // Sabit bloklar yalnızca kamera döner, yaklaşır ya da dünya değişirse yeniden hesaplanır;
   // kamera kayınca çizim yalnızca ötelenir. Her karede yalnızca hareketli parçalar hesaplanır.
-  String _stKey = '';
-  _Layer? _st;
-  double _rx0 = 0, _ry0 = 0, _rz0 = 0;
-  Offset _rScr = Offset.zero;
 
   List<(Float32List, List<double>, int, double, _Face)> _tpItems(List<_Poly> polys, Size size, Offset shift, double dc, double margin,
       {double bump = 0}) {
@@ -5959,19 +5986,25 @@ class _WorldPainter extends CustomPainter {
   void _build(Size size) {
     final reach = max(size.width, size.height / max(0.3, s._sp)) / s._s * 0.8 + 6;
     final stKey = '${s.yaw},${s.pitch},${s.zoom},$size,${s.world.version},${Tex.atlas != null},${(s.fx / 6).round()},${(s.fy / 6).round()}';
-    if (stKey != _stKey || _st == null) {
-      _stKey = stKey;
-      _rx0 = s.fx;
-      _ry0 = s.fy;
-      _rz0 = s.fz;
-      _rScr = s.proj(_rx0, _ry0, _rz0);
+    if (stKey != s._stKey || s._st == null) {
+      s._stKey = stKey;
+      s._rx0 = s.fx;
+      s._ry0 = s.fy;
+      s._rz0 = s.fz;
+      s._rScr = s.proj(s._rx0, s._ry0, s._rz0);
       final polys = _collect(s.fx, s.fy, reach + 7, withAvatar: false, dynamics: false);
-      _st = _layer(_tpItems(polys, size, Offset.zero, 0, 80 + 7 * s._s));
+      s._st = _layer(_tpItems(polys, size, Offset.zero, 0, 80 + 7 * s._s));
+      final su = matIndex('su');
+      s._water = [
+        for (final p in polys)
+          if (p.hit.ent == 0 && p.hit.dir == 0 && p.hit.mat == su && hash2(p.hit.cell, 5) < 0.18) p.hit.cell
+      ];
+      if (s._water.length > 500) s._water = s._water.sublist(0, 500);
     }
-    final shift = s.proj(_rx0, _ry0, _rz0) - _rScr;
-    final dc = s.depth(_rx0, _ry0, _rz0);
+    final shift = s.proj(s._rx0, s._ry0, s._rz0) - s._rScr;
+    final dc = s.depth(s._rx0, s._ry0, s._rz0);
     final dyn = _layer(_tpItems(_collect(s.fx, s.fy, reach, withAvatar: true, statics: false), size, shift, dc, 80, bump: 0.02));
-    _compose(_st!, dyn, hit: true);
+    _compose(s._st!, dyn, hit: true);
     s._hit.shift = shift;
   }
 
@@ -6017,8 +6050,6 @@ class _WorldPainter extends CustomPainter {
     _drawVerts(canvas);
   }
 
-  String _fpKey = '';
-  _Layer? _fpSt;
 
   List<(Float32List, List<double>, int, double, _Face)> _fpItems(List<_Poly> polys, {double bump = 0}) {
     final out = <(Float32List, List<double>, int, double, _Face)>[];
@@ -6067,12 +6098,12 @@ class _WorldPainter extends CustomPainter {
   void _buildFP(Size size) {
     const range = 24.0;
     final k = 'fp,$_ex,$_ey,$_ez,${s.look},${s.lookUp},$size,${s.world.version},${Tex.atlas != null}';
-    if (k != _fpKey || _fpSt == null) {
-      _fpKey = k;
-      _fpSt = _layer(_fpItems(_collect(_ex, _ey, range, withAvatar: false, dynamics: false)));
+    if (k != s._fpKey || s._fpSt == null) {
+      s._fpKey = k;
+      s._fpSt = _layer(_fpItems(_collect(_ex, _ey, range, withAvatar: false, dynamics: false)));
     }
     final dyn = _layer(_fpItems(_collect(_ex, _ey, range, withAvatar: s.behind, statics: false), bump: 0.01));
-    _compose(_fpSt!, dyn);
+    _compose(s._fpSt!, dyn);
   }
 
   void _fpHud(Canvas canvas, Size size) {
@@ -6271,7 +6302,12 @@ class _WorldPainter extends CustomPainter {
 
   void _overlay(Canvas canvas) {
     final t = anim.value;
-    if (!s.world.space && !s.night) _clouds(canvas);
+    final now = DateTime.now().millisecondsSinceEpoch / 1000;
+    if (!s.world.space && !s.night) {
+      _sparkles(canvas, now);
+      _clouds(canvas);
+    }
+    _pops(canvas, now);
     _labels(canvas, (x, y, z) => s.proj(x, y, z), s.fx, s.fy);
     for (final a in s.animals) {
       if (!a.friend) continue;
@@ -6302,6 +6338,64 @@ class _WorldPainter extends CustomPainter {
     }
     if (s.previewCell != null) {
       _ghost(canvas, s.previewCell!, s.previewErase ? Colors.red : Colors.white, 220, thick: true);
+    }
+  }
+
+  /// Suyun üstünde ara ara parlayan küçük yıldızlar
+  void _sparkles(Canvas canvas, double now) {
+    final paint = Paint()..color = Colors.white;
+    for (final c in s._water) {
+      final ph = hash2(c, 6) * 6.283;
+      final v = sin(now * 1.7 + ph);
+      if (v < 0.85) continue;
+      final a = ((v - 0.85) / 0.15).clamp(0.0, 1.0);
+      final (x, y, z) = cxyz(c);
+      final o = s.proj(x + 0.2 + hash2(c, 7) * 0.6, y + 0.2 + hash2(c, 8) * 0.6, z + 1.02);
+      final r = s._s * 0.16 * a;
+      paint.color = Colors.white.withAlpha((230 * a).round());
+      canvas.drawPath(
+          Path()
+            ..moveTo(o.dx, o.dy - r)
+            ..lineTo(o.dx + r * 0.25, o.dy - r * 0.25)
+            ..lineTo(o.dx + r, o.dy)
+            ..lineTo(o.dx + r * 0.25, o.dy + r * 0.25)
+            ..lineTo(o.dx, o.dy + r)
+            ..lineTo(o.dx - r * 0.25, o.dy + r * 0.25)
+            ..lineTo(o.dx - r, o.dy)
+            ..lineTo(o.dx - r * 0.25, o.dy - r * 0.25)
+            ..close(),
+          paint);
+    }
+  }
+
+  /// Yeni konan blok: büyüyüp sönen parlak bir kutu (zıplama efekti)
+  void _pops(Canvas canvas, double now) {
+    s.pops.removeWhere((p) => now - p.$2 > 0.45);
+    for (final (cell, t0, col) in s.pops) {
+      final k = ((now - t0) / 0.45).clamp(0.0, 1.0);
+      final sc = 0.55 + 0.7 * Curves.easeOutBack.transform(k);
+      final (x, y, z) = cxyz(cell);
+      final cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
+      List<Offset> face(List<(double, double, double)> q) => [for (final (a, b, c) in q) s.proj(cx + a * sc * 0.5, cy + b * sc * 0.5, cz + c * sc * 0.5)];
+      final top = face(const [(-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)]);
+      final alpha = (1 - k);
+      final path = Path()..addPolygon(top, true);
+      canvas.drawPath(path, Paint()..color = Colors.white.withAlpha((160 * alpha).round()));
+      canvas.drawPath(
+          path,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..color = Color.lerp(col, Colors.white, 0.5)!.withAlpha((255 * alpha).round()));
+      final base = face(const [(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1)]);
+      for (var i = 0; i < 4; i++) {
+        canvas.drawLine(
+            top[i],
+            base[i],
+            Paint()
+              ..strokeWidth = 2
+              ..color = Colors.white.withAlpha((200 * alpha).round()));
+      }
     }
   }
 
@@ -6687,7 +6781,8 @@ class _SkyPainter extends CustomPainter {
   final ui.Image? img; // Gemini'nin çizdiği gökyüzü
   final bool fp;
   final double look, lookUp, yaw;
-  _SkyPainter(this.night, [this.planet = 0, this.img, this.fp = false, this.look = 0, this.lookUp = 0, this.yaw = 0]);
+  final bool dusk;
+  _SkyPainter(this.night, [this.planet = 0, this.img, this.fp = false, this.look = 0, this.lookUp = 0, this.yaw = 0, this.dusk = false]);
 
   /// Geniş gökyüzü resmi: bakılan yöne göre kayar, ufku ekrandaki ufka oturur.
   void _panorama(Canvas canvas, Size s, ui.Image im) {
@@ -6725,6 +6820,14 @@ class _SkyPainter extends CustomPainter {
     final im = img;
     if (im != null && !(night && planet == 0)) {
       _panorama(canvas, s, im);
+      if (dusk && !night) {
+        // gün batımı: gök turuncu-pembeye döner
+        canvas.drawRect(
+            r,
+            Paint()
+              ..shader = ui.Gradient.linear(Offset.zero, Offset(0, s.height), const [Color(0x664A2C8C), Color(0x88FF7A45), Color(0x66FFC46B)],
+                  const [0, 0.55, 1]));
+      }
       return;
     }
     if (planet != 0) {
@@ -6787,7 +6890,7 @@ class _SkyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SkyPainter o) =>
-      o.night != night || o.planet != planet || o.img != img || o.fp != fp || (img != null && (o.look != look || o.lookUp != lookUp || o.yaw != yaw));
+      o.night != night || o.dusk != dusk || o.planet != planet || o.img != img || o.fp != fp || (img != null && (o.look != look || o.lookUp != lookUp || o.yaw != yaw));
 }
 
 // ======================= HECE SANDIĞI =======================

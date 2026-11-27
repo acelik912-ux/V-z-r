@@ -203,6 +203,7 @@ void main() {
       'kilit_benzin': () => const LockScreen(reason: 'fuel'),
       'garaj': () => const GarageScreen(),
       'rehber_1': () => const BlokAdasi(startTour: 0),
+      'blok_gunbatimi': () => const BlokAdasi(startFirstPerson: true, startSunset: true),
       'rehber_4': () => const BlokAdasi(startTour: 3),
       'uzay_kalkis': () => const SpaceScreen(from: 0),
       'uzay_secim': () => const SpaceScreen(from: 0, startPhase: 1),
